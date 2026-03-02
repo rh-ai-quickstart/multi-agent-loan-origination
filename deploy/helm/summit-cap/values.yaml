@@ -58,6 +58,14 @@ secrets:
   # UI secrets
   VITE_API_BASE_URL: "http://localhost:8000"
   VITE_ENVIRONMENT: "production"
+
+  # Keycloak admin
+  KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
+  KC_BOOTSTRAP_ADMIN_PASSWORD: "admin"
+
+  # MinIO
+  MINIO_ROOT_USER: "minio"
+  MINIO_ROOT_PASSWORD: "miniosecret"
 # OpenShift Routes configuration
 routes:
   enabled: true
@@ -143,6 +151,39 @@ database:
     limits:
       memory: "512Mi"
       cpu: "500m"
+# Keycloak configuration
+keycloak:
+  enabled: true
+  name: keycloak
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: "26.0"
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+# MinIO configuration
+minio:
+  enabled: true
+  name: minio
+  image:
+    repository: minio/minio
+    tag: latest
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
 # ServiceAccount
 serviceAccount:
   create: true

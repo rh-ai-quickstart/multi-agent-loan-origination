@@ -1,0 +1,102 @@
+{
+  "realm": "summit-cap",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionMaxLifespan": 28800,
+  "ssoSessionIdleTimeout": 28800,
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "System administrator" },
+      { "name": "prospect", "description": "Unauthenticated or newly registered visitor" },
+      { "name": "borrower", "description": "Mortgage applicant" },
+      { "name": "loan_officer", "description": "Loan origination officer" },
+      { "name": "underwriter", "description": "Mortgage underwriter" },
+      { "name": "ceo", "description": "Executive with read-only analytics access" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "summit-cap-ui",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*", "http://localhost:5173/*"],
+      "webOrigins": ["http://localhost:3000", "http://localhost:5173"],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
+    },
+    {
+      "clientId": "summit-cap-api",
+      "enabled": true,
+      "bearerOnly": true,
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567801",
+      "username": "sarah.mitchell",
+      "enabled": true,
+      "email": "sarah.mitchell@example.com",
+      "firstName": "Sarah",
+      "lastName": "Mitchell",
+      "credentials": [
+        { "type": "password", "value": "demo", "temporary": false }
+      ],
+      "realmRoles": ["borrower"]
+    },
+    {
+      "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567802",
+      "username": "james.torres",
+      "enabled": true,
+      "email": "james.torres@summit-cap.com",
+      "firstName": "James",
+      "lastName": "Torres",
+      "credentials": [
+        { "type": "password", "value": "demo", "temporary": false }
+      ],
+      "realmRoles": ["loan_officer"]
+    },
+    {
+      "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567803",
+      "username": "maria.chen",
+      "enabled": true,
+      "email": "maria.chen@summit-cap.com",
+      "firstName": "Maria",
+      "lastName": "Chen",
+      "credentials": [
+        { "type": "password", "value": "demo", "temporary": false }
+      ],
+      "realmRoles": ["underwriter"]
+    },
+    {
+      "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567804",
+      "username": "david.park",
+      "enabled": true,
+      "email": "david.park@summit-cap.com",
+      "firstName": "David",
+      "lastName": "Park",
+      "credentials": [
+        { "type": "password", "value": "demo", "temporary": false }
+      ],
+      "realmRoles": ["ceo"]
+    },
+    {
+      "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567805",
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@summit-cap.com",
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [
+        { "type": "password", "value": "admin", "temporary": false }
+      ],
+      "realmRoles": ["admin"]
+    }
+  ]
+}
