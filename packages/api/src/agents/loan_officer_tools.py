@@ -44,6 +44,7 @@ _LOAN_TYPE_LABELS: dict[str, str] = {
     "va": "VA Loan",
     "jumbo": "Jumbo Loan",
     "usda": "USDA Loan",
+    "arm": "5/1 Adjustable Rate Mortgage",
 }
 
 _SEVERITY_LABELS: dict[str, str] = {

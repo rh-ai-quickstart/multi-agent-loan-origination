@@ -64,6 +64,7 @@ class LoanType(str, enum.Enum):
     VA = "va"
     JUMBO = "jumbo"
     USDA = "usda"
+    ARM = "arm"
 
 
 class DocumentType(str, enum.Enum):

@@ -57,4 +57,12 @@ PRODUCTS: list[ProductInfo] = [
         min_down_payment_pct=0.0,
         typical_rate=6.25,
     ),
+    ProductInfo(
+        id="arm",
+        name="5/1 Adjustable Rate Mortgage",
+        description="Lower initial rate fixed for 5 years, then adjusts annually based on market "
+        "index. Rate caps limit adjustment per period and over the life of the loan.",
+        min_down_payment_pct=5.0,
+        typical_rate=5.75,
+    ),
 ]
