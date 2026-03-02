@@ -1,0 +1,59 @@
+# Development overlay for summit-cap Helm chart
+#
+# Usage: helm install summit-cap ./deploy/helm/summit-cap -f deploy/helm/summit-cap/values-dev.yaml
+#
+# Disables auth, optional services, and persistence for fast local iteration.
+
+secrets:
+  AUTH_DISABLED: "true"
+  DEBUG: "true"
+
+# Smaller resource requests for local/dev clusters
+api:
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+ui:
+  replicas: 1
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "250m"
+
+database:
+  persistence:
+    enabled: false
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
+
+# Disable optional services for minimal dev footprint
+keycloak:
+  enabled: false
+
+minio:
+  persistence:
+    enabled: false
+
+langfuse:
+  enabled: false
+
+llamastack:
+  enabled: false
+
+# Disable OpenShift routes (not available on local clusters)
+routes:
+  enabled: false

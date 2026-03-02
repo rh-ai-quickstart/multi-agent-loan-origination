@@ -201,16 +201,11 @@ deploy: create-project push-images helm-dep-update
 deploy-dev: create-project push-images helm-dep-update
 	@echo "Deploying application in development mode..."
 	@scripts/deploy.sh \
-		--set database.persistence.enabled=false \
-		--set api.replicas=1 \
-		--set ui.replicas=1
+		-f deploy/helm/$(PROJECT_NAME)/values-dev.yaml
 
 undeploy:
 	@echo "Undeploying application..."
 	@helm uninstall $(PROJECT_NAME) --namespace $(NAMESPACE) || echo "Release $(PROJECT_NAME) not found"
-	@echo "Cleaning up migration jobs and pods..."
-	@oc delete job -l app.kubernetes.io/component=migration -n $(NAMESPACE) 2>/dev/null || true
-	@oc delete pod -l app.kubernetes.io/component=migration -n $(NAMESPACE) 2>/dev/null || true
 	@echo "Cleanup complete"
 
 status:

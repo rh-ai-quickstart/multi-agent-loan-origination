@@ -1,4 +1,13 @@
 # Default values for summit-cap
+#
+# Override patterns:
+#   External DB:        --set database.enabled=false
+#                       --set secrets.DATABASE_URL=postgresql+asyncpg://...
+#   External Keycloak:  --set keycloak.enabled=false
+#                       --set secrets.KEYCLOAK_URL=https://...
+#   External MinIO/S3:  --set minio.enabled=false
+#                       --set secrets.S3_ENDPOINT=https://...
+#   Dev mode:           -f values-dev.yaml
 global:
   imageRegistry: quay.io
   imageRepository: summit-cap
@@ -6,7 +15,7 @@ global:
   imagePullPolicy: Always
   storageClass: ""
 
-# Secrets configuration - these values should be overridden with actual secrets
+# Secrets -- override these for real deployments via --set or external Secret
 secrets:
   # Database secrets
   POSTGRES_DB: "summit-cap"
@@ -58,6 +67,30 @@ secrets:
   # UI secrets
   VITE_API_BASE_URL: "http://localhost:8000"
   VITE_ENVIRONMENT: "production"
+
+  # Keycloak admin
+  KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
+  KC_BOOTSTRAP_ADMIN_PASSWORD: "admin"
+
+  # MinIO
+  MINIO_ROOT_USER: "minio"
+  MINIO_ROOT_PASSWORD: "miniosecret"
+
+  # LangFuse stack
+  NEXTAUTH_SECRET: "mysecret"
+  LANGFUSE_SALT: "mysalt"
+  LANGFUSE_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+  LANGFUSE_INIT_ORG_ID: "summit-cap"
+  LANGFUSE_INIT_ORG_NAME: "Summit Cap Financial"
+  LANGFUSE_INIT_PROJECT_ID: "summit-cap-dev"
+  LANGFUSE_INIT_PROJECT_NAME: "Summit Cap Dev"
+  LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "pk-lf-dev-public"
+  LANGFUSE_INIT_PROJECT_SECRET_KEY: "sk-lf-dev-secret"
+  LANGFUSE_INIT_USER_EMAIL: "admin@summitcap.dev"
+  LANGFUSE_INIT_USER_NAME: "Admin"
+  LANGFUSE_INIT_USER_PASSWORD: "password"
+  CLICKHOUSE_PASSWORD: "clickhouse"
+  REDIS_AUTH: "myredissecret"
 # OpenShift Routes configuration
 routes:
   enabled: true
@@ -143,6 +176,87 @@ database:
     limits:
       memory: "512Mi"
       cpu: "500m"
+# Keycloak configuration
+keycloak:
+  enabled: true
+  name: keycloak
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: "26.0"
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+# MinIO configuration
+minio:
+  enabled: true
+  name: minio
+  image:
+    repository: minio/minio
+    tag: latest
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# LangFuse observability stack (redis + clickhouse auto-enabled)
+langfuse:
+  enabled: false
+  web:
+    image:
+      repository: langfuse/langfuse
+      tag: "3"
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+  worker:
+    image:
+      repository: langfuse/langfuse-worker
+      tag: "3"
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+
+# LlamaStack model serving
+llamastack:
+  enabled: false
+  image:
+    repository: llamastack/distribution-starter
+    tag: latest
+  # InferenceService support (OpenShift AI / KServe)
+  inferenceService:
+    enabled: false
+    endpoint: ""
+    # Optional: name of existing K8s Secret with 'token' key
+    authTokenSecret: ""
+  safety:
+    enabled: true
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
 # ServiceAccount
 serviceAccount:
   create: true
