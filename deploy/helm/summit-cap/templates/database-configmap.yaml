@@ -1,0 +1,32 @@
+{{- if .Values.database.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.database.name }}-init
+  labels:
+    {{- include "summit-cap.database.labels" . | nindent 4 }}
+data:
+  init-databases.sh: |
+    #!/bin/bash
+    set -e
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+        -- Create langfuse database for observability stack
+        SELECT 'CREATE DATABASE langfuse'
+        WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'langfuse')\gexec
+
+        -- HMDA isolation: dual PostgreSQL roles
+        DO \$\$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'lending_app') THEN
+                CREATE ROLE lending_app WITH LOGIN PASSWORD 'lending_pass';
+            END IF;
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'compliance_app') THEN
+                CREATE ROLE compliance_app WITH LOGIN PASSWORD 'compliance_pass';
+            END IF;
+        END
+        \$\$;
+
+        GRANT CONNECT ON DATABASE "${POSTGRES_DB}" TO lending_app;
+        GRANT CONNECT ON DATABASE "${POSTGRES_DB}" TO compliance_app;
+    EOSQL
+{{- end }}

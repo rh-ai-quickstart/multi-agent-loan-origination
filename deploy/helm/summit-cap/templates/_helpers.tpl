@@ -118,18 +118,3 @@ Database selector labels
 app.kubernetes.io/component: database
 {{- end }}
 
-{{/*
-Migration labels
-*/}}
-{{- define "summit-cap.migration.labels" -}}
-{{ include "summit-cap.labels" . }}
-app.kubernetes.io/component: migration
-{{- end }}
-
-{{/*
-Migration selector labels
-*/}}
-{{- define "summit-cap.migration.selectorLabels" -}}
-{{ include "summit-cap.selectorLabels" . }}
-app.kubernetes.io/component: migration
-{{- end }}

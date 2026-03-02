@@ -99,19 +99,6 @@ api:
     path: /health/
     initialDelaySeconds: 30
     periodSeconds: 10
-  config:
-    modelsYaml: |
-      routing:
-        default_tier: capable_large
-        classification:
-          strategy: rule_based
-      tiers:
-        fast:
-          endpoint: "${LLM_BASE_URL:-http://localhost:11434/v1}"
-          model_name: "${LLM_MODEL_FAST:-gpt-4o-mini}"
-        capable_large:
-          endpoint: "${LLM_BASE_URL:-http://localhost:11434/v1}"
-          model_name: "${LLM_MODEL_CAPABLE:-gpt-4o-mini}"
 # UI configuration
 ui:
   enabled: true
@@ -156,23 +143,6 @@ database:
     limits:
       memory: "512Mi"
       cpu: "500m"
-# Database migration configuration
-migration:
-  enabled: true
-  name: summit-cap-migration
-  image:
-    repository: summit-cap-db
-    tag: latest
-  restartPolicy: Never
-  backoffLimit: 1
-  ttlSecondsAfterFinished: 86400
-  resources:
-    requests:
-      memory: "1Gi"
-      cpu: "250m"
-    limits:
-      memory: "2Gi"
-      cpu: "1000m"
 # ServiceAccount
 serviceAccount:
   create: true

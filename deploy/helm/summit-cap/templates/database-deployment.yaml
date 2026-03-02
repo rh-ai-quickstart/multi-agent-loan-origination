@@ -1,14 +1,15 @@
 {{- if .Values.database.enabled }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ .Values.database.name }}
   labels:
     {{- include "summit-cap.database.labels" . | nindent 4 }}
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
+  serviceName: {{ .Values.database.name }}
+  updateStrategy:
+    type: RollingUpdate
   selector:
     matchLabels:
       {{- include "summit-cap.database.selectorLabels" . | nindent 6 }}
@@ -22,7 +23,7 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: postgres
-          image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag}}"
+          image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - name: postgres
@@ -49,6 +50,9 @@ spec:
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
           resources:
             {{- toYaml .Values.database.resources | nindent 12 }}
           livenessProbe:
@@ -74,13 +78,13 @@ spec:
             successThreshold: 1
             failureThreshold: 6
       volumes:
+        - name: init-scripts
+          configMap:
+            name: {{ .Values.database.name }}-init
+        {{- if not .Values.database.persistence.enabled }}
         - name: postgres-storage
-          {{- if .Values.database.persistence.enabled }}
-          persistentVolumeClaim:
-            claimName: {{ .Values.database.name }}-pvc
-          {{- else }}
           emptyDir: {}
-          {{- end }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -93,4 +97,18 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+  {{- if .Values.database.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes:
+          - {{ .Values.database.persistence.accessMode }}
+        {{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.persistence.size }}
+  {{- end }}
 {{- end }}
