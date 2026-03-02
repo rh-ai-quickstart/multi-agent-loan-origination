@@ -139,6 +139,9 @@ def validate_loan_type(value: str) -> tuple[bool, str, str | None]:
         "conv_15": "conventional_15",
         "30_year": "conventional_30",
         "15_year": "conventional_15",
+        "adjustable": "arm",
+        "adjustable_rate": "arm",
+        "variable_rate": "arm",
     }
     normalized = aliases.get(normalized, normalized)
     try:

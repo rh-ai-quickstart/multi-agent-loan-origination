@@ -461,7 +461,7 @@ async def uw_generate_le(
         if rate_lock and rate_lock.get("locked_rate"):
             rate = float(rate_lock["locked_rate"])
         loan_type = app.loan_type.value if app.loan_type else "conventional_30"
-        term_years = 15 if "15" in loan_type else 30
+        term_years = 15 if loan_type == "conventional_15" else 30
 
         await write_audit_event(
             session,
@@ -521,7 +521,7 @@ async def uw_generate_cd(
         if rate_lock and rate_lock.get("locked_rate"):
             rate = float(rate_lock["locked_rate"])
         loan_type = app.loan_type.value if app.loan_type else "conventional_30"
-        term_years = 15 if "15" in loan_type else 30
+        term_years = 15 if loan_type == "conventional_15" else 30
 
         await write_audit_event(
             session,

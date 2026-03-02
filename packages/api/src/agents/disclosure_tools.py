@@ -59,7 +59,7 @@ async def generate_le_text(session, user, app, application_id: int) -> str:
         rate = float(rate_lock["locked_rate"])
 
     loan_type = app.loan_type.value if app.loan_type else "conventional_30"
-    term_years = 15 if "15" in loan_type else 30
+    term_years = 15 if loan_type == "conventional_15" else 30
     num_payments = term_years * 12
 
     monthly_payment = compute_monthly_payment(loan_amount, rate, num_payments)
@@ -148,7 +148,7 @@ async def generate_cd_text(session, user, app, application_id: int) -> str:
         rate = float(rate_lock["locked_rate"])
 
     loan_type = app.loan_type.value if app.loan_type else "conventional_30"
-    term_years = 15 if "15" in loan_type else 30
+    term_years = 15 if loan_type == "conventional_15" else 30
     num_payments = term_years * 12
 
     monthly_payment = compute_monthly_payment(loan_amount, rate, num_payments)

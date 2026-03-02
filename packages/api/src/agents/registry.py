@@ -10,6 +10,7 @@ warning is logged.
 """
 
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,10 @@ _AGENTS_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config" / "agents"
 
 # Lazy-loaded agent graph cache: name -> (graph, mtime)
 _graphs: dict[str, tuple[Any, float]] = {}
+
+# Minimum interval (seconds) between filesystem stat() checks per agent.
+_MTIME_CHECK_INTERVAL = 5.0
+_last_check: dict[str, float] = {}
 
 
 def load_agent_config(agent_name: str) -> dict[str, Any]:
@@ -62,6 +67,12 @@ def get_agent(agent_name: str, checkpointer=None):
     """
     config_path = _AGENTS_CONFIG_DIR / f"{agent_name}.yaml"
 
+    # Skip filesystem stat() if we checked recently
+    now = time.monotonic()
+    if agent_name in _graphs and now - _last_check.get(agent_name, 0) < _MTIME_CHECK_INTERVAL:
+        return _graphs[agent_name][0]
+    _last_check[agent_name] = now
+
     try:
         current_mtime = config_path.stat().st_mtime
     except FileNotFoundError:
@@ -98,6 +109,7 @@ def get_agent(agent_name: str, checkpointer=None):
 def clear_agent_cache() -> None:
     """Clear all cached agent graphs (useful for testing)."""
     _graphs.clear()
+    _last_check.clear()
 
 
 def list_agents() -> list[str]:

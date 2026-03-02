@@ -24,13 +24,14 @@ def client():
 
 
 def test_product_info_tool_returns_all_products():
-    """product_info tool should return all 6 mortgage products."""
+    """product_info tool should return all 7 mortgage products."""
     result = product_info.invoke({})
     assert "30-Year Fixed Conventional" in result
     assert "FHA Loan" in result
     assert "VA Loan" in result
-    # Should have 6 products (6 bullet points)
-    assert result.count("- **") == 6
+    assert "Adjustable Rate Mortgage" in result
+    # Should have 7 products (7 bullet points)
+    assert result.count("- **") == 7
 
 
 def test_affordability_calc_tool_returns_estimate():

@@ -78,6 +78,12 @@ DOCUMENT_REQUIREMENTS: dict[str, dict[str, list[DocumentType]]] = {
         EmploymentStatus.SELF_EMPLOYED.value: _SELF_EMPLOYED_DOCS,
         EmploymentStatus.RETIRED.value: _SELF_EMPLOYED_DOCS,
     },
+    "arm": {
+        "_default": _W2_WITH_TAX,
+        EmploymentStatus.W2_EMPLOYEE.value: _W2_WITH_TAX,
+        EmploymentStatus.SELF_EMPLOYED.value: _SELF_EMPLOYED_DOCS,
+        EmploymentStatus.RETIRED.value: _SELF_EMPLOYED_DOCS,
+    },
 }
 
 # Statuses that count as "not provided" for completeness purposes
