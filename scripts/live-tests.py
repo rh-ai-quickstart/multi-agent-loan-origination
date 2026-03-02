@@ -427,20 +427,28 @@ async def test_admin(c: httpx.AsyncClient):
     r = await c.get("/api/admin/seed")
     ok("GET /api/admin/seed returns 405", r.status_code == 405)
 
-    # Audit by application (seeded app 95)
-    r = await c.get("/api/audit/application/95")
-    ok("GET audit/application/95 returns 200", r.status_code == 200)
-    body = r.json()
-    ok("audit response has application_id", body.get("application_id") == 95)
-    ok("audit response has events array", isinstance(body.get("events"), list))
-    ok("audit response has count", isinstance(body.get("count"), int))
+    # Audit by application (use first seeded app from listing)
+    apps_r = await c.get("/api/applications/", params={"limit": 1})
+    audit_app_id = None
+    if apps_r.status_code == 200 and apps_r.json().get("data"):
+        audit_app_id = apps_r.json()["data"][0]["id"]
 
-    events = body.get("events", [])
-    if events:
-        evt = events[0]
-        ok("audit event has id", "id" in evt)
-        ok("audit event has timestamp", "timestamp" in evt)
-        ok("audit event has event_type", "event_type" in evt)
+    if audit_app_id:
+        r = await c.get(f"/api/audit/application/{audit_app_id}")
+        ok(f"GET audit/application/{audit_app_id} returns 200", r.status_code == 200)
+        body = r.json()
+        ok("audit response has application_id", body.get("application_id") == audit_app_id)
+        ok("audit response has events array", isinstance(body.get("events"), list))
+        ok("audit response has count", isinstance(body.get("count"), int))
+
+        events = body.get("events", [])
+        if events:
+            evt = events[0]
+            ok("audit event has id", "id" in evt)
+            ok("audit event has timestamp", "timestamp" in evt)
+            ok("audit event has event_type", "event_type" in evt)
+    else:
+        ok("audit by application (no seeded app found)", False, "no apps in listing")
 
     # Audit by session (requires session_id param)
     r = await c.get("/api/audit/session")
@@ -513,6 +521,7 @@ async def test_conversation_history(c: httpx.AsyncClient):
         ("borrower", "/api/borrower/conversations/history"),
         ("loan-officer", "/api/loan-officer/conversations/history"),
         ("underwriter", "/api/underwriter/conversations/history"),
+        ("ceo", "/api/ceo/conversations/history"),
     ]:
         r = await c.get(path)
         ok(f"GET {persona} history returns 200", r.status_code == 200)
@@ -596,7 +605,204 @@ async def test_openapi(c: httpx.AsyncClient):
 
 
 # ---------------------------------------------------------------------------
-# 14. WebSocket agent chats
+# 14. Analytics (CEO dashboard)
+# ---------------------------------------------------------------------------
+
+async def test_analytics(c: httpx.AsyncClient):
+    section("Analytics (CEO Dashboard)")
+
+    # Pipeline summary
+    r = await c.get("/api/analytics/pipeline")
+    ok("GET /api/analytics/pipeline returns 200", r.status_code == 200)
+    body = r.json()
+    ok("pipeline has stages", "stages" in body)
+    ok("pipeline has pull_through_rate", "pull_through_rate" in body)
+    ok("pipeline has total_active", "total_active" in body)
+
+    # Pipeline with custom days
+    r = await c.get("/api/analytics/pipeline", params={"days": 30})
+    ok("pipeline with days=30 returns 200", r.status_code == 200)
+
+    # Denial trends
+    r = await c.get("/api/analytics/denial-trends")
+    ok("GET /api/analytics/denial-trends returns 200", r.status_code == 200)
+    body = r.json()
+    ok("denial-trends has total_decided", "total_decided" in body)
+    ok("denial-trends has denial_rate", "denial_rate" in body)
+    ok("denial-trends has top_reasons", isinstance(body.get("top_reasons"), list))
+
+    # Denial trends with product filter
+    r = await c.get("/api/analytics/denial-trends",
+                     params={"product": "conventional_30"})
+    ok("denial-trends with product filter returns 200", r.status_code == 200)
+
+    # LO performance
+    r = await c.get("/api/analytics/lo-performance")
+    ok("GET /api/analytics/lo-performance returns 200", r.status_code == 200)
+    body = r.json()
+    ok("lo-performance has loan_officers", isinstance(body.get("loan_officers"), list))
+
+    lo_list = body.get("loan_officers", [])
+    if lo_list:
+        lo = lo_list[0]
+        ok("LO entry has lo_id", "lo_id" in lo)
+        ok("LO entry has active_count", "active_count" in lo)
+        ok("LO entry has pull_through_rate", "pull_through_rate" in lo)
+        ok("multiple LOs in performance data", len(lo_list) >= 2,
+           f"got {len(lo_list)} LOs (expected >=2 with expanded seed data)")
+
+
+# ---------------------------------------------------------------------------
+# 15. Model monitoring
+# ---------------------------------------------------------------------------
+
+async def test_model_monitoring(c: httpx.AsyncClient):
+    section("Model Monitoring")
+
+    # Summary endpoint -- works even when LangFuse is not configured
+    r = await c.get("/api/analytics/model-monitoring")
+    ok("GET /api/analytics/model-monitoring returns 200", r.status_code == 200)
+    body = r.json()
+    ok("has langfuse_available flag", "langfuse_available" in body)
+    ok("has time_range_hours", "time_range_hours" in body)
+    ok("has computed_at", "computed_at" in body)
+
+    # With custom hours
+    r = await c.get("/api/analytics/model-monitoring", params={"hours": 48})
+    ok("model-monitoring hours=48 returns 200", r.status_code == 200)
+    ok("time_range_hours reflects param",
+       r.json().get("time_range_hours") == 48)
+
+    # Hours capped at 2160
+    r = await c.get("/api/analytics/model-monitoring", params={"hours": 9999})
+    ok("model-monitoring hours=9999 returns 422", r.status_code == 422)
+
+    # Sub-endpoints
+    for sub in ["latency", "tokens", "errors", "routing"]:
+        r = await c.get(f"/api/analytics/model-monitoring/{sub}")
+        ok(f"GET model-monitoring/{sub} returns 200", r.status_code == 200)
+
+
+# ---------------------------------------------------------------------------
+# 16. Audit extended queries
+# ---------------------------------------------------------------------------
+
+async def test_audit_extended(c: httpx.AsyncClient, app_id: int | None):
+    section("Audit Extended (search, decision trace, export)")
+
+    # Audit search
+    r = await c.get("/api/audit/search", params={"event_type": "application_created"})
+    ok("GET audit/search returns 200", r.status_code == 200)
+    body = r.json()
+    ok("search has events array", isinstance(body.get("events"), list))
+    ok("search has count", isinstance(body.get("count"), int))
+
+    # Audit search with time filter
+    r = await c.get("/api/audit/search", params={"hours": 24})
+    ok("audit/search hours=24 returns 200", r.status_code == 200)
+
+    # Audit export
+    r = await c.get("/api/audit/export")
+    ok("GET audit/export returns 200", r.status_code == 200)
+    body = r.json()
+    ok("export has events", isinstance(body.get("events"), list))
+
+    # Decision audit + trace (find a decision from a seeded app)
+    if app_id:
+        r = await c.get(f"/api/applications/{app_id}/decisions")
+        decisions = r.json().get("data", []) if r.status_code == 200 else []
+        if decisions:
+            dec_id = decisions[0]["id"]
+            r = await c.get(f"/api/audit/decision/{dec_id}")
+            ok(f"GET audit/decision/{dec_id} returns 200", r.status_code == 200)
+            ok("decision audit has events", isinstance(r.json().get("events"), list))
+
+            r = await c.get(f"/api/audit/decision/{dec_id}/trace")
+            ok(f"GET audit/decision/{dec_id}/trace returns 200", r.status_code == 200)
+            trace = r.json()
+            ok("trace has decision_id", "decision_id" in trace)
+            ok("trace has events", isinstance(trace.get("events"), list))
+        else:
+            print("    SKIP  decision audit/trace (no decisions on test app)")
+    else:
+        print("    SKIP  decision audit/trace (no app_id)")
+
+
+# ---------------------------------------------------------------------------
+# 17. Co-borrower management
+# ---------------------------------------------------------------------------
+
+async def test_coborrower_management(c: httpx.AsyncClient, app_id: int):
+    section("Co-borrower Management")
+
+    # First get the app to find existing borrowers
+    r = await c.get(f"/api/applications/{app_id}")
+    if r.status_code != 200:
+        ok("get app for coborrower test", False, f"status={r.status_code}")
+        return
+
+    borrowers = r.json().get("borrowers", [])
+    non_primary = [b for b in borrowers if not b.get("is_primary")]
+
+    if non_primary:
+        # Try removing and re-adding a co-borrower
+        co_id = non_primary[0]["id"]
+        r = await c.delete(f"/api/applications/{app_id}/borrowers/{co_id}")
+        ok("DELETE co-borrower returns 200", r.status_code == 200)
+
+        r = await c.post(f"/api/applications/{app_id}/borrowers",
+                         json={"borrower_id": co_id, "is_primary": False})
+        ok("POST re-add co-borrower returns 201", r.status_code == 201)
+    else:
+        print("    SKIP  co-borrower remove/add (no co-borrowers on test app)")
+
+    # Add non-existent borrower
+    r = await c.post(f"/api/applications/{app_id}/borrowers",
+                     json={"borrower_id": 99999, "is_primary": False})
+    ok("add non-existent borrower returns 404", r.status_code == 404)
+
+    # Remove non-existent borrower
+    r = await c.delete(f"/api/applications/{app_id}/borrowers/99999")
+    ok("remove non-existent borrower returns 404", r.status_code == 404)
+
+
+# ---------------------------------------------------------------------------
+# 18. Condition response
+# ---------------------------------------------------------------------------
+
+async def test_condition_response(c: httpx.AsyncClient, app_id: int):
+    section("Condition Response")
+
+    # Find an open condition on the app
+    r = await c.get(f"/api/applications/{app_id}/conditions",
+                     params={"open_only": "true"})
+    conditions = []
+    if r.status_code == 200:
+        conditions = r.json().get("data", [])
+
+    if conditions:
+        cond_id = conditions[0]["id"]
+        r = await c.post(
+            f"/api/applications/{app_id}/conditions/{cond_id}/respond",
+            json={"response_text": "Here is my response for the live test."},
+        )
+        ok(f"POST condition/{cond_id}/respond returns 200", r.status_code == 200)
+        if r.status_code == 200:
+            data = r.json().get("data", r.json())
+            ok("response has status", "status" in data)
+    else:
+        print("    SKIP  condition response (no open conditions on test app)")
+
+    # Non-existent condition
+    r = await c.post(
+        f"/api/applications/{app_id}/conditions/99999/respond",
+        json={"response_text": "test"},
+    )
+    ok("respond to non-existent condition returns 404", r.status_code == 404)
+
+
+# ---------------------------------------------------------------------------
+# 19. WebSocket agent chats
 # ---------------------------------------------------------------------------
 
 class ChatResult:
@@ -765,7 +971,8 @@ async def test_embedding_model(c: httpx.AsyncClient):
         api_key = emb_cfg.get("api_key", "not-needed")
 
         # Resolve env vars (simple ${VAR:-default} pattern)
-        import os, re
+        import os
+        import re
         def resolve(s):
             return re.sub(
                 r"\$\{(\w+)(?::-(.*?))?\}",
@@ -916,6 +1123,22 @@ async def test_websocket_chats():
         ["compliance", "ecoa", "trid", "atr", "pass", "fail", "check", "regulation"],
     )
 
+    # CEO -- pipeline overview
+    await ws_chat(
+        "/api/ceo/chat", "CEO (pipeline)",
+        "Give me an overview of our current loan pipeline",
+        ["pipeline", "application", "stage", "active", "underwriting", "approval",
+         "loan", "total", "status"],
+    )
+
+    # CEO -- LO performance
+    await ws_chat(
+        "/api/ceo/chat", "CEO (LO performance)",
+        "How are our loan officers performing?",
+        ["loan officer", "performance", "pull-through", "rate", "pipeline",
+         "torres", "patel", "williams", "active", "closed"],
+    )
+
 
 # ---------------------------------------------------------------------------
 # 15. WebSocket protocol edge cases
@@ -1006,6 +1229,8 @@ async def main():
                 await test_documents(c, detail_id)
                 await test_conditions(c, detail_id)
                 await test_decisions(c, detail_id)
+                await test_coborrower_management(c, detail_id)
+                await test_condition_response(c, detail_id)
 
             # Use created app for HMDA + lifecycle
             lifecycle_id = ctx.get("created_id")
@@ -1017,6 +1242,9 @@ async def main():
             await test_conversation_history(c)
             await test_application_lifecycle(c)
             await test_openapi(c)
+            await test_analytics(c)
+            await test_model_monitoring(c)
+            await test_audit_extended(c, detail_id)
 
     if run_chat:
         await test_model_routing()
