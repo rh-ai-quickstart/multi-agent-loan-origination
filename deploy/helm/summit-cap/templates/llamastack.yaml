@@ -1,0 +1,95 @@
+{{- if .Values.llamastack.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llamastack
+  labels:
+    {{- include "summit-cap.llamastack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "summit-cap.llamastack.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "summit-cap.llamastack.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      containers:
+        - name: llamastack
+          image: "{{ .Values.llamastack.image.repository }}:{{ .Values.llamastack.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8321
+              protocol: TCP
+          env:
+            - name: RUN_CONFIG_PATH
+              value: /app/run.yaml
+            - name: LLM_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: LLM_BASE_URL
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: LLM_API_KEY
+            {{- if .Values.llamastack.safety.enabled }}
+            - name: SAFETY_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: SAFETY_MODEL
+            {{- end }}
+            {{- if .Values.llamastack.inferenceService.authTokenSecret }}
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.llamastack.inferenceService.authTokenSecret }}
+                  key: token
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/run.yaml
+              subPath: run.yaml
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.llamastack.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: llamastack-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llamastack
+  labels:
+    {{- include "summit-cap.llamastack.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8321
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "summit-cap.llamastack.selectorLabels" . | nindent 4 }}
+{{- end }}

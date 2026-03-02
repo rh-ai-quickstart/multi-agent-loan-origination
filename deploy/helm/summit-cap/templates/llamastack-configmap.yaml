@@ -1,0 +1,62 @@
+{{- if .Values.llamastack.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llamastack-config
+  labels:
+    {{- include "summit-cap.llamastack.labels" . | nindent 4 }}
+data:
+  run.yaml: |
+    version: 2
+    distro_name: starter
+
+    apis:
+      - inference
+    {{- if .Values.llamastack.safety.enabled }}
+      - safety
+    {{- end }}
+
+    providers:
+      inference:
+        - provider_id: remote-openai
+          provider_type: remote::openai
+          config:
+            api_key: ${env.LLM_API_KEY:=not-needed}
+    {{- if and .Values.llamastack.inferenceService.enabled .Values.llamastack.inferenceService.endpoint }}
+            base_url: {{ .Values.llamastack.inferenceService.endpoint }}
+    {{- else }}
+            base_url: ${env.LLM_BASE_URL:=http://host.docker.internal:1234/v1}
+    {{- end }}
+    {{- if .Values.llamastack.safety.enabled }}
+      safety:
+        - provider_id: llama-guard
+          provider_type: inline::llama-guard
+          config:
+            excluded_categories: []
+
+    registered_resources:
+      shields:
+        - shield_id: content_safety
+          provider_id: llama-guard
+          provider_shield_id: ${env.SAFETY_MODEL:=meta-llama/Llama-Guard-3-8B}
+
+    safety:
+      default_shield_id: content_safety
+    {{- end }}
+
+    storage:
+      backends:
+        kv_default:
+          type: kv_sqlite
+          db_path: /tmp/llamastack/kvstore.db
+        sql_default:
+          type: sql_sqlite
+          db_path: /tmp/llamastack/sql_store.db
+      stores:
+        metadata:
+          namespace: registry
+          backend: kv_default
+
+    server:
+      port: 8321
+{{- end }}

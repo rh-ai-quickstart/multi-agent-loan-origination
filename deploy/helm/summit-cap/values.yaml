@@ -226,6 +226,28 @@ langfuse:
         memory: "512Mi"
         cpu: "500m"
 
+# LlamaStack model serving
+llamastack:
+  enabled: false
+  image:
+    repository: llamastack/distribution-starter
+    tag: latest
+  # InferenceService support (OpenShift AI / KServe)
+  inferenceService:
+    enabled: false
+    endpoint: ""
+    # Optional: name of existing K8s Secret with 'token' key
+    authTokenSecret: ""
+  safety:
+    enabled: true
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
 # ServiceAccount
 serviceAccount:
   create: true

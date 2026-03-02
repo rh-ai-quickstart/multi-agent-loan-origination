@@ -150,3 +150,19 @@ MinIO selector labels
 app.kubernetes.io/component: minio
 {{- end }}
 
+{{/*
+LlamaStack labels
+*/}}
+{{- define "summit-cap.llamastack.labels" -}}
+{{ include "summit-cap.labels" . }}
+app.kubernetes.io/component: llamastack
+{{- end }}
+
+{{/*
+LlamaStack selector labels
+*/}}
+{{- define "summit-cap.llamastack.selectorLabels" -}}
+{{ include "summit-cap.selectorLabels" . }}
+app.kubernetes.io/component: llamastack
+{{- end }}
+
