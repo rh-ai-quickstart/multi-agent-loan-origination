@@ -141,7 +141,7 @@ def build_routed_graph(
         """Check user input against Llama Guard safety categories."""
         checker = get_safety_checker()
         if not checker:
-            return {}
+            return {"safety_blocked": False}
 
         last_msg = state["messages"][-1]
         result = await checker.check_input(last_msg.content)
@@ -152,7 +152,7 @@ def build_routed_graph(
                 "messages": [AIMessage(content=SAFETY_REFUSAL_MESSAGE)],
             }
         logger.debug("Input shield: safe")
-        return {}
+        return {"safety_blocked": False}
 
     def after_input_shield(state: AgentState) -> str:
         """Route to END if input was blocked, otherwise continue to classify."""

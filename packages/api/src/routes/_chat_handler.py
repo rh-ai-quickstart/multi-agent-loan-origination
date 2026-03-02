@@ -7,6 +7,7 @@ borrower_chat.py share identical event handling + audit writing logic.
 
 import json
 import logging
+import re
 import uuid
 
 import jwt as pyjwt
@@ -26,6 +27,55 @@ from ..services.audit import write_audit_event
 from ..services.conversation import ConversationService, get_conversation_service
 
 logger = logging.getLogger(__name__)
+
+
+class ThinkTagFilter:
+    """Streaming filter that suppresses <think>...</think> blocks.
+
+    Reasoning models (e.g. Qwen3) emit chain-of-thought wrapped in
+    ``<think>`` tags.  This filter buffers across chunk boundaries so
+    tags that arrive split across multiple tokens are still caught.
+    """
+
+    def __init__(self) -> None:
+        self._inside = False
+        self._buf = ""
+
+    def feed(self, text: str) -> str:
+        """Feed a chunk and return the portion to send to the client."""
+        self._buf += text
+        out: list[str] = []
+
+        while self._buf:
+            if self._inside:
+                end = self._buf.find("</think>")
+                if end == -1:
+                    # Might be a partial closing tag at the tail
+                    if self._buf.endswith(("<", "</", "</t", "</th", "</thi", "</thin", "</think")):
+                        break  # hold buffer until more data arrives
+                    self._buf = ""
+                    break
+                # Skip everything up to and including </think>
+                self._buf = self._buf[end + len("</think>") :]
+                self._inside = False
+            else:
+                start = self._buf.find("<think>")
+                if start == -1:
+                    # Check for partial opening tag at the tail
+                    for i in range(1, min(len("<think>"), len(self._buf) + 1)):
+                        if self._buf.endswith("<think>"[:i]):
+                            out.append(self._buf[: len(self._buf) - i])
+                            self._buf = self._buf[len(self._buf) - i :]
+                            break
+                    else:
+                        out.append(self._buf)
+                        self._buf = ""
+                    break
+                out.append(self._buf[:start])
+                self._buf = self._buf[start + len("<think>") :]
+                self._inside = True
+
+        return "".join(out)
 
 
 async def authenticate_websocket(
@@ -172,6 +222,7 @@ async def run_agent_stream(
 
             try:
                 full_response = ""
+                think_filter = ThinkTagFilter()
                 async for event in graph.astream_events(
                     {
                         "messages": input_messages,
@@ -193,7 +244,10 @@ async def run_agent_stream(
                     ):
                         chunk = event.get("data", {}).get("chunk")
                         if isinstance(chunk, AIMessageChunk) and chunk.content:
-                            await _send({"type": "token", "content": chunk.content})
+                            clean = think_filter.feed(chunk.content)
+                            if clean:
+                                clean = clean.replace("**", "")
+                                await _send({"type": "token", "content": clean})
                             full_response += chunk.content
 
                     elif kind == "on_chain_end" and node == "input_shield":
@@ -243,6 +297,10 @@ async def run_agent_stream(
                                     "safety_block",
                                     {"shield": "output", "blocked": True},
                                 )
+
+                # Strip think tags and markdown bold markers from accumulated response
+                full_response = re.sub(r"<think>.*?</think>", "", full_response, flags=re.DOTALL)
+                full_response = full_response.replace("**", "").strip()
 
                 # Without checkpointer, manually track history for this session
                 if not use_checkpointer and full_response:
