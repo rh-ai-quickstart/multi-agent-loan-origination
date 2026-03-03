@@ -4,10 +4,12 @@
 import asyncio
 import logging
 
-from db import get_db
+from db import Document, get_db
 from db.enums import DocumentType, UserRole
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from ..middleware.auth import CurrentUser, require_roles
 from ..schemas import Pagination
@@ -18,6 +20,7 @@ from ..schemas.document import (
     DocumentListResponse,
     DocumentResponse,
     DocumentUploadResponse,
+    ExtractionListResponse,
 )
 from ..services import document as doc_service
 from ..services.completeness import check_completeness
@@ -167,6 +170,43 @@ async def get_document(
     if user.data_scope.document_metadata_only:
         result = result.model_copy(update={"file_path": None})
     return result
+
+
+_EXTRACTION_ROLES = (
+    UserRole.ADMIN,
+    UserRole.LOAN_OFFICER,
+    UserRole.UNDERWRITER,
+)
+
+
+@router.get(
+    "/applications/{application_id}/documents/{document_id}/extractions",
+    response_model=ExtractionListResponse,
+    dependencies=[Depends(require_roles(*_EXTRACTION_ROLES))],
+)
+async def get_extractions(
+    application_id: int,
+    document_id: int,
+    user: CurrentUser,
+    session: AsyncSession = Depends(get_db),
+) -> ExtractionListResponse:
+    """Get extraction results for a document."""
+    stmt = (
+        select(Document)
+        .options(selectinload(Document.extractions))
+        .where(Document.id == document_id)
+    )
+    result = await session.execute(stmt)
+    doc = result.unique().scalar_one_or_none()
+    if doc is None or doc.application_id != application_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+    return ExtractionListResponse(
+        document_id=document_id,
+        extractions=doc.extractions or [],
+    )
 
 
 @router.get(

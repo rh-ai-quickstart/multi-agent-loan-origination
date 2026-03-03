@@ -91,12 +91,13 @@ async def authenticate_websocket(
     """
     if settings.AUTH_DISABLED:
         role = required_role or UserRole.ADMIN
+        user_id = ws.query_params.get("dev_user_id", "dev-user")
         return UserContext(
-            user_id="dev-user",
+            user_id=user_id,
             role=role,
-            email="dev@summit-cap.local",
-            name="Dev User",
-            data_scope=build_data_scope(role, "dev-user"),
+            email=ws.query_params.get("dev_email", "dev@summit-cap.local"),
+            name=ws.query_params.get("dev_name", "Dev User"),
+            data_scope=build_data_scope(role, user_id),
         )
 
     token = ws.query_params.get("token")
@@ -356,7 +357,10 @@ async def _build_application_context(user: UserContext) -> str:
     if not apps:
         return ""
 
-    # Pick the most advanced application as the primary one
+    # Only borrowers need dynamic app-ID injection; LOs/UWs/CEOs specify IDs themselves
+    if user.role != UserRole.BORROWER:
+        return ""
+
     primary = apps[0]
     stage = primary.stage.value.replace("_", " ").title()
     loan = f"${primary.loan_amount:,.0f}" if primary.loan_amount else "amount not set"

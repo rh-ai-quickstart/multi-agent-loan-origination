@@ -1,7 +1,7 @@
 // This project was developed with assistance from AI tools.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchDocuments, fetchCompleteness, uploadDocument } from '@/services/documents';
+import { fetchDocuments, fetchCompleteness, fetchExtractions, uploadDocument } from '@/services/documents';
 
 export function useDocuments(applicationId: number | undefined) {
     return useQuery({
@@ -16,6 +16,14 @@ export function useCompleteness(applicationId: number | undefined) {
         queryKey: ['applications', applicationId, 'documents', 'completeness'],
         queryFn: () => fetchCompleteness(applicationId!),
         enabled: applicationId != null,
+    });
+}
+
+export function useExtractions(applicationId: number | undefined, documentId: number | undefined) {
+    return useQuery({
+        queryKey: ['applications', applicationId, 'documents', documentId, 'extractions'],
+        queryFn: () => fetchExtractions(applicationId!, documentId!),
+        enabled: applicationId != null && documentId != null,
     });
 }
 

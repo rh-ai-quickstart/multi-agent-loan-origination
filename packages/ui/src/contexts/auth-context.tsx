@@ -28,9 +28,9 @@ export const DEV_USERS: Record<UserRole, DevUser> = {
     },
     loan_officer: {
         role: 'loan_officer',
-        user_id: 'dev-lo-1',
-        name: 'James Chen',
-        email: 'james.chen@dev.summitcap.local',
+        user_id: 'd1a2b3c4-e5f6-7890-abcd-ef1234567802',
+        name: 'James Torres',
+        email: 'james.torres@dev.summitcap.local',
     },
     underwriter: {
         role: 'underwriter',

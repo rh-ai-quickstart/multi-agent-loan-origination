@@ -45,3 +45,20 @@ export const CompletenessResponseSchema = z.object({
 });
 
 export type CompletenessResponse = z.infer<typeof CompletenessResponseSchema>;
+
+export const ExtractionFieldSchema = z.object({
+    id: z.number(),
+    field_name: z.string(),
+    field_value: z.string().nullable().optional(),
+    confidence: z.number().nullable().optional(),
+    source_page: z.number().nullable().optional(),
+});
+
+export type ExtractionField = z.infer<typeof ExtractionFieldSchema>;
+
+export const ExtractionListResponseSchema = z.object({
+    document_id: z.number(),
+    extractions: z.array(ExtractionFieldSchema),
+});
+
+export type ExtractionListResponse = z.infer<typeof ExtractionListResponseSchema>;

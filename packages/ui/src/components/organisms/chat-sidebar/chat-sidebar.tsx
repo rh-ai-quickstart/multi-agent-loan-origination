@@ -1,6 +1,6 @@
 // This project was developed with assistance from AI tools.
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { MessageSquare, Send, Loader2, X } from 'lucide-react';
 import { useChat, type ChatMessage } from '@/hooks/use-chat';
 import { useAuth } from '@/contexts/auth-context';
@@ -50,8 +50,12 @@ function TypingIndicator() {
 }
 
 export function ChatSidebar() {
-    const { chatPath } = useAuth();
-    const { messages, isStreaming, isConnected, connectionError, sendMessage, connect } = useChat({ path: chatPath });
+    const { chatPath, user } = useAuth();
+    const wsOptions = useMemo(
+        () => user ? { devUserId: user.user_id, devEmail: user.email, devName: user.name } : undefined,
+        [user],
+    );
+    const { messages, isStreaming, isConnected, connectionError, sendMessage, connect } = useChat({ path: chatPath, wsOptions });
     const [input, setInput] = useState('');
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -73,7 +77,7 @@ export function ChatSidebar() {
             if (detail.message) {
                 setIsMobileOpen(true);
                 if (detail.autoSend && !isStreaming) {
-                    sendMessage(detail.message);
+                    sendMessage(addAppContext(detail.message));
                 } else {
                     setInput(detail.message);
                     inputRef.current?.focus();
@@ -84,9 +88,17 @@ export function ChatSidebar() {
         return () => window.removeEventListener('chat-prefill', handler);
     }, [isStreaming, sendMessage]);
 
+    const addAppContext = (msg: string): string => {
+        const match = window.location.pathname.match(/\/loan-officer\/(\d+)/);
+        if (!match) return msg;
+        const appId = match[1];
+        if (msg.includes(`#${appId}`) || msg.includes(`application ${appId}`)) return msg;
+        return `[Regarding application #${appId}] ${msg}`;
+    };
+
     const handleSend = () => {
         if (!input.trim() || isStreaming) return;
-        sendMessage(input);
+        sendMessage(addAppContext(input));
         setInput('');
     };
 

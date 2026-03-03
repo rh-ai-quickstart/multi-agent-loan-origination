@@ -4,8 +4,10 @@ import { apiGet, apiFetch } from '@/lib/api-client';
 import {
     DocumentListResponseSchema,
     CompletenessResponseSchema,
+    ExtractionListResponseSchema,
     type DocumentListResponse,
     type CompletenessResponse,
+    type ExtractionListResponse,
     type Document,
 } from '@/schemas/documents';
 import { DocumentSchema } from '@/schemas/documents';
@@ -18,6 +20,11 @@ export async function fetchDocuments(applicationId: number): Promise<DocumentLis
 export async function fetchCompleteness(applicationId: number): Promise<CompletenessResponse> {
     const data = await apiGet<unknown>(`/api/applications/${applicationId}/completeness`);
     return CompletenessResponseSchema.parse(data);
+}
+
+export async function fetchExtractions(applicationId: number, documentId: number): Promise<ExtractionListResponse> {
+    const data = await apiGet<unknown>(`/api/applications/${applicationId}/documents/${documentId}/extractions`);
+    return ExtractionListResponseSchema.parse(data);
 }
 
 export async function uploadDocument(

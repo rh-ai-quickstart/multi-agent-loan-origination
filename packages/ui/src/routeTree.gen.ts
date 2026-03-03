@@ -16,6 +16,7 @@ import { Route as AuthenticatedUnderwriterIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedLoanOfficerIndexRouteImport } from './routes/_authenticated/loan-officer/index'
 import { Route as AuthenticatedCeoIndexRouteImport } from './routes/_authenticated/ceo/index'
 import { Route as AuthenticatedBorrowerIndexRouteImport } from './routes/_authenticated/borrower/index'
+import { Route as AuthenticatedLoanOfficerApplicationIdRouteImport } from './routes/_authenticated/loan-officer/$applicationId'
 
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
@@ -54,10 +55,17 @@ const AuthenticatedBorrowerIndexRoute =
     path: '/borrower/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedLoanOfficerApplicationIdRoute =
+  AuthenticatedLoanOfficerApplicationIdRouteImport.update({
+    id: '/loan-officer/$applicationId',
+    path: '/loan-officer/$applicationId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/loan-officer/$applicationId': typeof AuthenticatedLoanOfficerApplicationIdRoute
   '/borrower/': typeof AuthenticatedBorrowerIndexRoute
   '/ceo/': typeof AuthenticatedCeoIndexRoute
   '/loan-officer/': typeof AuthenticatedLoanOfficerIndexRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/loan-officer/$applicationId': typeof AuthenticatedLoanOfficerApplicationIdRoute
   '/borrower': typeof AuthenticatedBorrowerIndexRoute
   '/ceo': typeof AuthenticatedCeoIndexRoute
   '/loan-officer': typeof AuthenticatedLoanOfficerIndexRoute
@@ -76,6 +85,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/_authenticated/loan-officer/$applicationId': typeof AuthenticatedLoanOfficerApplicationIdRoute
   '/_authenticated/borrower/': typeof AuthenticatedBorrowerIndexRoute
   '/_authenticated/ceo/': typeof AuthenticatedCeoIndexRoute
   '/_authenticated/loan-officer/': typeof AuthenticatedLoanOfficerIndexRoute
@@ -86,17 +96,26 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/sign-in'
+    | '/loan-officer/$applicationId'
     | '/borrower/'
     | '/ceo/'
     | '/loan-officer/'
     | '/underwriter/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in' | '/borrower' | '/ceo' | '/loan-officer' | '/underwriter'
+  to:
+    | '/'
+    | '/sign-in'
+    | '/loan-officer/$applicationId'
+    | '/borrower'
+    | '/ceo'
+    | '/loan-officer'
+    | '/underwriter'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/sign-in'
+    | '/_authenticated/loan-officer/$applicationId'
     | '/_authenticated/borrower/'
     | '/_authenticated/ceo/'
     | '/_authenticated/loan-officer/'
@@ -160,10 +179,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBorrowerIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/loan-officer/$applicationId': {
+      id: '/_authenticated/loan-officer/$applicationId'
+      path: '/loan-officer/$applicationId'
+      fullPath: '/loan-officer/$applicationId'
+      preLoaderRoute: typeof AuthenticatedLoanOfficerApplicationIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedLoanOfficerApplicationIdRoute: typeof AuthenticatedLoanOfficerApplicationIdRoute
   AuthenticatedBorrowerIndexRoute: typeof AuthenticatedBorrowerIndexRoute
   AuthenticatedCeoIndexRoute: typeof AuthenticatedCeoIndexRoute
   AuthenticatedLoanOfficerIndexRoute: typeof AuthenticatedLoanOfficerIndexRoute
@@ -171,6 +198,8 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedLoanOfficerApplicationIdRoute:
+    AuthenticatedLoanOfficerApplicationIdRoute,
   AuthenticatedBorrowerIndexRoute: AuthenticatedBorrowerIndexRoute,
   AuthenticatedCeoIndexRoute: AuthenticatedCeoIndexRoute,
   AuthenticatedLoanOfficerIndexRoute: AuthenticatedLoanOfficerIndexRoute,

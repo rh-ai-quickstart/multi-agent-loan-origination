@@ -1,7 +1,7 @@
 // This project was developed with assistance from AI tools.
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { connectChat, type WsMessage, type ChatWs } from '@/lib/ws';
+import { connectChat, type WsMessage, type ChatWs, type ConnectChatOptions } from '@/lib/ws';
 
 export interface ChatMessage {
     id: string;
@@ -19,9 +19,10 @@ interface ToolCall {
 
 interface UseChatOptions {
     path: string;
+    wsOptions?: ConnectChatOptions;
 }
 
-export function useChat({ path }: UseChatOptions) {
+export function useChat({ path, wsOptions }: UseChatOptions) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isStreaming, setIsStreaming] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
@@ -155,6 +156,7 @@ export function useChat({ path }: UseChatOptions) {
                     setIsConnected(false);
                 }
             },
+            wsOptions,
         );
 
         wsRef.current = ws;
@@ -168,7 +170,7 @@ export function useChat({ path }: UseChatOptions) {
                 clearInterval(check);
             }
         }, 100);
-    }, [path]);
+    }, [path, wsOptions]);
 
     const disconnect = useCallback(() => {
         wsRef.current?.close();

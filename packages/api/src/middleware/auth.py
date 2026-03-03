@@ -146,14 +146,21 @@ __all__ = ["build_data_scope"]
 _DEV_ROLE_MAP = {r.value: r for r in UserRole}
 
 
-def _build_dev_user(role: UserRole) -> UserContext:
+def _build_dev_user(
+    role: UserRole,
+    *,
+    user_id: str = "dev-user",
+    email: str = "dev@summit-cap.local",
+    name: str | None = None,
+) -> UserContext:
     """Build a dev user context for the given role."""
+    display_name = name or f"Dev {role.value.replace('_', ' ').title()}"
     return UserContext(
-        user_id="dev-user",
+        user_id=user_id,
         role=role,
-        email="dev@summit-cap.local",
-        name=f"Dev {role.value.replace('_', ' ').title()}",
-        data_scope=build_data_scope(role, "dev-user"),
+        email=email,
+        name=display_name,
+        data_scope=build_data_scope(role, user_id),
     )
 
 
@@ -166,10 +173,13 @@ async def get_current_user(request: Request) -> UserContext:
     """
     if settings.AUTH_DISABLED:
         role_header = request.headers.get("x-dev-role")
-        if role_header and role_header.lower() in _DEV_ROLE_MAP:
-            dev_user = _build_dev_user(_DEV_ROLE_MAP[role_header.lower()])
-        else:
-            dev_user = _build_dev_user(UserRole.ADMIN)
+        role = _DEV_ROLE_MAP.get(role_header.lower()) if role_header else None
+        dev_user = _build_dev_user(
+            role or UserRole.ADMIN,
+            user_id=request.headers.get("x-dev-user-id", "dev-user"),
+            email=request.headers.get("x-dev-user-email", "dev@summit-cap.local"),
+            name=request.headers.get("x-dev-user-name"),
+        )
         request.state.pii_mask = dev_user.data_scope.pii_mask
         return dev_user
 

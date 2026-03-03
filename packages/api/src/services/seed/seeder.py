@@ -21,6 +21,7 @@ from db import (
     Decision,
     DemoDataManifest,
     Document,
+    DocumentExtraction,
     RateLock,
 )
 from sqlalchemy import delete, select, text
@@ -173,6 +174,18 @@ async def _seed_applications(
                 uploaded_by=app_def["borrower_ref"],
             )
             session.add(doc)
+            await session.flush()
+
+            # Seed extraction data for processed documents
+            for ext_def in doc_def.get("extractions", []):
+                extraction = DocumentExtraction(
+                    document_id=doc.id,
+                    field_name=ext_def["field_name"],
+                    field_value=ext_def.get("field_value"),
+                    confidence=ext_def.get("confidence"),
+                    source_page=ext_def.get("source_page"),
+                )
+                session.add(extraction)
 
         # Conditions
         for cond_def in app_def.get("conditions", []):
@@ -183,6 +196,7 @@ async def _seed_applications(
                 status=cond_def["status"],
                 issued_by=cond_def.get("issued_by"),
                 cleared_by=cond_def.get("cleared_by"),
+                due_date=cond_def.get("due_date"),
             )
             session.add(condition)
 
@@ -326,12 +340,33 @@ async def seed_demo_data(
         event_data=summary,
     )
 
+    # Collect timestamp overrides before commit (ORM objects expire after commit)
+    all_defs = ACTIVE_APPLICATIONS + HISTORICAL_LOANS
+    ts_overrides = []
+    for app, app_def in zip(all_apps, all_defs):
+        if "created_at" in app_def or "updated_at" in app_def:
+            created = app_def.get("created_at")
+            updated = app_def.get("updated_at") or created
+            ts_overrides.append({"id": app.id, "c": created, "u": updated})
+
     # 7. Commit both sessions.
     # NOTE: These are separate DB connections so this is NOT atomic. If the
     # compliance commit fails after the lending commit succeeds, the manifest
     # will record "seeded" but HMDA data will be missing. In that case,
     # re-run with --force to clear and re-seed.
     await session.commit()
+
+    # Apply timestamp overrides via engine connection to bypass ORM entirely
+    if ts_overrides:
+        from db.database import engine
+
+        async with engine.begin() as conn:
+            for ts in ts_overrides:
+                await conn.execute(
+                    text("UPDATE applications SET created_at = :c, updated_at = :u WHERE id = :id"),
+                    ts,
+                )
+
     try:
         await compliance_session.commit()
     except Exception:
