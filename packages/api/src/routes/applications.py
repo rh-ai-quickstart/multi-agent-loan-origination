@@ -317,6 +317,7 @@ async def list_disclosures(
             id=d["id"],
             label=d["label"],
             summary=d["summary"],
+            content=d["content"],
             acknowledged=d["id"] in acknowledged_set,
         )
         for d in REQUIRED_DISCLOSURES

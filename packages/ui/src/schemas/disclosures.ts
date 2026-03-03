@@ -6,6 +6,7 @@ export const DisclosureItemSchema = z.object({
     id: z.string(),
     label: z.string(),
     summary: z.string(),
+    content: z.string(),
     acknowledged: z.boolean(),
 });
 

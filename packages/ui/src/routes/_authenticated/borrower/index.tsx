@@ -1,7 +1,7 @@
 // This project was developed with assistance from AI tools.
 
 import { createFileRoute } from '@tanstack/react-router';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
     FileText,
     Upload,
@@ -16,6 +16,7 @@ import {
     Info,
     CheckCircle2,
     Loader2,
+    X,
 } from 'lucide-react';
 import { useApplications } from '@/hooks/use-applications';
 import { useApplicationStatus } from '@/hooks/use-status';
@@ -464,6 +465,68 @@ function ConditionsCard({
     );
 }
 
+function DisclosureModal({
+    item,
+    onClose,
+    onAcknowledge,
+}: {
+    item: DisclosureItem;
+    onClose: () => void;
+    onAcknowledge: () => void;
+}) {
+    useEffect(() => {
+        function handleKey(e: KeyboardEvent) {
+            if (e.key === 'Escape') onClose();
+        }
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [onClose]);
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="disclosure-modal-title"
+        >
+            <div className="relative mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl dark:bg-slate-900">
+                <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                    <h2 id="disclosure-modal-title" className="text-lg font-semibold text-foreground">
+                        {item.label}
+                    </h2>
+                    <button
+                        onClick={onClose}
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800"
+                        aria-label="Close"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                    <div className="whitespace-pre-line text-sm leading-relaxed text-foreground">
+                        {item.content}
+                    </div>
+                </div>
+                <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+                    <button
+                        onClick={onClose}
+                        className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                        Close
+                    </button>
+                    <button
+                        onClick={onAcknowledge}
+                        className="rounded-md bg-[#1e3a5f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42]"
+                    >
+                        I Acknowledge
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function DisclosuresCard({
     disclosures,
     isLoading,
@@ -471,6 +534,8 @@ function DisclosuresCard({
     disclosures: DisclosureStatusResponse | undefined;
     isLoading: boolean;
 }) {
+    const [reviewingItem, setReviewingItem] = useState<DisclosureItem | null>(null);
+
     if (isLoading) {
         return (
             <CardShell>
@@ -498,41 +563,51 @@ function DisclosuresCard({
     }
 
     return (
-        <CardShell>
-            <h3 className="mb-4 text-base font-semibold text-foreground">Disclosures</h3>
-            <div className="divide-y divide-border">
-                {items.map((item: DisclosureItem) => (
-                    <div key={item.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                        <div className="flex items-center gap-3">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                                <p className="text-sm font-medium text-foreground">{item.label}</p>
-                                <p className="text-xs text-muted-foreground">{item.summary}</p>
+        <>
+            {reviewingItem && (
+                <DisclosureModal
+                    item={reviewingItem}
+                    onClose={() => setReviewingItem(null)}
+                    onAcknowledge={() => {
+                        setReviewingItem(null);
+                        window.dispatchEvent(
+                            new CustomEvent('chat-prefill', {
+                                detail: {
+                                    message: `I have reviewed and acknowledge the ${reviewingItem.label}`,
+                                    autoSend: true,
+                                },
+                            }),
+                        );
+                    }}
+                />
+            )}
+            <CardShell>
+                <h3 className="mb-4 text-base font-semibold text-foreground">Disclosures</h3>
+                <div className="divide-y divide-border">
+                    {items.map((item: DisclosureItem) => (
+                        <div key={item.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                            <div className="flex items-center gap-3">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm font-medium text-foreground">{item.label}</p>
+                                    <p className="text-xs text-muted-foreground">{item.summary}</p>
+                                </div>
                             </div>
+                            {item.acknowledged ? (
+                                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+                            ) : (
+                                <button
+                                    onClick={() => setReviewingItem(item)}
+                                    className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                                >
+                                    Review & Acknowledge
+                                </button>
+                            )}
                         </div>
-                        {item.acknowledged ? (
-                            <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
-                        ) : (
-                            <button
-                                onClick={() => {
-                                    window.dispatchEvent(
-                                        new CustomEvent('chat-prefill', {
-                                            detail: {
-                                                message: `I'd like to review and acknowledge the ${item.label}`,
-                                                autoSend: true,
-                                            },
-                                        }),
-                                    );
-                                }}
-                                className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-                            >
-                                Review & Acknowledge
-                            </button>
-                        )}
-                    </div>
-                ))}
-            </div>
-        </CardShell>
+                    ))}
+                </div>
+            </CardShell>
+        </>
     );
 }
 

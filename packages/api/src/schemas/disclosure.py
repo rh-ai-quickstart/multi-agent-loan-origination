@@ -10,6 +10,7 @@ class DisclosureItem(BaseModel):
     id: str
     label: str
     summary: str
+    content: str
     acknowledged: bool
 
 
