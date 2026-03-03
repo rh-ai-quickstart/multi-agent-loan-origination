@@ -1,6 +1,7 @@
 // This project was developed with assistance from AI tools.
 
 import { createFileRoute } from '@tanstack/react-router';
+import { useState, useRef, useCallback } from 'react';
 import {
     FileText,
     Upload,
@@ -14,14 +15,16 @@ import {
     Home,
     Info,
     CheckCircle2,
+    Loader2,
+    X,
 } from 'lucide-react';
 import { useApplications } from '@/hooks/use-applications';
 import { useApplicationStatus } from '@/hooks/use-status';
-import { useDocuments, useCompleteness } from '@/hooks/use-documents';
+import { useDocuments, useCompleteness, useUploadDocument } from '@/hooks/use-documents';
 import { useConditions } from '@/hooks/use-conditions';
 import { useRateLock } from '@/hooks/use-rate-lock';
 import { formatCurrency, formatDate, formatDays, formatPercent } from '@/lib/format';
-import { LOAN_TYPE_LABELS, STAGE_ORDER, APPLICATION_STAGE_LABELS, type ApplicationStage } from '@/schemas/enums';
+import { LOAN_TYPE_LABELS, STAGE_ORDER, APPLICATION_STAGE_LABELS, type ApplicationStage, type DocumentType } from '@/schemas/enums';
 import type { ApplicationResponse } from '@/schemas/applications';
 import type { ApplicationStatusResponse } from '@/schemas/status';
 import type { DocumentListResponse, CompletenessResponse } from '@/schemas/documents';
@@ -186,15 +189,63 @@ const DOC_TYPE_LABELS: Record<string, string> = {
     other: 'Other Document',
 };
 
+const DOC_TYPE_OPTIONS: { value: DocumentType; label: string }[] = [
+    { value: 'w2', label: 'W-2 Form' },
+    { value: 'pay_stub', label: 'Pay Stub' },
+    { value: 'tax_return', label: 'Tax Return' },
+    { value: 'bank_statement', label: 'Bank Statement' },
+    { value: 'id', label: 'Photo ID' },
+    { value: 'property_appraisal', label: 'Property Appraisal' },
+    { value: 'insurance', label: 'Insurance' },
+    { value: 'other', label: 'Other Document' },
+];
+
 function DocumentsCard({
     documents,
     completeness,
+    applicationId,
     isLoading,
 }: {
     documents: DocumentListResponse | undefined;
     completeness: CompletenessResponse | undefined;
+    applicationId: number | undefined;
     isLoading: boolean;
 }) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isDragOver, setIsDragOver] = useState(false);
+    const [pendingFile, setPendingFile] = useState<File | null>(null);
+    const [selectedType, setSelectedType] = useState<DocumentType>('other');
+    const uploadMutation = useUploadDocument(applicationId);
+
+    const handleFileSelect = useCallback((file: File) => {
+        setPendingFile(file);
+        uploadMutation.reset();
+    }, [uploadMutation]);
+
+    const handleUpload = useCallback(() => {
+        if (!pendingFile) return;
+        uploadMutation.mutate(
+            { file: pendingFile, documentType: selectedType },
+            {
+                onSuccess: () => {
+                    setPendingFile(null);
+                    setSelectedType('other');
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                },
+            },
+        );
+    }, [pendingFile, selectedType, uploadMutation]);
+
+    const handleDrop = useCallback(
+        (e: React.DragEvent) => {
+            e.preventDefault();
+            setIsDragOver(false);
+            const file = e.dataTransfer.files[0];
+            if (file) handleFileSelect(file);
+        },
+        [handleFileSelect],
+    );
+
     if (isLoading) {
         return (
             <CardShell>
@@ -263,12 +314,107 @@ function DocumentsCard({
                 <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
             )}
 
-            <div className="mt-4 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-200 py-6 dark:border-slate-700">
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <Upload className="h-6 w-6" />
-                    <p className="text-sm">Drop files here or click to upload</p>
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                className="hidden"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileSelect(file);
+                }}
+            />
+
+            {pendingFile ? (
+                <div className="mt-4 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium text-foreground">{pendingFile.name}</span>
+                            <span className="text-muted-foreground">
+                                ({(pendingFile.size / 1024).toFixed(0)} KB)
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setPendingFile(null);
+                                uploadMutation.reset();
+                                if (fileInputRef.current) fileInputRef.current.value = '';
+                            }}
+                            className="text-muted-foreground hover:text-foreground"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div className="mt-3 flex items-end gap-3">
+                        <div className="flex-1">
+                            <label htmlFor="doc-type-select" className="mb-1 block text-xs font-medium text-muted-foreground">
+                                Document type
+                            </label>
+                            <select
+                                id="doc-type-select"
+                                value={selectedType}
+                                onChange={(e) => setSelectedType(e.target.value as DocumentType)}
+                                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-foreground focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f] dark:border-slate-600 dark:bg-slate-900"
+                            >
+                                {DOC_TYPE_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleUpload}
+                            disabled={uploadMutation.isPending}
+                            className="flex h-[38px] items-center gap-2 rounded-md bg-[#1e3a5f] px-4 text-sm font-medium text-white transition hover:bg-[#152e42] disabled:opacity-60"
+                        >
+                            {uploadMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Upload className="h-4 w-4" />
+                            )}
+                            Upload
+                        </button>
+                    </div>
+                    {uploadMutation.isError && (
+                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                            {uploadMutation.error instanceof Error ? uploadMutation.error.message : 'Upload failed'}
+                        </p>
+                    )}
                 </div>
-            </div>
+            ) : (
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            fileInputRef.current?.click();
+                        }
+                    }}
+                    onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(true);
+                    }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={handleDrop}
+                    className={cn(
+                        'mt-4 flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed py-6 transition-colors',
+                        isDragOver
+                            ? 'border-[#1e3a5f] bg-[#1e3a5f]/5'
+                            : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600',
+                    )}
+                >
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <Upload className="h-6 w-6" />
+                        <p className="text-sm">Drop files here or click to upload</p>
+                    </div>
+                </div>
+            )}
         </CardShell>
     );
 }
@@ -569,6 +715,7 @@ function BorrowerDashboard() {
                         <DocumentsCard
                             documents={documentsQuery.data}
                             completeness={completenessQuery.data}
+                            applicationId={appId}
                             isLoading={isInitialLoading || documentsQuery.isLoading}
                         />
                         <ConditionsCard

@@ -14,9 +14,6 @@ export interface AuthUser {
     email: string;
 }
 
-/** @deprecated Use AuthUser instead */
-export type DevUser = AuthUser;
-
 export const DEV_USERS: Record<UserRole, AuthUser> = {
     prospect: {
         role: 'prospect',
