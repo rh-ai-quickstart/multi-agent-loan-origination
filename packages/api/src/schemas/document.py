@@ -56,3 +56,22 @@ class DocumentListResponse(BaseModel):
 
     data: list[DocumentResponse]
     pagination: Pagination
+
+
+class ExtractionFieldResponse(BaseModel):
+    """A single extracted field from a document."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    field_name: str
+    field_value: str | None = None
+    confidence: float | None = None
+    source_page: int | None = None
+
+
+class ExtractionListResponse(BaseModel):
+    """Extraction results for a document."""
+
+    document_id: int
+    extractions: list[ExtractionFieldResponse]

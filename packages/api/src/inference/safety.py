@@ -77,6 +77,13 @@ according to our safety policy with the below categories.
 {categories}
 <END UNSAFE CONTENT CATEGORIES>
 
+<BEGIN CONTEXT>
+This is a mortgage lending application. Users discuss loan terms such as \
+"15-year", "30-year", "15 year fixed", etc. References to years or numbers \
+in this context refer to loan durations, not people or ages. Evaluate \
+messages in this financial services context.
+<END CONTEXT>
+
 <BEGIN CONVERSATION>
 
 User: {user_message}

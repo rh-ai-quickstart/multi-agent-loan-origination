@@ -43,5 +43,14 @@ module.exports = [
       'react/jsx-uses-react': 'off'
     }
   },
+  // Disable no-undef for TypeScript files -- the TS compiler handles this and
+  // ESLint's no-undef does not understand TS types like RequestInit, Response, etc.
+  // See: https://typescript-eslint.io/troubleshooting/faqs/eslint/#no-undef
+  {
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      'no-undef': 'off'
+    }
+  },
   prettier
 ];

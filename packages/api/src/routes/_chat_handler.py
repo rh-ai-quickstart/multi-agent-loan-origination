@@ -7,12 +7,13 @@ borrower_chat.py share identical event handling + audit writing logic.
 
 import json
 import logging
+import re
 import uuid
 
 import jwt as pyjwt
 from db.enums import UserRole
-from fastapi import APIRouter, Depends, WebSocket
-from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
+from fastapi import APIRouter, Depends, Query, WebSocket
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage
 
 from ..agents.registry import get_agent
 from ..core.auth import build_data_scope
@@ -28,6 +29,55 @@ from ..services.conversation import ConversationService, get_conversation_servic
 logger = logging.getLogger(__name__)
 
 
+class ThinkTagFilter:
+    """Streaming filter that suppresses <think>...</think> blocks.
+
+    Reasoning models (e.g. Qwen3) emit chain-of-thought wrapped in
+    ``<think>`` tags.  This filter buffers across chunk boundaries so
+    tags that arrive split across multiple tokens are still caught.
+    """
+
+    def __init__(self) -> None:
+        self._inside = False
+        self._buf = ""
+
+    def feed(self, text: str) -> str:
+        """Feed a chunk and return the portion to send to the client."""
+        self._buf += text
+        out: list[str] = []
+
+        while self._buf:
+            if self._inside:
+                end = self._buf.find("</think>")
+                if end == -1:
+                    # Might be a partial closing tag at the tail
+                    if self._buf.endswith(("<", "</", "</t", "</th", "</thi", "</thin", "</think")):
+                        break  # hold buffer until more data arrives
+                    self._buf = ""
+                    break
+                # Skip everything up to and including </think>
+                self._buf = self._buf[end + len("</think>") :]
+                self._inside = False
+            else:
+                start = self._buf.find("<think>")
+                if start == -1:
+                    # Check for partial opening tag at the tail
+                    for i in range(1, min(len("<think>"), len(self._buf) + 1)):
+                        if self._buf.endswith("<think>"[:i]):
+                            out.append(self._buf[: len(self._buf) - i])
+                            self._buf = self._buf[len(self._buf) - i :]
+                            break
+                    else:
+                        out.append(self._buf)
+                        self._buf = ""
+                    break
+                out.append(self._buf[:start])
+                self._buf = self._buf[start + len("<think>") :]
+                self._inside = True
+
+        return "".join(out)
+
+
 async def authenticate_websocket(
     ws: WebSocket,
     required_role: UserRole | None = None,
@@ -41,12 +91,13 @@ async def authenticate_websocket(
     """
     if settings.AUTH_DISABLED:
         role = required_role or UserRole.ADMIN
+        user_id = ws.query_params.get("dev_user_id", "dev-user")
         return UserContext(
-            user_id="dev-user",
+            user_id=user_id,
             role=role,
-            email="dev@summit-cap.local",
-            name="Dev User",
-            data_scope=build_data_scope(role, "dev-user"),
+            email=ws.query_params.get("dev_email", "dev@summit-cap.local"),
+            name=ws.query_params.get("dev_name", "Dev User"),
+            data_scope=build_data_scope(role, user_id),
         )
 
     token = ws.query_params.get("token")
@@ -104,6 +155,7 @@ async def run_agent_stream(
     use_checkpointer: bool,
     messages_fallback: list | None,
     pii_mask: bool = False,
+    system_context: str = "",
 ) -> None:
     """Run the agent streaming loop over an accepted WebSocket.
 
@@ -120,6 +172,8 @@ async def run_agent_stream(
         use_checkpointer: Whether checkpoint persistence is active.
         messages_fallback: Mutable list for local message tracking when
             checkpointer is unavailable. Pass ``None`` when using checkpointer.
+        system_context: Optional context string injected as a system message
+            before the first user message (e.g. application IDs).
     """
     from db.database import SessionLocal
 
@@ -159,9 +213,16 @@ async def run_agent_stream(
 
             user_text = data["content"]
 
+            # Inject system context once on the first message of the conversation
+            context_msgs: list = []
+            if system_context:
+                context_msgs = [SystemMessage(content=system_context)]
+                system_context = ""  # Only inject once
+
             if use_checkpointer:
-                input_messages = [HumanMessage(content=user_text)]
+                input_messages = context_msgs + [HumanMessage(content=user_text)]
             else:
+                messages_fallback.extend(context_msgs)
                 messages_fallback.append(HumanMessage(content=user_text))
                 input_messages = messages_fallback
 
@@ -172,6 +233,7 @@ async def run_agent_stream(
 
             try:
                 full_response = ""
+                think_filter = ThinkTagFilter()
                 async for event in graph.astream_events(
                     {
                         "messages": input_messages,
@@ -193,7 +255,10 @@ async def run_agent_stream(
                     ):
                         chunk = event.get("data", {}).get("chunk")
                         if isinstance(chunk, AIMessageChunk) and chunk.content:
-                            await _send({"type": "token", "content": chunk.content})
+                            clean = think_filter.feed(chunk.content)
+                            if clean:
+                                clean = clean.replace("**", "")
+                                await _send({"type": "token", "content": clean})
                             full_response += chunk.content
 
                     elif kind == "on_chain_end" and node == "input_shield":
@@ -244,6 +309,10 @@ async def run_agent_stream(
                                     {"shield": "output", "blocked": True},
                                 )
 
+                # Strip think tags and markdown bold markers from accumulated response
+                full_response = re.sub(r"<think>.*?</think>", "", full_response, flags=re.DOTALL)
+                full_response = full_response.replace("**", "").strip()
+
                 # Without checkpointer, manually track history for this session
                 if not use_checkpointer and full_response:
                     messages_fallback.append(AIMessage(content=full_response))
@@ -270,6 +339,39 @@ async def run_agent_stream(
             raise
     finally:
         flush_langfuse()
+
+
+async def _build_application_context(user: UserContext) -> str:
+    """Look up the user's applications and return a context string for the agent."""
+    from db.database import SessionLocal
+
+    from ..services.application import list_applications
+
+    try:
+        async with SessionLocal() as session:
+            apps, total = await list_applications(session, user, limit=5)
+    except Exception:
+        logger.warning("Failed to load application context for %s", user.user_id)
+        return ""
+
+    if not apps:
+        return ""
+
+    # Only borrowers need dynamic app-ID injection; LOs/UWs/CEOs specify IDs themselves
+    if user.role != UserRole.BORROWER:
+        return ""
+
+    primary = apps[0]
+    stage = primary.stage.value.replace("_", " ").title()
+    loan = f"${primary.loan_amount:,.0f}" if primary.loan_amount else "amount not set"
+    addr = primary.property_address or "no address"
+
+    return (
+        f"[System context] The user's primary application is #{primary.id} "
+        f"({stage}, {loan}, {addr}). "
+        f"Use application_id={primary.id} for all tool calls. "
+        "Do NOT ask the user for their application ID."
+    )
 
 
 def create_authenticated_chat_router(
@@ -318,11 +420,17 @@ def create_authenticated_chat_router(
             await ws.close()
             return
 
-        thread_id = ConversationService.get_thread_id(user.user_id, agent_name)
+        # Per-app threads for roles that manage multiple applications
+        app_id_param = ws.query_params.get("app_id")
+        app_id = int(app_id_param) if app_id_param else None
+        thread_id = ConversationService.get_thread_id(user.user_id, agent_name, app_id)
         session_id = str(uuid.uuid4())
 
         # Always use checkpointer when available; fallback to local list
         messages_fallback: list | None = [] if not use_checkpointer else None
+
+        # Build application context for authenticated agents
+        system_context = await _build_application_context(user)
 
         await run_agent_stream(
             ws,
@@ -336,6 +444,7 @@ def create_authenticated_chat_router(
             use_checkpointer=use_checkpointer,
             messages_fallback=messages_fallback,
             pii_mask=getattr(user.data_scope, "pii_mask", False),
+            system_context=system_context,
         )
 
     @router.get(
@@ -343,13 +452,17 @@ def create_authenticated_chat_router(
         response_model=ConversationHistoryResponse,
         dependencies=[Depends(require_roles(role, UserRole.ADMIN))],
     )
-    async def get_conversation_history_endpoint(user: CurrentUser) -> ConversationHistoryResponse:
+    async def get_conversation_history_endpoint(
+        user: CurrentUser,
+        app_id: int | None = Query(default=None),
+    ) -> ConversationHistoryResponse:
         """Return prior conversation messages for the authenticated user.
 
         Used by the frontend to render chat history when the chat window opens.
+        Pass app_id for per-application conversation threads (LO/UW).
         """
         service = get_conversation_service()
-        thread_id = ConversationService.get_thread_id(user.user_id, agent_name)
+        thread_id = ConversationService.get_thread_id(user.user_id, agent_name, app_id)
         messages = await service.get_conversation_history(thread_id)
         return ConversationHistoryResponse(data=messages)
 

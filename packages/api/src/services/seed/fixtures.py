@@ -72,6 +72,147 @@ def _days_from_now(n: int) -> datetime:
 
 
 # ---------------------------------------------------------------------------
+# Extraction templates per document type
+# ---------------------------------------------------------------------------
+
+
+def _w2_extractions(
+    employer: str,
+    annual_income: str,
+    tax_year: str = "2025",
+    ein: str = "84-1234567",
+) -> list[dict]:
+    return [
+        {
+            "field_name": "employer_name",
+            "field_value": employer,
+            "confidence": 0.97,
+            "source_page": 1,
+        },
+        {
+            "field_name": "annual_income",
+            "field_value": annual_income,
+            "confidence": 0.95,
+            "source_page": 1,
+        },
+        {"field_name": "tax_year", "field_value": tax_year, "confidence": 0.99, "source_page": 1},
+        {"field_name": "ein", "field_value": ein, "confidence": 0.93, "source_page": 1},
+    ]
+
+
+def _pay_stub_extractions(
+    employer: str,
+    gross_pay: str,
+    pay_period: str = "Bi-weekly",
+    ytd: str | None = None,
+) -> list[dict]:
+    fields = [
+        {
+            "field_name": "employer_name",
+            "field_value": employer,
+            "confidence": 0.96,
+            "source_page": 1,
+        },
+        {"field_name": "gross_pay", "field_value": gross_pay, "confidence": 0.94, "source_page": 1},
+        {
+            "field_name": "pay_period",
+            "field_value": pay_period,
+            "confidence": 0.98,
+            "source_page": 1,
+        },
+    ]
+    if ytd:
+        fields.append(
+            {
+                "field_name": "ytd_earnings",
+                "field_value": ytd,
+                "confidence": 0.92,
+                "source_page": 1,
+            },
+        )
+    return fields
+
+
+def _bank_statement_extractions(
+    institution: str,
+    balance: str,
+    period: str = "Jan 2026",
+    account_type: str = "Checking",
+) -> list[dict]:
+    return [
+        {
+            "field_name": "institution",
+            "field_value": institution,
+            "confidence": 0.98,
+            "source_page": 1,
+        },
+        {
+            "field_name": "account_type",
+            "field_value": account_type,
+            "confidence": 0.97,
+            "source_page": 1,
+        },
+        {
+            "field_name": "ending_balance",
+            "field_value": balance,
+            "confidence": 0.91,
+            "source_page": 2,
+        },
+        {
+            "field_name": "statement_period",
+            "field_value": period,
+            "confidence": 0.99,
+            "source_page": 1,
+        },
+    ]
+
+
+def _id_extractions(
+    full_name: str,
+    state: str = "Colorado",
+    expiration: str = "2028-09-15",
+) -> list[dict]:
+    return [
+        {"field_name": "full_name", "field_value": full_name, "confidence": 0.96, "source_page": 1},
+        {"field_name": "issuing_state", "field_value": state, "confidence": 0.99, "source_page": 1},
+        {
+            "field_name": "expiration_date",
+            "field_value": expiration,
+            "confidence": 0.88,
+            "source_page": 1,
+        },
+    ]
+
+
+def _tax_return_extractions(
+    filer_name: str,
+    agi: str,
+    tax_year: str = "2025",
+) -> list[dict]:
+    return [
+        {
+            "field_name": "filer_name",
+            "field_value": filer_name,
+            "confidence": 0.95,
+            "source_page": 1,
+        },
+        {
+            "field_name": "adjusted_gross_income",
+            "field_value": agi,
+            "confidence": 0.87,
+            "source_page": 2,
+        },
+        {"field_name": "tax_year", "field_value": tax_year, "confidence": 0.99, "source_page": 1},
+        {
+            "field_name": "filing_status",
+            "field_value": "Single",
+            "confidence": 0.93,
+            "source_page": 1,
+        },
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Borrower profiles
 # ---------------------------------------------------------------------------
 
@@ -177,6 +318,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("400000.00"),
         "assigned_to": JAMES_TORRES_ID,
         "created_at": _days_ago(14),
+        "updated_at": _days_ago(8),
         "financials": {
             "gross_monthly_income": Decimal("8500.00"),
             "monthly_debts": Decimal("2400.00"),
@@ -185,9 +327,52 @@ ACTIVE_APPLICATIONS: list[dict] = [
             "dti_ratio": 0.282,
         },
         "documents": [
-            {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.BANK_STATEMENT, "status": DocumentStatus.PENDING_REVIEW},
+            {
+                "doc_type": DocumentType.W2,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _w2_extractions("TechCorp Inc.", "$102,000"),
+            },
+            {
+                "doc_type": DocumentType.PAY_STUB,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _pay_stub_extractions("TechCorp Inc.", "$3,923.08", ytd="$7,846.15"),
+            },
+            {
+                "doc_type": DocumentType.BANK_STATEMENT,
+                "status": DocumentStatus.FLAGGED_FOR_RESUBMISSION,
+                "quality_flags": json.dumps(["outdated_statement"]),
+                "extractions": [
+                    {
+                        "field_name": "institution",
+                        "field_value": "First National Bank",
+                        "confidence": 0.98,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "account_type",
+                        "field_value": "Checking",
+                        "confidence": 0.97,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "ending_balance",
+                        "field_value": "$47,250.00",
+                        "confidence": 0.93,
+                        "source_page": 2,
+                    },
+                    {
+                        "field_name": "statement_period",
+                        "field_value": "Aug 2025",
+                        "confidence": 0.99,
+                        "source_page": 1,
+                    },
+                ],
+            },
+            {
+                "doc_type": DocumentType.ID,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _id_extractions("Sarah Mitchell", expiration="2029-07-14"),
+            },
         ],
     },
     {
@@ -199,6 +384,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("275000.00"),
         "assigned_to": SARAH_PATEL_ID,
         "created_at": _days_ago(10),
+        "updated_at": _days_ago(5),
         "financials": {
             "gross_monthly_income": Decimal("6200.00"),
             "monthly_debts": Decimal("1800.00"),
@@ -207,8 +393,47 @@ ACTIVE_APPLICATIONS: list[dict] = [
             "dti_ratio": 0.290,
         },
         "documents": [
-            {"doc_type": DocumentType.W2, "status": DocumentStatus.UPLOADED},
-            {"doc_type": DocumentType.ID, "status": DocumentStatus.ACCEPTED},
+            {
+                "doc_type": DocumentType.W2,
+                "status": DocumentStatus.UPLOADED,
+                "extractions": _w2_extractions("Riverside Healthcare", "$74,400"),
+            },
+            {
+                "doc_type": DocumentType.BANK_STATEMENT,
+                "status": DocumentStatus.FLAGGED_FOR_RESUBMISSION,
+                "quality_flags": json.dumps(["wrong_account_period", "missing_pages"]),
+                "extractions": [
+                    {
+                        "field_name": "institution",
+                        "field_value": "Bank of the West",
+                        "confidence": 0.95,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "account_type",
+                        "field_value": "Checking",
+                        "confidence": 0.92,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "ending_balance",
+                        "field_value": "$12,340.00",
+                        "confidence": 0.68,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "statement_period",
+                        "field_value": "Oct 2025",
+                        "confidence": 0.44,
+                        "source_page": 1,
+                    },
+                ],
+            },
+            {
+                "doc_type": DocumentType.ID,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _id_extractions("Emily Rodriguez"),
+            },
         ],
     },
     {
@@ -220,6 +445,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("260000.00"),
         "assigned_to": JAMES_TORRES_ID,
         "created_at": _days_ago(7),
+        "updated_at": _days_ago(3),
         "financials": {
             "gross_monthly_income": Decimal("8500.00"),
             "monthly_debts": Decimal("2400.00"),
@@ -232,6 +458,26 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 "doc_type": DocumentType.PAY_STUB,
                 "status": DocumentStatus.FLAGGED_FOR_RESUBMISSION,
                 "quality_flags": json.dumps(["partially_illegible"]),
+                "extractions": [
+                    {
+                        "field_name": "employer_name",
+                        "field_value": "TechCorp Inc.",
+                        "confidence": 0.72,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "gross_pay",
+                        "field_value": None,
+                        "confidence": 0.31,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "pay_period",
+                        "field_value": "Bi-weekly",
+                        "confidence": 0.85,
+                        "source_page": 1,
+                    },
+                ],
             },
         ],
     },
@@ -244,6 +490,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("420000.00"),
         "assigned_to": MARCUS_WILLIAMS_ID,
         "created_at": _days_ago(5),
+        "updated_at": _days_ago(2),
         "financials": {
             "gross_monthly_income": Decimal("9200.00"),
             "monthly_debts": Decimal("2100.00"),
@@ -252,9 +499,57 @@ ACTIVE_APPLICATIONS: list[dict] = [
             "dti_ratio": 0.228,
         },
         "documents": [
-            {"doc_type": DocumentType.W2, "status": DocumentStatus.UPLOADED},
-            {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.UPLOADED},
-            {"doc_type": DocumentType.TAX_RETURN, "status": DocumentStatus.PENDING_REVIEW},
+            {
+                "doc_type": DocumentType.W2,
+                "status": DocumentStatus.UPLOADED,
+                "extractions": _w2_extractions(
+                    "Foster Design Studio", "$110,400", ein="84-9876543"
+                ),
+            },
+            {
+                "doc_type": DocumentType.PAY_STUB,
+                "status": DocumentStatus.UPLOADED,
+                "extractions": _pay_stub_extractions(
+                    "Foster Design Studio", "$4,246.15", ytd="$8,492.31"
+                ),
+            },
+            {
+                "doc_type": DocumentType.TAX_RETURN,
+                "status": DocumentStatus.FLAGGED_FOR_RESUBMISSION,
+                "quality_flags": json.dumps(["unsigned_document"]),
+                "extractions": [
+                    {
+                        "field_name": "filer_name",
+                        "field_value": "Amanda Foster",
+                        "confidence": 0.94,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "adjusted_gross_income",
+                        "field_value": "$108,200",
+                        "confidence": 0.89,
+                        "source_page": 2,
+                    },
+                    {
+                        "field_name": "tax_year",
+                        "field_value": "2025",
+                        "confidence": 0.99,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "filing_status",
+                        "field_value": "Single",
+                        "confidence": 0.91,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "signature_present",
+                        "field_value": "No",
+                        "confidence": 0.97,
+                        "source_page": 4,
+                    },
+                ],
+            },
         ],
     },
     # --- 3 in UNDERWRITING stage ---
@@ -267,6 +562,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("550000.00"),
         "assigned_to": MARCUS_WILLIAMS_ID,
         "created_at": _days_ago(28),
+        "updated_at": _days_ago(6),
         "financials": {
             "gross_monthly_income": Decimal("12000.00"),
             "monthly_debts": Decimal("3200.00"),
@@ -275,10 +571,30 @@ ACTIVE_APPLICATIONS: list[dict] = [
             "dti_ratio": 0.267,
         },
         "documents": [
-            {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.BANK_STATEMENT, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.ID, "status": DocumentStatus.ACCEPTED},
+            {
+                "doc_type": DocumentType.W2,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _w2_extractions("Mountain View Engineering", "$144,000"),
+            },
+            {
+                "doc_type": DocumentType.PAY_STUB,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _pay_stub_extractions(
+                    "Mountain View Engineering", "$5,538.46", ytd="$11,076.92"
+                ),
+            },
+            {
+                "doc_type": DocumentType.BANK_STATEMENT,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _bank_statement_extractions(
+                    "Wells Fargo", "$92,400.00", account_type="Savings"
+                ),
+            },
+            {
+                "doc_type": DocumentType.ID,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _id_extractions("Robert Kim", expiration="2029-03-20"),
+            },
         ],
         "conditions": [
             {
@@ -286,12 +602,14 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 "severity": ConditionSeverity.PRIOR_TO_APPROVAL,
                 "status": ConditionStatus.OPEN,
                 "issued_by": MARIA_CHEN_ID,
+                "due_date": _days_from_now(5),
             },
             {
                 "description": "Provide most recent two months bank statements",
                 "severity": ConditionSeverity.PRIOR_TO_APPROVAL,
                 "status": ConditionStatus.RESPONDED,
                 "issued_by": MARIA_CHEN_ID,
+                "due_date": _days_from_now(3),
             },
         ],
     },
@@ -304,6 +622,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("410000.00"),
         "assigned_to": JAMES_TORRES_ID,
         "created_at": _days_ago(21),
+        "updated_at": _days_ago(4),
         "financials": {
             "gross_monthly_income": Decimal("9800.00"),
             "monthly_debts": Decimal("2900.00"),
@@ -312,10 +631,79 @@ ACTIVE_APPLICATIONS: list[dict] = [
             "dti_ratio": 0.296,
         },
         "documents": [
-            {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.BANK_STATEMENT, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.ID, "status": DocumentStatus.ACCEPTED},
+            {
+                "doc_type": DocumentType.W2,
+                "status": DocumentStatus.PENDING_REVIEW,
+                "quality_flags": json.dumps(["low_resolution"]),
+                "extractions": [
+                    {
+                        "field_name": "employer_name",
+                        "field_value": "US Dept. of Veterans Af...",
+                        "confidence": 0.73,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "annual_income",
+                        "field_value": "$117,600",
+                        "confidence": 0.88,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "tax_year",
+                        "field_value": "2025",
+                        "confidence": 0.99,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "ein",
+                        "field_value": None,
+                        "confidence": 0.35,
+                        "source_page": 1,
+                    },
+                ],
+            },
+            {
+                "doc_type": DocumentType.PAY_STUB,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _pay_stub_extractions(
+                    "US Department of Veterans Affairs", "$4,523.08", ytd="$9,046.15"
+                ),
+            },
+            {
+                "doc_type": DocumentType.BANK_STATEMENT,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": [
+                    {
+                        "field_name": "institution",
+                        "field_value": "USAA Federal Savings",
+                        "confidence": 0.97,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "account_type",
+                        "field_value": "Checking",
+                        "confidence": 0.96,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "ending_balance",
+                        "field_value": "$58,100.00",
+                        "confidence": 0.67,
+                        "source_page": 3,
+                    },
+                    {
+                        "field_name": "statement_period",
+                        "field_value": "Jan 2026",
+                        "confidence": 0.98,
+                        "source_page": 1,
+                    },
+                ],
+            },
+            {
+                "doc_type": DocumentType.ID,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _id_extractions("Lisa Washington", expiration="2027-11-30"),
+            },
         ],
         "conditions": [
             {
@@ -323,12 +711,14 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 "severity": ConditionSeverity.PRIOR_TO_APPROVAL,
                 "status": ConditionStatus.OPEN,
                 "issued_by": MARIA_CHEN_ID,
+                "due_date": _days_from_now(7),
             },
             {
                 "description": "Property appraisal must meet VA minimum requirements",
                 "severity": ConditionSeverity.PRIOR_TO_DOCS,
                 "status": ConditionStatus.OPEN,
                 "issued_by": MARIA_CHEN_ID,
+                "due_date": _days_from_now(10),
             },
             {
                 "description": "Verify no outstanding federal debts",
@@ -348,6 +738,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("280000.00"),
         "assigned_to": SARAH_PATEL_ID,
         "created_at": _days_ago(18),
+        "updated_at": _days_ago(3),
         "financials": {
             "gross_monthly_income": Decimal("7100.00"),
             "monthly_debts": Decimal("1950.00"),
@@ -356,11 +747,61 @@ ACTIVE_APPLICATIONS: list[dict] = [
             "dti_ratio": 0.275,
         },
         "documents": [
-            {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.BANK_STATEMENT, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.TAX_RETURN, "status": DocumentStatus.PENDING_REVIEW},
-            {"doc_type": DocumentType.ID, "status": DocumentStatus.ACCEPTED},
+            {
+                "doc_type": DocumentType.W2,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _w2_extractions(
+                    "Greeley Farm Supply Co.", "$85,200", ein="84-5551234"
+                ),
+            },
+            {
+                "doc_type": DocumentType.PAY_STUB,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _pay_stub_extractions(
+                    "Greeley Farm Supply Co.", "$3,276.92", ytd="$6,553.85"
+                ),
+            },
+            {
+                "doc_type": DocumentType.BANK_STATEMENT,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _bank_statement_extractions("Colorado Credit Union", "$18,450.00"),
+            },
+            {
+                "doc_type": DocumentType.TAX_RETURN,
+                "status": DocumentStatus.PENDING_REVIEW,
+                "quality_flags": json.dumps(["blurry_scan"]),
+                "extractions": [
+                    {
+                        "field_name": "filer_name",
+                        "field_value": "Daniel Ramirez",
+                        "confidence": 0.82,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "adjusted_gross_income",
+                        "field_value": "$82,100",
+                        "confidence": 0.61,
+                        "source_page": 2,
+                    },
+                    {
+                        "field_name": "tax_year",
+                        "field_value": "2025",
+                        "confidence": 0.95,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "filing_status",
+                        "field_value": None,
+                        "confidence": 0.28,
+                        "source_page": 1,
+                    },
+                ],
+            },
+            {
+                "doc_type": DocumentType.ID,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _id_extractions("Daniel Ramirez", expiration="2028-06-10"),
+            },
         ],
         "conditions": [
             {
@@ -368,6 +809,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 "severity": ConditionSeverity.PRIOR_TO_APPROVAL,
                 "status": ConditionStatus.OPEN,
                 "issued_by": MARIA_CHEN_ID,
+                "due_date": _days_from_now(4),
             },
             {
                 "description": "Income must not exceed 115% of area median for USDA eligibility",
@@ -388,6 +830,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("820000.00"),
         "assigned_to": SARAH_PATEL_ID,
         "created_at": _days_ago(42),
+        "updated_at": _days_ago(7),
         "financials": {
             "gross_monthly_income": Decimal("18000.00"),
             "monthly_debts": Decimal("5400.00"),
@@ -396,11 +839,37 @@ ACTIVE_APPLICATIONS: list[dict] = [
             "dti_ratio": 0.300,
         },
         "documents": [
-            {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.BANK_STATEMENT, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.TAX_RETURN, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.ID, "status": DocumentStatus.ACCEPTED},
+            {
+                "doc_type": DocumentType.W2,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _w2_extractions(
+                    "Johnson & Partners LLP", "$216,000", ein="84-7778899"
+                ),
+            },
+            {
+                "doc_type": DocumentType.PAY_STUB,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _pay_stub_extractions(
+                    "Johnson & Partners LLP", "$8,307.69", ytd="$16,615.38"
+                ),
+            },
+            {
+                "doc_type": DocumentType.BANK_STATEMENT,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _bank_statement_extractions(
+                    "Chase Bank", "$225,000.00", account_type="Investment"
+                ),
+            },
+            {
+                "doc_type": DocumentType.TAX_RETURN,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _tax_return_extractions("Michael Johnson", "$210,500"),
+            },
+            {
+                "doc_type": DocumentType.ID,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _id_extractions("Michael Johnson", expiration="2029-01-15"),
+            },
         ],
         "conditions": [
             {
@@ -408,6 +877,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 "severity": ConditionSeverity.PRIOR_TO_CLOSING,
                 "status": ConditionStatus.OPEN,
                 "issued_by": MARIA_CHEN_ID,
+                "due_date": _days_from_now(12),
             },
             {
                 "description": "Hazard insurance binder with mortgagee clause",
@@ -441,6 +911,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("425000.00"),
         "assigned_to": MARCUS_WILLIAMS_ID,
         "created_at": _days_ago(35),
+        "updated_at": _days_ago(5),
         "financials": {
             "gross_monthly_income": Decimal("10500.00"),
             "monthly_debts": Decimal("3150.00"),
@@ -449,10 +920,28 @@ ACTIVE_APPLICATIONS: list[dict] = [
             "dti_ratio": 0.300,
         },
         "documents": [
-            {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.BANK_STATEMENT, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.ID, "status": DocumentStatus.ACCEPTED},
+            {
+                "doc_type": DocumentType.W2,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _w2_extractions("Centennial Software", "$126,000"),
+            },
+            {
+                "doc_type": DocumentType.PAY_STUB,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _pay_stub_extractions(
+                    "Centennial Software", "$4,846.15", ytd="$9,692.31"
+                ),
+            },
+            {
+                "doc_type": DocumentType.BANK_STATEMENT,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _bank_statement_extractions("Alpine Bank", "$82,300.00"),
+            },
+            {
+                "doc_type": DocumentType.ID,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _id_extractions("Thomas Nguyen", expiration="2028-04-22"),
+            },
         ],
         "conditions": [
             {
@@ -460,6 +949,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 "severity": ConditionSeverity.PRIOR_TO_DOCS,
                 "status": ConditionStatus.RESPONDED,
                 "issued_by": MARIA_CHEN_ID,
+                "due_date": _days_from_now(8),
             },
             {
                 "description": "Flood zone determination certificate",
@@ -493,6 +983,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("510000.00"),
         "assigned_to": SARAH_PATEL_ID,
         "created_at": _days_ago(60),
+        "updated_at": _days_ago(2),
         "financials": {
             "gross_monthly_income": Decimal("8500.00"),
             "monthly_debts": Decimal("2400.00"),
@@ -501,13 +992,93 @@ ACTIVE_APPLICATIONS: list[dict] = [
             "dti_ratio": 0.282,
         },
         "documents": [
-            {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.BANK_STATEMENT, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.TAX_RETURN, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.ID, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.PROPERTY_APPRAISAL, "status": DocumentStatus.ACCEPTED},
-            {"doc_type": DocumentType.INSURANCE, "status": DocumentStatus.ACCEPTED},
+            {
+                "doc_type": DocumentType.W2,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _w2_extractions("TechCorp Inc.", "$102,000"),
+            },
+            {
+                "doc_type": DocumentType.PAY_STUB,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _pay_stub_extractions(
+                    "TechCorp Inc.", "$3,923.08", ytd="$47,076.92"
+                ),
+            },
+            {
+                "doc_type": DocumentType.BANK_STATEMENT,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _bank_statement_extractions("First National Bank", "$52,100.00"),
+            },
+            {
+                "doc_type": DocumentType.TAX_RETURN,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _tax_return_extractions("Sarah Mitchell", "$98,700"),
+            },
+            {
+                "doc_type": DocumentType.ID,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": _id_extractions("Sarah Mitchell", expiration="2030-02-28"),
+            },
+            {
+                "doc_type": DocumentType.PROPERTY_APPRAISAL,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": [
+                    {
+                        "field_name": "appraised_value",
+                        "field_value": "$510,000",
+                        "confidence": 0.96,
+                        "source_page": 3,
+                    },
+                    {
+                        "field_name": "property_type",
+                        "field_value": "Single Family",
+                        "confidence": 0.99,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "condition",
+                        "field_value": "Good",
+                        "confidence": 0.94,
+                        "source_page": 4,
+                    },
+                    {
+                        "field_name": "effective_date",
+                        "field_value": "2026-01-15",
+                        "confidence": 0.97,
+                        "source_page": 1,
+                    },
+                ],
+            },
+            {
+                "doc_type": DocumentType.INSURANCE,
+                "status": DocumentStatus.ACCEPTED,
+                "extractions": [
+                    {
+                        "field_name": "provider",
+                        "field_value": "State Farm",
+                        "confidence": 0.98,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "policy_number",
+                        "field_value": "HO-2026-448921",
+                        "confidence": 0.91,
+                        "source_page": 1,
+                    },
+                    {
+                        "field_name": "annual_premium",
+                        "field_value": "$1,850",
+                        "confidence": 0.93,
+                        "source_page": 2,
+                    },
+                    {
+                        "field_name": "coverage_amount",
+                        "field_value": "$510,000",
+                        "confidence": 0.96,
+                        "source_page": 1,
+                    },
+                ],
+            },
         ],
         "conditions": [
             {
@@ -644,6 +1215,7 @@ for i in range(16):
             "property_value": _property_value,
             "assigned_to": _lo_ref,
             "created_at": _created,
+            "updated_at": _created + timedelta(days=30 + i * 3),
             "financials": {
                 "gross_monthly_income": Decimal(str(7000 + i * 500)),
                 "monthly_debts": Decimal(str(1800 + i * 100)),
@@ -708,6 +1280,7 @@ for i in range(4):
             "property_value": _property_value,
             "assigned_to": _lo_ref,
             "created_at": _created,
+            "updated_at": _created + timedelta(days=20 + i * 5),
             "financials": {
                 "gross_monthly_income": Decimal(str(5500 + i * 300)),
                 "monthly_debts": Decimal(str(2500 + i * 200)),

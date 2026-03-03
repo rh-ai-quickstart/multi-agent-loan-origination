@@ -1,22 +1,39 @@
-import { Logo } from "../logo/logo";
+// This project was developed with assistance from AI tools.
+
+import { Logo } from '../logo/logo';
 
 export function Footer() {
-  return (
-    <footer className="w-full border-t bg-background">
-      <div className="container mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 text-xs text-muted-foreground sm:px-6 lg:px-8">
-        <div className="flex items-center gap-0">
-          <Logo />
-          <span className="font-medium text-foreground">
-            <span className="font-bold">Summit Cap Financial</span>
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-muted-foreground">·</span>
-          <a className="hover:underline" href="https://github.com/rh-ai-quickstart/mortgage-ai" target="_blank" rel="noopener noreferrer">
-            GitHub
-          </a>
-        </div>
-      </div>
-    </footer>
-  );
+    const currentYear = new Date().getFullYear();
+
+    return (
+        <footer className="w-full bg-[#1e3a5f] text-white dark:bg-black">
+            <div className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6 lg:px-8">
+                <div className="flex flex-col items-start justify-between gap-8 sm:flex-row sm:items-center">
+                    {/* Brand */}
+                    <div className="flex items-center gap-2">
+                        <Logo />
+                        <span className="font-display text-base font-bold">Summit Cap Financial</span>
+                    </div>
+
+                    {/* Section links */}
+                    <div className="flex gap-8">
+                        <span className="text-sm font-semibold uppercase tracking-widest text-white/50">Products</span>
+                        <span className="text-sm font-semibold uppercase tracking-widest text-white/50">Company</span>
+                        <span className="text-sm font-semibold uppercase tracking-widest text-white/50">Support</span>
+                    </div>
+                </div>
+
+                {/* Bottom bar */}
+                <div className="mt-10 flex flex-col gap-2 border-t border-white/10 pt-8 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
+                    <p>
+                        &copy; {currentYear} Summit Cap Financial. All rights reserved.
+                        &nbsp;&nbsp;Equal Housing Lender.
+                    </p>
+                    <p className="italic">
+                        Summit Cap Financial is a fictional company created for demonstration purposes.
+                    </p>
+                </div>
+            </div>
+        </footer>
+    );
 }
