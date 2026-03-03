@@ -57,11 +57,11 @@ function TypingIndicator() {
 }
 
 export function ChatSidebar() {
-    const { chatPath, historyPath, user } = useAuth();
+    const { chatPath, historyPath, user, token } = useAuth();
     const appId = useCurrentAppId();
     const wsOptions = useMemo(
-        () => user ? { devUserId: user.user_id, devEmail: user.email, devName: user.name, appId } : undefined,
-        [user, appId],
+        () => user ? { token: token ?? undefined, devUserId: user.user_id, devEmail: user.email, devName: user.name, appId } : undefined,
+        [user, token, appId],
     );
     const { messages, isStreaming, isConnected, connectionError, sendMessage, connect } = useChat({ path: chatPath, historyPath: historyPath ?? undefined, wsOptions });
     const [input, setInput] = useState('');

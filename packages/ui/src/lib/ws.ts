@@ -17,6 +17,9 @@ export interface ChatWs {
 }
 
 export interface ConnectChatOptions {
+    /** JWT access token -- used when Keycloak is enabled */
+    token?: string;
+    /** Dev-mode identity fields (ignored when token is present) */
     devUserId?: string;
     devEmail?: string;
     devName?: string;
@@ -31,9 +34,15 @@ export function connectChat(
 ): ChatWs {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const params = new URLSearchParams();
-    if (options?.devUserId) params.set('dev_user_id', options.devUserId);
-    if (options?.devEmail) params.set('dev_email', options.devEmail);
-    if (options?.devName) params.set('dev_name', options.devName);
+    if (options?.token) {
+        // Keycloak mode: backend expects ?token=<jwt>
+        params.set('token', options.token);
+    } else {
+        // Dev mode: pass identity headers as query params
+        if (options?.devUserId) params.set('dev_user_id', options.devUserId);
+        if (options?.devEmail) params.set('dev_email', options.devEmail);
+        if (options?.devName) params.set('dev_name', options.devName);
+    }
     if (options?.appId) params.set('app_id', options.appId);
     const qs = params.toString();
     const url = `${protocol}//${window.location.host}${path}${qs ? `?${qs}` : ''}`;

@@ -1,6 +1,7 @@
 // This project was developed with assistance from AI tools.
 
 import { createFileRoute } from '@tanstack/react-router';
+import { useState, useRef, useCallback } from 'react';
 import {
     FileText,
     Upload,
@@ -14,10 +15,11 @@ import {
     Home,
     Info,
     CheckCircle2,
+    Loader2,
 } from 'lucide-react';
 import { useApplications } from '@/hooks/use-applications';
 import { useApplicationStatus } from '@/hooks/use-status';
-import { useDocuments, useCompleteness } from '@/hooks/use-documents';
+import { useDocuments, useCompleteness, useUploadDocument } from '@/hooks/use-documents';
 import { useConditions } from '@/hooks/use-conditions';
 import { useRateLock } from '@/hooks/use-rate-lock';
 import { formatCurrency, formatDate, formatDays, formatPercent } from '@/lib/format';
@@ -189,12 +191,38 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 function DocumentsCard({
     documents,
     completeness,
+    applicationId,
     isLoading,
 }: {
     documents: DocumentListResponse | undefined;
     completeness: CompletenessResponse | undefined;
+    applicationId: number | undefined;
     isLoading: boolean;
 }) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isDragOver, setIsDragOver] = useState(false);
+    const uploadMutation = useUploadDocument(applicationId);
+
+    const handleFileSelect = useCallback(
+        (file: File) => {
+            uploadMutation.mutate(
+                { file, documentType: 'other' },
+                { onSuccess: () => { if (fileInputRef.current) fileInputRef.current.value = ''; } },
+            );
+        },
+        [uploadMutation],
+    );
+
+    const handleDrop = useCallback(
+        (e: React.DragEvent) => {
+            e.preventDefault();
+            setIsDragOver(false);
+            const file = e.dataTransfer.files[0];
+            if (file) handleFileSelect(file);
+        },
+        [handleFileSelect],
+    );
+
     if (isLoading) {
         return (
             <CardShell>
@@ -263,10 +291,59 @@ function DocumentsCard({
                 <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
             )}
 
-            <div className="mt-4 flex items-center justify-center rounded-lg border-2 border-dashed border-slate-200 py-6 dark:border-slate-700">
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+                className="hidden"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileSelect(file);
+                }}
+            />
+
+            {uploadMutation.isError && (
+                <div className="mt-4 flex items-start gap-2 rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <p className="text-sm text-red-700 dark:text-red-400">
+                        {uploadMutation.error instanceof Error ? uploadMutation.error.message : 'Upload failed'}
+                    </p>
+                </div>
+            )}
+
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => !uploadMutation.isPending && fileInputRef.current?.click()}
+                onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && !uploadMutation.isPending) {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                    }
+                }}
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(true);
+                }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={handleDrop}
+                className={cn(
+                    'mt-4 flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed py-6 transition-colors',
+                    uploadMutation.isPending && 'pointer-events-none opacity-60',
+                    isDragOver
+                        ? 'border-[#1e3a5f] bg-[#1e3a5f]/5'
+                        : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600',
+                )}
+            >
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <Upload className="h-6 w-6" />
-                    <p className="text-sm">Drop files here or click to upload</p>
+                    {uploadMutation.isPending ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                        <Upload className="h-6 w-6" />
+                    )}
+                    <p className="text-sm">
+                        {uploadMutation.isPending ? 'Uploading...' : 'Drop files here or click to upload'}
+                    </p>
                 </div>
             </div>
         </CardShell>
@@ -569,6 +646,7 @@ function BorrowerDashboard() {
                         <DocumentsCard
                             documents={documentsQuery.data}
                             completeness={completenessQuery.data}
+                            applicationId={appId}
                             isLoading={isInitialLoading || documentsQuery.isLoading}
                         />
                         <ConditionsCard

@@ -1,6 +1,6 @@
 // This project was developed with assistance from AI tools.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Eye, EyeOff, X, Home, Briefcase, ClipboardCheck, BarChart3, Loader2 } from 'lucide-react';
 import { Logo } from '../components/logo/logo';
@@ -25,6 +25,14 @@ const PERSONAS: {
     { role: 'ceo', label: 'CEO', icon: BarChart3, bg: 'bg-[#1e3a5f]/10', text: 'text-[#1e3a5f]', hoverBg: 'hover:bg-[#1e3a5f]/20' },
 ];
 
+// Keycloak demo credentials (must match config/keycloak/summit-cap-realm.json)
+const KEYCLOAK_DEMO_USERS: Partial<Record<UserRole, { email: string; password: string }>> = {
+    borrower: { email: 'sarah.mitchell@example.com', password: 'demo' }, // #notsecret
+    loan_officer: { email: 'james.torres@summit-cap.com', password: 'demo' }, // #notsecret
+    underwriter: { email: 'maria.chen@summit-cap.com', password: 'demo' }, // #notsecret
+    ceo: { email: 'david.park@summit-cap.com', password: 'demo' }, // #notsecret
+};
+
 const ROLE_REDIRECTS: Record<UserRole, string> = {
     prospect: '/',
     borrower: '/borrower',
@@ -34,7 +42,7 @@ const ROLE_REDIRECTS: Record<UserRole, string> = {
 };
 
 function SignIn() {
-    const { signInWithCredentials } = useAuth();
+    const { signInWithCredentials, isAuthenticated, isKeycloak, isInitializing, user } = useAuth();
     const navigate = useNavigate();
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState('');
@@ -42,10 +50,35 @@ function SignIn() {
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
+    // When Keycloak SSO resolves and user is authenticated, redirect to their dashboard
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            const redirect = ROLE_REDIRECTS[user.role] ?? '/';
+            navigate({ to: redirect as never });
+        }
+    }, [isAuthenticated, user, navigate]);
+
+    // Show loading while Keycloak initializes
+    if (isInitializing) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[#1e3a5f]" />
+            </div>
+        );
+    }
+
     function handlePersonaClick(role: UserRole) {
-        const user = DEV_USERS[role];
-        setEmail(user.email);
-        setPassword('demo1234');
+        if (isKeycloak) {
+            const kcUser = KEYCLOAK_DEMO_USERS[role];
+            if (kcUser) {
+                setEmail(kcUser.email);
+                setPassword(kcUser.password);
+            }
+        } else {
+            const devUser = DEV_USERS[role];
+            setEmail(devUser.email);
+            setPassword('demo1234'); // #notsecret
+        }
         setError(null);
     }
 
@@ -55,9 +88,12 @@ function SignIn() {
         setIsLoading(true);
         try {
             await signInWithCredentials(email, password);
-            const match = Object.values(DEV_USERS).find((u) => u.email === email);
-            const redirect = match ? ROLE_REDIRECTS[match.role] : '/';
-            navigate({ to: redirect as never });
+            // useEffect above handles redirect once isAuthenticated + user are set
+            if (!isKeycloak) {
+                const match = Object.values(DEV_USERS).find((u) => u.email === email);
+                const redirect = match ? ROLE_REDIRECTS[match.role] : '/';
+                navigate({ to: redirect as never });
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Sign in failed');
         } finally {
