@@ -66,10 +66,9 @@ function SignIn() {
     }
 
     return (
-        <div className="flex min-h-screen w-full items-stretch justify-center bg-white dark:bg-background">
-          <div className="flex w-full max-w-[1280px] flex-row overflow-hidden lg:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1),-4px_0_12px_-4px_rgba(0,0,0,0.1)]">
-            {/* Left side: image + hero text */}
-            <div className="relative hidden w-[60%] flex-col justify-end overflow-hidden bg-[#1e3a5f] lg:flex">
+        <div className="flex min-h-screen w-full items-stretch bg-white dark:bg-background">
+            {/* Left side: image + hero text -- flows to left edge */}
+            <div className="relative hidden flex-1 flex-col justify-end overflow-hidden bg-[#1e3a5f] lg:flex">
                 <div
                     className="absolute inset-0 z-0 bg-cover bg-center opacity-40 mix-blend-overlay"
                     style={{ backgroundImage: 'url("/sign-in-bg.png")' }}
@@ -87,10 +86,10 @@ function SignIn() {
             </div>
 
             {/* Right side: sign-in form */}
-            <div className="flex w-full flex-col bg-white dark:bg-background lg:w-[40%]">
-                <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-12 lg:px-16">
+            <div className="flex w-full flex-col items-center justify-center px-6 py-12 lg:w-[480px] lg:shrink-0">
+                <div className="w-full max-w-[400px] rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-700 dark:bg-background sm:p-10">
                     {/* Logo + Close */}
-                    <div className="mb-12 flex items-center justify-between">
+                    <div className="mb-10 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <Logo />
                             <span className="text-xl font-bold tracking-tight text-[#1e3a5f] dark:text-foreground">
@@ -217,7 +216,6 @@ function SignIn() {
                     </div>
                 </div>
             </div>
-          </div>
         </div>
     );
 }

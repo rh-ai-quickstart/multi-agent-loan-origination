@@ -15,7 +15,7 @@ function AuthenticatedLayout() {
 
     useEffect(() => {
         if (!isAuthenticated) {
-            navigate({ to: '/sign-in' as never });
+            navigate({ to: '/' as never });
         }
     }, [isAuthenticated, navigate]);
 
