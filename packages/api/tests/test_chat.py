@@ -232,7 +232,11 @@ def test_rule_based_router_classifies_correctly():
     """Rule-based router handles simple patterns and long queries."""
     from src.inference.router import classify_query
 
-    assert classify_query("what is your rate?") == "fast_small"
+    # "rate" is a complex keyword, so it routes to capable_large
+    assert classify_query("what is your rate?") == "capable_large"
+    # Simple pattern "what is" matches without complex keywords
+    assert classify_query("what is my name?") == "fast_small"
+    # Long query exceeds max_query_words -> capable
     assert classify_query("I earn $95k and want to buy a $400k home with 10% down") == (
         "capable_large"
     )
