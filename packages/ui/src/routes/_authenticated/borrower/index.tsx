@@ -21,6 +21,7 @@ import { useApplications } from '@/hooks/use-applications';
 import { useApplicationStatus } from '@/hooks/use-status';
 import { useDocuments, useCompleteness, useUploadDocument } from '@/hooks/use-documents';
 import { useConditions } from '@/hooks/use-conditions';
+import { useDisclosures } from '@/hooks/use-disclosures';
 import { useRateLock } from '@/hooks/use-rate-lock';
 import { formatCurrency, formatDate, formatDays, formatPercent } from '@/lib/format';
 import { LOAN_TYPE_LABELS, STAGE_ORDER, APPLICATION_STAGE_LABELS, type ApplicationStage } from '@/schemas/enums';
@@ -28,6 +29,7 @@ import type { ApplicationResponse } from '@/schemas/applications';
 import type { ApplicationStatusResponse } from '@/schemas/status';
 import type { DocumentListResponse, CompletenessResponse } from '@/schemas/documents';
 import type { ConditionListResponse, Condition } from '@/schemas/conditions';
+import type { DisclosureStatusResponse, DisclosureItem } from '@/schemas/disclosures';
 import type { RateLockResponse } from '@/schemas/rate-lock';
 import { cn } from '@/lib/utils';
 
@@ -462,6 +464,78 @@ function ConditionsCard({
     );
 }
 
+function DisclosuresCard({
+    disclosures,
+    isLoading,
+}: {
+    disclosures: DisclosureStatusResponse | undefined;
+    isLoading: boolean;
+}) {
+    if (isLoading) {
+        return (
+            <CardShell>
+                <Skeleton className="mb-4 h-6 w-40" />
+                <Skeleton className="mb-2 h-10 w-full" />
+                <Skeleton className="mb-2 h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+            </CardShell>
+        );
+    }
+
+    const items = disclosures?.disclosures ?? [];
+    const allAcknowledged = disclosures?.all_acknowledged ?? false;
+
+    if (allAcknowledged) {
+        return (
+            <CardShell>
+                <h3 className="mb-4 text-base font-semibold text-foreground">Disclosures</h3>
+                <div className="flex flex-col items-center gap-2 py-4 text-muted-foreground">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                    <p className="text-sm">All disclosures acknowledged</p>
+                </div>
+            </CardShell>
+        );
+    }
+
+    return (
+        <CardShell>
+            <h3 className="mb-4 text-base font-semibold text-foreground">Disclosures</h3>
+            <div className="divide-y divide-border">
+                {items.map((item: DisclosureItem) => (
+                    <div key={item.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                        <div className="flex items-center gap-3">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm font-medium text-foreground">{item.label}</p>
+                                <p className="text-xs text-muted-foreground">{item.summary}</p>
+                            </div>
+                        </div>
+                        {item.acknowledged ? (
+                            <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    window.dispatchEvent(
+                                        new CustomEvent('chat-prefill', {
+                                            detail: {
+                                                message: `I'd like to review and acknowledge the ${item.label}`,
+                                                autoSend: true,
+                                            },
+                                        }),
+                                    );
+                                }}
+                                className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
+                                Review & Acknowledge
+                            </button>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </CardShell>
+    );
+}
+
 function RateLockCard({
     rateLock,
     isLoading,
@@ -628,6 +702,7 @@ function BorrowerDashboard() {
     const documentsQuery = useDocuments(appId);
     const completenessQuery = useCompleteness(appId);
     const conditionsQuery = useConditions(appId);
+    const disclosuresQuery = useDisclosures(appId);
     const rateLockQuery = useRateLock(appId);
 
     const isInitialLoading = applicationsQuery.isLoading;
@@ -652,6 +727,10 @@ function BorrowerDashboard() {
                         <ConditionsCard
                             conditions={conditionsQuery.data}
                             isLoading={isInitialLoading || conditionsQuery.isLoading}
+                        />
+                        <DisclosuresCard
+                            disclosures={disclosuresQuery.data}
+                            isLoading={isInitialLoading || disclosuresQuery.isLoading}
                         />
                     </div>
 
