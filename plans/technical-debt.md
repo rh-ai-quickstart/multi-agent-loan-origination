@@ -32,6 +32,12 @@ Cache-bust-on-kid-mismatch logic in `middleware/auth.py` has no automated test c
 
 `_apply_scope` in `services/application.py` is the core RBAC enforcement on data access. Needs integration tests with real DB.
 
+## UI / UX
+
+### Condition action clarity -- who needs to act?
+
+The borrower dashboard shows document completeness and underwriting conditions as independent sections. A condition like "Final title insurance commitment required" appears alongside "5/5 documents complete", which can confuse borrowers into thinking everything is done. The root issue is that conditions lack an `action_required_by` field to indicate who needs to act (borrower, title company, insurance provider, etc.). Adding this to the condition model would let the UI differentiate borrower-actionable conditions from third-party/informational ones, and optionally link document-type conditions to the upload flow.
+
 ## Deferred Features (out of MVP scope)
 
 ### F26: Agent Adversarial Defenses (4 stories deferred)

@@ -1,6 +1,8 @@
 // This project was developed with assistance from AI tools.
+/* eslint-disable react-refresh/only-export-components */
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { setAuthHeaderProvider } from '@/lib/api-client';
 
 export type UserRole = 'prospect' | 'borrower' | 'loan_officer' | 'underwriter' | 'ceo';
 
@@ -45,11 +47,23 @@ export const DEV_USERS: Record<UserRole, DevUser> = {
 };
 
 const STORAGE_KEY = 'summit-cap-dev-role';
+const TOKEN_KEY = 'summit-cap-token';
+
+const ROLE_CHAT_PATHS: Record<UserRole, string> = {
+    prospect: '/api/chat',
+    borrower: '/api/borrower/chat',
+    loan_officer: '/api/loan-officer/chat',
+    underwriter: '/api/underwriter/chat',
+    ceo: '/api/ceo/chat',
+};
 
 interface AuthContextValue {
     user: DevUser | null;
+    token: string | null;
     isAuthenticated: boolean;
+    chatPath: string;
     signIn: (role: UserRole) => void;
+    signInWithCredentials: (email: string, password: string) => Promise<void>;
     signOut: () => void;
     apiHeaders: () => Record<string, string>;
 }
@@ -68,6 +82,14 @@ function loadStoredRole(): UserRole | null {
     return null;
 }
 
+function loadStoredToken(): string | null {
+    try {
+        return localStorage.getItem(TOKEN_KEY);
+    } catch {
+        return null;
+    }
+}
+
 interface AuthProviderProps {
     children: ReactNode;
 }
@@ -77,6 +99,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const role = loadStoredRole();
         return role ? DEV_USERS[role] : null;
     });
+    const [token, setToken] = useState<string | null>(loadStoredToken);
 
     const signIn = useCallback((role: UserRole) => {
         const devUser = DEV_USERS[role];
@@ -88,16 +111,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     }, []);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const signInWithCredentials = useCallback(async (email: string, _password: string) => {
+        // Dev mode: lookup DEV_USERS by email
+        const match = Object.values(DEV_USERS).find((u) => u.email === email);
+        if (!match) {
+            throw new Error('Invalid email or password');
+        }
+        // In dev mode, just sign in with the matched role
+        signIn(match.role);
+        // When Keycloak is enabled, this would POST to the token endpoint:
+        // const resp = await fetch('/auth/realms/summit-cap/protocol/openid-connect/token', { ... })
+        // const { access_token } = await resp.json();
+        // setToken(access_token);
+        // localStorage.setItem(TOKEN_KEY, access_token);
+    }, [signIn]);
+
     const signOut = useCallback(() => {
         setUser(null);
+        setToken(null);
         try {
             localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(TOKEN_KEY);
         } catch {
             // localStorage unavailable
         }
     }, []);
 
     const apiHeaders = useCallback((): Record<string, string> => {
+        if (token) {
+            return { Authorization: `Bearer ${token}` };
+        }
         if (!user) return {};
         return {
             'X-Dev-Role': user.role,
@@ -105,10 +149,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
             'X-Dev-User-Email': user.email,
             'X-Dev-User-Name': user.name,
         };
-    }, [user]);
+    }, [user, token]);
+
+    // Keep the API client auth header provider in sync
+    useEffect(() => {
+        setAuthHeaderProvider(apiHeaders);
+    }, [apiHeaders]);
+
+    const chatPath = user ? ROLE_CHAT_PATHS[user.role] : '/api/chat';
 
     return (
-        <AuthContext.Provider value={{ user, isAuthenticated: user !== null, signIn, signOut, apiHeaders }}>
+        <AuthContext.Provider
+            value={{
+                user,
+                token,
+                isAuthenticated: user !== null && user.role !== 'prospect',
+                chatPath,
+                signIn,
+                signInWithCredentials,
+                signOut,
+                apiHeaders,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );

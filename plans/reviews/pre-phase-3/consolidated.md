@@ -1,0 +1,125 @@
+# Consolidated Review: Pre-Phase 3 Audit
+
+**Reviews consolidated:** api-designer.md, backend-developer.md, database-engineer.md, devops-engineer.md, project-manager.md, architect.md, performance-engineer.md, code-reviewer.md, frontend-developer.md, product-manager.md, debug-specialist.md, orchestrator.md, tech-lead.md, technical-writer.md, security-engineer.md, test-engineer.md
+**Date:** 2026-02-26
+**Verdicts:** N/A (pre-phase audit, not artifact review -- all reviewers provided findings without formal verdicts)
+
+## Summary
+
+- Total findings across all reviews: 298
+- De-duplicated findings: 78
+- Reviewer disagreements: 2
+- Breakdown: 14 Critical, 33 Warning, 24 Suggestion (Info), 7 Positive
+
+---
+
+## Critical (must fix before proceeding)
+
+| # | Finding | Flagged By | Location | Suggested Resolution | Disposition |
+|---|---------|-----------|----------|---------------------|-------------|
+| C-1 | **quality_flags parsed as CSV but stored as JSON** -- `condition.py:279` uses `.split(",")` on JSON-serialized arrays, producing malformed strings with embedded brackets. Seeder fixture also stores plain string instead of JSON. | Code Reviewer, Backend Dev, DB Engineer, Debug Specialist | `services/condition.py:279`, `seed/fixtures.py:203` | Change to `json.loads()` with fallback; fix seeder to use `json.dumps(["partially_illegible"])` | _pending_ |
+| C-2 | **No application state machine enforcement** -- `update_application()` accepts any `stage` value without validating transitions. Any role with write access can set any stage, bypassing lending lifecycle invariants. Phase 3 LO submission flow depends on this. | Project Manager, Product Manager, Tech Lead, Security Eng | `services/application.py:122-150` | Implement `VALID_TRANSITIONS` map and `transition_stage()` service function. Remove `stage` from `_UPDATABLE_FIELDS`. | _pending_ |
+| C-3 | **No LO assistant agent, tools, or WebSocket endpoint** -- Agent registry has only public-assistant and borrower-assistant. No LO config YAML, no LO tools file, no `/ws/loan-officer/chat`. This is the core Phase 3 deliverable. | Project Manager, Product Manager | `agents/registry.py`, `config/agents/`, `routes/` | Phase 3 must include: LO agent module, YAML config, tools file, WebSocket route, registry entry. | _pending_ |
+| C-4 | **Synchronous JWKS fetch blocks async event loop** -- `_fetch_jwks()` uses sync `httpx.get()` inside async middleware chain, blocking all concurrent requests for up to 5 seconds. | Backend Dev, Debug Specialist, Orchestrator | `middleware/auth.py:36` | Switch to `httpx.AsyncClient` or use `asyncio.to_thread()`. Requires making `_fetch_jwks`, `_get_jwks`, `_get_signing_key` async. | _pending_ |
+| C-5 | **Application.financials relationship is `uselist=False` but schema supports per-borrower financials** -- `app.financials` silently returns only one row when co-borrower financials exist. Phase 3 LO needs all borrowers' financial data. | DB Engineer, Orchestrator, Tech Lead, Code Reviewer, Debug Specialist | `db/models.py:91-93` | Change to `uselist=True` and update all callers (`intake.py:288,397,406`). | _pending_ |
+| C-6 | **AUTH_DISABLED defaults to true in compose.yml** -- Default local deployment runs with all auth/authz disabled. If used as basis for staging/demo without override, entire app is open. | Security Engineer | `compose.yml:91` | Change default to `false`: `AUTH_DISABLED: "${AUTH_DISABLED:-false}"` | _pending_ |
+| C-7 | **SSN stored as plaintext** -- Column named `ssn_encrypted` but `_identity` converter passes value through unchanged. Database stores cleartext SSNs. | Security Eng, Orchestrator | `db/models.py:49`, `services/intake.py:127` | Implement AES-256-GCM encryption with KMS key, or at minimum hash+last4. Rename column if encryption is deferred. | _pending_ |
+| C-8 | **SQLAdmin default credentials admin/admin** -- Panel accessible at `/admin` with trivially guessable credentials when auth is enabled. Full CRUD access to all tables. | Security Engineer | `core/config.py:59-66` | Remove defaults; require explicit env vars. Fail startup if not set when `AUTH_DISABLED=false`. | _pending_ |
+| C-9 | **No RFC 7807 error responses** -- All endpoints use bare `HTTPException(detail="...")`. No `type`, `title`, `status`, or `request_id` fields. Contradicts documented API conventions. | API Designer, Architect | All route files | Implement global exception handler producing RFC 7807 responses. Define `ErrorResponse` schema. | _pending_ |
+| C-10 | **Safety shields fail-open on errors** -- Both `check_input` and `check_output` return `is_safe=True` on any exception, allowing safety bypass via triggering model failures. | Security Engineer | `inference/safety.py:161-163,176-179` | Implement fail-closed for input shield. Add circuit-breaker for repeated failures. | _pending_ |
+| C-11 | **Root README describes template, not mortgage application** -- Opens with "A ready-made template for creating new AI Quickstarts". No mention of Summit Cap, mortgage domain, five personas, or actual functionality. | Technical Writer | `README.md` | Rewrite to reflect actual project. | _pending_ |
+| C-12 | **No `.env.example` file** -- 27+ settings across 7 groups with no single reference. Developer cloning repo has no idea what to configure. | Technical Writer, DevOps Engineer | Project root (missing) | Create `.env.example` with all variables, grouped, commented, with defaults noted. | _pending_ |
+| C-13 | **Test tool_auth tests replicate logic instead of testing actual code** -- Three async tests manually reimplement auth check logic rather than invoking real `tool_auth` node. Tests pass regardless of production code changes. | Test Engineer | `tests/test_tool_auth.py:104-193` | Rewrite to invoke actual tool_auth function with test state objects. | _pending_ |
+| C-14 | **Frontend has virtually no test coverage** -- Only 1 test file (hero.test.tsx) with 2 trivial assertions. Zero tests for hooks, services, routing, state, forms, or interactive behavior. | Test Engineer | `packages/ui/src/` | Add smoke tests for routes, hook tests, utility function tests. | _pending_ |
+
+---
+
+## Warning (should fix)
+
+| # | Finding | Flagged By | Location | Suggested Resolution | Disposition |
+|---|---------|-----------|----------|---------------------|-------------|
+| W-1 | **Borrower tools create independent DB sessions, bypassing request transaction** -- Each tool creates its own `SessionLocal()`. Writes from different tools are not atomic. Audit events committed independently. Pattern will proliferate to LO tools. | Architect, Tech Lead, Backend Dev, DB Engineer, Orchestrator, Perf Eng | `agents/borrower_tools.py` (12 locations) | Pass session through graph state or contextvar. At minimum document as intentional design decision. | _pending_ |
+| W-2 | **verify_audit_chain loads entire audit_events table into memory** -- O(N) memory, grows unboundedly. Admin-accessible endpoint becomes DoS vector at scale. | Backend Dev, DB Engineer, Perf Eng, Code Reviewer | `services/audit.py:97-99` | Implement batched/streaming verification (1000 rows at a time), carry forward prev_hash. | _pending_ |
+| W-3 | **N+1 query in check_condition_documents** -- Separate query per document for extractions. | DB Engineer, Perf Eng | `services/condition.py:262-271` | Use `selectinload(Document.extractions)` on initial query. | _pending_ |
+| W-4 | **Missing index on AuditEvent.session_id** -- Session-based queries do full table scans on append-only table. | DB Engineer, Perf Eng | `db/models.py:323` | Add `index=True` to `session_id` column. | _pending_ |
+| W-5 | **Enum comparison inconsistency (.value vs enum member)** -- Some code uses `ConditionStatus.CLEARED.value` (string), some uses `ConditionStatus.OPEN` (enum). Fragile for future changes. | DB Engineer, Code Reviewer | `status.py:138`, `condition.py:61`, `completeness.py:246` | Standardize on enum members everywhere. | _pending_ |
+| W-6 | **Agent registry uses hardcoded if/elif dispatch** -- Adding new agents requires modifying `_build_graph()`. Contradicts "configuration-driven extensibility" architecture principle. | Architect, Tech Lead | `agents/registry.py:34-44` | Switch to convention-based lookup (importlib) or registration dict. | _pending_ |
+| W-7 | **Dual LLM config systems** -- `core/config.py` Settings has LLM fields; `inference/config.py` loads `models.yaml`. Agent path uses YAML. Settings fields are effectively dead code. | Architect | `core/config.py:83-98`, `inference/config.py` | Choose one authoritative config path; remove the other or link them. | _pending_ |
+| W-8 | **PII masking is route-level ad-hoc, not middleware** -- Manual `if pii_mask` checks in each route handler. Missing from documents, conditions, rate locks, and all agent tools. | Architect, Tech Lead | `routes/applications.py:81-87`, `middleware/pii.py` | Implement as FastAPI response middleware for automatic coverage. | _pending_ |
+| W-9 | **WebSocket has no message size, rate, or connection limits** -- `ws.receive_text()` in infinite loop with no constraints. DoS vector via memory exhaustion, CPU exhaustion, cost amplification. | Security Eng, Orchestrator, Architect | `routes/_chat_handler.py:134` | Add message size limit (~10KB), rate limit (10/min), idle timeout (30min), connection limit. | _pending_ |
+| W-10 | **No rate limiting on any API endpoint** -- Public endpoints fully unauthenticated/unthrottled. Brute-force, enumeration, and cost amplification attacks possible. | Security Engineer | `main.py` (entire app) | Add rate limiting middleware (e.g., `slowapi`). | _pending_ |
+| W-11 | **Filename from upload not sanitized** -- `build_object_key` uses raw `file.filename` from user upload without stripping path traversal chars. | Security Eng, Debug Specialist | `services/storage.py:108-110` | Use `os.path.basename(filename)` or generate UUID-based names. | _pending_ |
+| W-12 | **API Containerfile installs dev dependencies in production image** -- `uv pip install -e .[dev]` installs pytest, ruff, mypy into runtime image. ~100MB bloat + attack surface. | DevOps Engineer | `packages/api/Containerfile:21` | Install only production deps: `uv pip install -e .` (no `[dev]`). | _pending_ |
+| W-13 | **Unpinned base images (llamastack:latest, minio:latest)** -- Can break without warning on upstream push. | DevOps Engineer | `compose.yml:159,212` | Pin to specific version tags. | _pending_ |
+| W-14 | **Makefile auto-detects Docker over Podman** -- Detection order contradicts project mandate. | DevOps Engineer | `Makefile:15` | Reverse detection to prefer `podman-compose` first. | _pending_ |
+| W-15 | **Helm chart missing MinIO, Keycloak, LLM, LangFuse services** -- Only API, UI, PostgreSQL defined. API deployment also missing required env vars. | DevOps Engineer | `deploy/helm/summit-cap/` | Add templates or document external provisioning. Add all required env vars. | _pending_ |
+| W-16 | **VITE_* env vars injected at runtime have no effect on static build** -- Vite bakes values at build time. Runtime env vars in nginx container are ignored. | DevOps Engineer | `deploy/helm/summit-cap/templates/ui-deployment.yaml:32-41` | Implement runtime config injection (e.g., `config.js` generated at startup). | _pending_ |
+| W-17 | **Health check path mismatch** -- Helm uses `/health`, FastAPI serves `/health/`. 307 redirect causes probe failures. | DevOps Engineer | `deploy/helm/values.yaml:62`, `main.py:50` | Change Helm path to `/health/` or handle both in FastAPI. | _pending_ |
+| W-18 | **Pre-Phase 3 technical debt items still open** -- D2 (WS rate limits), D7 (unbounded history), D8 (verify_aud disabled), D16 (agent registry stat), D17 (fragile paths), D18 (DB config divergence). | Project Manager, Product Manager | `plans/technical-debt.md` | Address D2 and D7 at minimum before Phase 3. | _pending_ |
+| W-19 | **HMDA CI lint check not in CI** -- Script exists (`lint-hmda-isolation.sh`) but not integrated into CI pipeline or pre-commit. | Project Manager, Architect | `scripts/lint-hmda-isolation.sh` | Add to CI workflow and/or `lint` Makefile target. | _pending_ |
+| W-20 | **Duplicate SSN masking implementations** -- `pii.py:mask_ssn` and `intake.py:_mask_ssn` use different approaches. | Code Reviewer | `middleware/pii.py:12-20`, `services/intake.py:338-345` | Delete `_mask_ssn` from intake.py, import from pii.py. | _pending_ |
+| W-21 | **`build_graph` fully duplicated between public and borrower assistants** -- 30+ lines of boilerplate copied verbatim. Phase 3 will make it 3+ copies. | Code Reviewer, Tech Lead | `agents/public_assistant.py:19-50`, `agents/borrower_assistant.py:38-85` | Extract shared `build_agent_graph()` factory in `base.py`. | _pending_ |
+| W-22 | **Repeated application scope-check boilerplate** -- Same 8-line block copy-pasted 8+ times across condition, rate_lock, status, completeness services. | Code Reviewer, Tech Lead, Perf Eng | `services/condition.py`, `rate_lock.py`, `status.py`, `completeness.py` | Extract `verify_application_access()` helper. | _pending_ |
+| W-23 | **disclosure_status tool does not enforce data scope** -- Queries audit events by application_id without verifying user access. Only tool that skips the access check. | Code Reviewer, Debug Specialist | `agents/borrower_tools.py:310-351`, `services/disclosure.py:55-97` | Add data scope verification to `get_disclosure_status()`. | _pending_ |
+| W-24 | **_TERMINAL_STAGES defined twice with different types** -- `intake.py` uses enum members, `status.py` uses `.value` strings. | Code Reviewer | `services/intake.py:27-31`, `services/status.py:90-94` | Define once in `db/enums.py` and import. | _pending_ |
+| W-25 | **asyncio.create_task for extraction without reference retention** -- Fire-and-forget task. Exceptions silently lost, server shutdown kills running extractions, zombie PROCESSING documents. | Code Reviewer, Architect, Orchestrator, Debug Specialist | `routes/documents.py:98` | Store task reference, add done_callback, drain on shutdown. | _pending_ |
+| W-26 | **Architecture doc references non-existent file paths** -- `summit_cap/` paths, ADR directory, config files that don't exist. Also says "PoC maturity" but project is "MVP". | Technical Writer | `plans/architecture.md` | Update paths and maturity references to match reality. | _pending_ |
+| W-27 | **Interface contracts incomplete for Phase 2 routes** -- Only Phase 1 routes documented. All Phase 2 routes (applications CRUD, documents, conditions, rate locks, disclosures, conversation history) have no contract. | Technical Writer, API Designer | `plans/interface-contracts-phase-1.md` | Create Phase 2 interface contracts or extend Phase 1 document. | _pending_ |
+| W-28 | **API README is template boilerplate** -- Describes generic FastAPI with "users" examples. No mention of actual routes, services, agents, or middleware. | Technical Writer | `packages/api/README.md` | Rewrite to document actual project structure. | _pending_ |
+| W-29 | **No WebSocket protocol documentation** -- Connection setup, auth, message format, streaming behavior undocumented for frontend developers. | Technical Writer | Missing doc | Add WS protocol section to API README or standalone doc. | _pending_ |
+| W-30 | **Frontend: Hero still shows template text, test asserts on stale text** -- "Welcome to the AI QuickStart Template!" not updated to Summit Cap. | Frontend Dev | `components/hero/hero.tsx:12-15`, `hero.test.tsx` | Update copy and tests. | _pending_ |
+| W-31 | **Frontend: Duplicate packages in deps and devDeps, react in devDeps only** -- Confusing and can cause version conflicts. | Frontend Dev | `packages/ui/package.json` | Deduplicate; move react/react-dom to dependencies. | _pending_ |
+| W-32 | **Frontend: No error boundary, devtools in prod, no loading/error states** -- Unhandled render errors crash to white screen. Router devtools leak internals in prod. | Frontend Dev | `main.tsx`, `__root.tsx`, `routes/index.tsx` | Add error boundary, conditional devtools, loading/error handling. | _pending_ |
+| W-33 | **Frontend: Missing AI assistance comment in most source files** -- Per Red Hat policy, all AI-assisted files need the comment. Only `lib/utils.ts` has it. | Frontend Dev | All `.tsx/.ts` files | Add `// This project was developed with assistance from AI tools.` to all files. | _pending_ |
+
+---
+
+## Reviewer Disagreements
+
+| # | Issue | Location | Reviewer A | Reviewer B | Disposition |
+|---|-------|----------|-----------|-----------|-------------|
+| D-1 | **Audit chain verification severity** -- Is loading all events Critical or Warning? | `services/audit.py:97-99` | Performance Eng: Critical (DoS vector) | Backend Dev, DB Engineer, Code Reviewer: Warning (admin-only, grows slowly at MVP) | _pending_ |
+| D-2 | **N+1 condition query severity** | `services/condition.py:262-271` | Performance Eng: Critical | DB Engineer: Warning | _pending_ |
+
+---
+
+## Suggestions (improve if approved)
+
+| # | Finding | Flagged By | Location | Suggested Resolution | Disposition |
+|---|---------|-----------|----------|---------------------|-------------|
+| S-1 | **JSON field naming uses snake_case instead of camelCase** -- Convention says camelCase but all 50+ fields use snake_case. Either update code or update rule. | API Designer | All schema files | Update `api-conventions.md` to codify snake_case as project standard (more pragmatic). | _pending_ |
+| S-2 | **List endpoints use `count` instead of `pagination` object** -- No `has_more`, `nextCursor`, or pagination state in responses. | API Designer | Schema files | Add `Pagination` schema with `total`, `offset`, `limit`, `has_more`. | _pending_ |
+| S-3 | **Verb in URL paths** -- `calculate-affordability` and `collect` use verbs. | API Designer | `routes/public.py:20`, `routes/hmda.py:16` | Rename to noun-based: `/affordability-estimates`, `/demographics`. | _pending_ |
+| S-4 | **WebSocket protocol lacks version field** -- No way to negotiate protocol changes. Important since frontend is replaceable. | API Designer | `routes/_chat_handler.py` | Add `"v": 1` to messages or document protocol version. | _pending_ |
+| S-5 | **Date/time fields use `str` instead of `datetime`** -- No format validation or consistent serialization. | API Designer | `schemas/admin.py:12`, `schemas/rate_lock.py:13-14`, `schemas/condition.py:16` | Change to `datetime` type for ISO 8601 serialization. | _pending_ |
+| S-6 | **Document routes have inconsistent URL nesting** -- Mixes `/api/applications/{id}/documents` and `/api/documents/{id}`. | API Designer | `routes/documents.py`, `main.py:55` | Choose one strategy (nested or top-level) for all doc endpoints. | _pending_ |
+| S-7 | **`GET /documents/{id}` returns union type** -- `response_model` is `DocumentResponse | DocumentDetailResponse`. Confusing for clients and code generators. | API Designer | `routes/documents.py:129` | Return single `DocumentDetailResponse` with nullable `file_path`. Mask per role. | _pending_ |
+| S-8 | **Inconsistent response envelope patterns** -- Three different patterns: data+count, data-only, raw object/dict. | Code Reviewer, API Designer | Multiple routes | Standardize on documented envelope pattern. | _pending_ |
+| S-9 | **`callable` used as type annotation instead of `Callable`** -- Built-in function, not a type. Static checkers flag it. | Backend Dev, Code Reviewer | `services/intake.py:117`, `services/intake_validation.py:173` | Replace with `Callable` from `collections.abc`. | _pending_ |
+| S-10 | **Synchronous blocking in StorageService.__init__ at startup** -- Synchronous boto3 calls in async lifespan. | Backend Dev | `services/storage.py:54` | Wrap `_ensure_bucket()` in `asyncio.to_thread()`. | _pending_ |
+| S-11 | **download_file reads Body synchronously in executor callback** -- StreamingBody.read() called outside executor. | Backend Dev | `services/storage.py:91` | Move entire download+read into executor callback. | _pending_ |
+| S-12 | **Extraction service uses synchronous pymupdf in async context** -- CPU-bound PDF parsing blocks event loop. | Backend Dev | `services/extraction.py:175-204` | Wrap pymupdf calls in `asyncio.to_thread()`. | _pending_ |
+| S-13 | **Extraction pipeline only uses first page of scanned PDFs** -- Renders ALL pages but only sends `images[0]` to LLM. Wastes CPU and memory. | Perf Eng | `services/extraction.py:169-173` | Only render first page: `page = pdf[0]; pix = page.get_pixmap()`. | _pending_ |
+| S-14 | **Conversation service uses single psycopg connection for all checkpoints** -- Not pool-managed. Under load, becomes bottleneck. | Architect, Orchestrator | `services/conversation.py:73` | Use `AsyncConnectionPool` instead of single connection. | _pending_ |
+| S-15 | **_build_data_scope is private but used across module boundaries** -- Underscore prefix but imported by 3 modules. | Code Reviewer, Orchestrator | `middleware/auth.py:136`, `_chat_handler.py:17`, `borrower_tools.py:18` | Rename to `build_data_scope` (remove underscore). | _pending_ |
+| S-16 | **Shared mutable _DISABLED_USER object returned for all AUTH_DISABLED requests** -- Nested DataScope is mutable. Mutation by any code path affects all requests. | Debug Specialist | `middleware/auth.py:156-162` | Freeze `DataScope` or return fresh `UserContext` each time. | _pending_ |
+| S-17 | **`_user_context_from_state` fabricates email and name from user_id** -- LO `draft_communication` tool needs real LO name for signature. | Tech Lead, Architect, Code Reviewer | `agents/borrower_tools.py:46-57` | Propagate `user_email` and `user_name` through `AgentState`. | _pending_ |
+| S-18 | **ApplicationBorrower junction table missing unique primary borrower constraint** -- No DB-level enforcement of exactly one `is_primary=True` per application. | DB Engineer | `db/models.py:112-137` | Add partial unique index: `CREATE UNIQUE INDEX ... WHERE is_primary = true`. | _pending_ |
+| S-19 | **RateLock.locked_rate uses Float instead of Numeric** -- IEEE 754 cannot exactly represent rates like 6.375%. Also applies to DTI ratios. | DB Engineer | `db/models.py:180` | Change to `Numeric(5,4)` for rates and ratios. | _pending_ |
+| S-20 | **Config path resolution uses brittle `parents[4]` magic number** -- Three modules hardcode directory depth. | Orchestrator, Backend Dev | `core/config.py:15`, `inference/config.py:25`, `agents/registry.py:20` | Define `PROJECT_ROOT` once in `core/config.py` and import everywhere. | _pending_ |
+| S-21 | **SSN column named "ssn_encrypted" but stores plaintext** -- Misleads developers into thinking data is protected. | Orchestrator | `db/models.py:49` | Either implement encryption or rename column to `ssn`. | _pending_ |
+| S-22 | **Document upload no rollback on S3/DB failure** -- S3 upload succeeds but commit fails = orphaned S3 object. Commit succeeds but S3 fails = DB record with no file. | DB Engineer, Debug Specialist | `services/document.py:166-176` | Add compensating actions: delete S3 on commit failure, rollback on S3 failure. | _pending_ |
+| S-23 | **Service functions return raw dicts instead of typed models** -- Implicit dict shapes documented only by reading implementation. | Tech Lead | `services/condition.py`, `services/rate_lock.py`, `services/intake.py` | Define Pydantic response models or TypedDict for service returns. | _pending_ |
+| S-24 | **No application-scoped conversation threading** -- Thread ID is `user:{id}:agent:{name}`. LO managing multiple apps has one conversation across all. | Tech Lead | `services/conversation.py:100-113` | Extend thread ID: `user:{id}:agent:{name}:app:{app_id}`. | _pending_ |
+
+---
+
+## Positive (no action needed)
+
+- **Clean separation between routes, services, and agents** -- Codebase is well-structured with clear layering. Code Reviewer noted this as an overall strength.
+- **Data scope filtering correctly implemented** -- RBAC data scope for borrowers and loan officers works correctly in middleware and scope service. Project Manager and Tech Lead confirmed correctness.
+- **Audit hash chain integrity** -- append-only trigger, advisory lock serialization, and hash chain verification logic are correctly implemented. The performance concerns are valid but the correctness is solid. DB Engineer confirmed.
+- **Phase 1 and 2 stories substantially complete at backend API level** -- 564 tests passing, 34 Phase 2 stories merged. Project Manager verified completeness.
+- **HMDA data isolation implemented correctly** -- Separate sessions, separate roles, lint check script, no cross-references in application code. Architect and DB Engineer confirmed.
+- **Document extraction pipeline functional** -- Text extraction, vision OCR fallback, field extraction, quality flags, HMDA routing all working. Test Engineer confirmed integration tests pass.
+- **Keycloak realm config correctly defines all five personas** -- borrower, loan_officer, underwriter, ceo, admin roles and demo users present. Security Engineer confirmed (with password strength caveat noted in findings).

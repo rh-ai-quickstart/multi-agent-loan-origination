@@ -25,16 +25,28 @@ export function useChat({ path }: UseChatOptions) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isStreaming, setIsStreaming] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
+    const [connectionError, setConnectionError] = useState<string | null>(null);
     const wsRef = useRef<ChatWs | null>(null);
     const streamBufferRef = useRef('');
     const currentToolCallsRef = useRef<ToolCall[]>([]);
+    const mountedRef = useRef(true);
 
     const connect = useCallback(() => {
         if (wsRef.current && wsRef.current.readyState() === WebSocket.OPEN) return;
 
+        // Close any previous connection cleanly
+        if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+
+        setConnectionError(null);
+
         const ws = connectChat(
             path,
             (msg: WsMessage) => {
+                if (!mountedRef.current) return;
+
                 switch (msg.type) {
                     case 'token':
                         streamBufferRef.current += msg.content ?? '';
@@ -46,7 +58,6 @@ export function useChat({ path }: UseChatOptions) {
                                     { ...last, content: streamBufferRef.current },
                                 ];
                             }
-                            // First token -- create new assistant message
                             return [
                                 ...prev,
                                 {
@@ -86,7 +97,6 @@ export function useChat({ path }: UseChatOptions) {
                                 if (currentToolCallsRef.current.length > 0) {
                                     updated.toolCalls = [...currentToolCallsRef.current];
                                 }
-                                // Remove streaming marker
                                 delete (updated as Record<string, unknown>)['_streaming'];
                                 return [...prev.slice(0, -1), updated];
                             }
@@ -98,7 +108,6 @@ export function useChat({ path }: UseChatOptions) {
                         break;
 
                     case 'safety_override':
-                        // Output shield replaced the response
                         setMessages((prev) => {
                             const last = prev[prev.length - 1];
                             if (last?.role === 'assistant') {
@@ -120,15 +129,21 @@ export function useChat({ path }: UseChatOptions) {
                         break;
 
                     case 'error':
-                        setMessages((prev) => [
-                            ...prev,
-                            {
-                                id: crypto.randomUUID(),
-                                role: 'assistant',
-                                content: msg.content ?? 'An error occurred.',
-                                timestamp: new Date(),
-                            },
-                        ]);
+                        // Connection-level errors go to connectionError state,
+                        // server-sent errors go to messages
+                        if (msg.content === 'WebSocket connection failed') {
+                            setConnectionError(msg.content);
+                        } else {
+                            setMessages((prev) => [
+                                ...prev,
+                                {
+                                    id: crypto.randomUUID(),
+                                    role: 'assistant',
+                                    content: msg.content ?? 'An error occurred.',
+                                    timestamp: new Date(),
+                                },
+                            ]);
+                        }
                         streamBufferRef.current = '';
                         currentToolCallsRef.current = [];
                         setIsStreaming(false);
@@ -136,15 +151,17 @@ export function useChat({ path }: UseChatOptions) {
                 }
             },
             () => {
-                setIsConnected(false);
+                if (mountedRef.current) {
+                    setIsConnected(false);
+                }
             },
         );
 
         wsRef.current = ws;
-        // Poll briefly for open state
         const check = setInterval(() => {
             if (ws.readyState() === WebSocket.OPEN) {
                 setIsConnected(true);
+                setConnectionError(null);
                 clearInterval(check);
             }
             if (ws.readyState() === WebSocket.CLOSED) {
@@ -164,7 +181,6 @@ export function useChat({ path }: UseChatOptions) {
             if (!content.trim()) return;
             if (!wsRef.current || wsRef.current.readyState() !== WebSocket.OPEN) {
                 connect();
-                // Retry once after brief delay
                 setTimeout(() => {
                     wsRef.current?.send(content);
                 }, 500);
@@ -188,9 +204,10 @@ export function useChat({ path }: UseChatOptions) {
         [connect],
     );
 
-    // Cleanup on unmount
     useEffect(() => {
+        mountedRef.current = true;
         return () => {
+            mountedRef.current = false;
             wsRef.current?.close();
         };
     }, []);
@@ -199,6 +216,7 @@ export function useChat({ path }: UseChatOptions) {
         messages,
         isStreaming,
         isConnected,
+        connectionError,
         sendMessage,
         connect,
         disconnect,

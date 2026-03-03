@@ -13,7 +13,7 @@ import uuid
 import jwt as pyjwt
 from db.enums import UserRole
 from fastapi import APIRouter, Depends, WebSocket
-from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage
 
 from ..agents.registry import get_agent
 from ..core.auth import build_data_scope
@@ -154,6 +154,7 @@ async def run_agent_stream(
     use_checkpointer: bool,
     messages_fallback: list | None,
     pii_mask: bool = False,
+    system_context: str = "",
 ) -> None:
     """Run the agent streaming loop over an accepted WebSocket.
 
@@ -170,6 +171,8 @@ async def run_agent_stream(
         use_checkpointer: Whether checkpoint persistence is active.
         messages_fallback: Mutable list for local message tracking when
             checkpointer is unavailable. Pass ``None`` when using checkpointer.
+        system_context: Optional context string injected as a system message
+            before the first user message (e.g. application IDs).
     """
     from db.database import SessionLocal
 
@@ -209,9 +212,16 @@ async def run_agent_stream(
 
             user_text = data["content"]
 
+            # Inject system context once on the first message of the conversation
+            context_msgs: list = []
+            if system_context:
+                context_msgs = [SystemMessage(content=system_context)]
+                system_context = ""  # Only inject once
+
             if use_checkpointer:
-                input_messages = [HumanMessage(content=user_text)]
+                input_messages = context_msgs + [HumanMessage(content=user_text)]
             else:
+                messages_fallback.extend(context_msgs)
                 messages_fallback.append(HumanMessage(content=user_text))
                 input_messages = messages_fallback
 
@@ -330,6 +340,36 @@ async def run_agent_stream(
         flush_langfuse()
 
 
+async def _build_application_context(user: UserContext) -> str:
+    """Look up the user's applications and return a context string for the agent."""
+    from db.database import SessionLocal
+
+    from ..services.application import list_applications
+
+    try:
+        async with SessionLocal() as session:
+            apps, total = await list_applications(session, user, limit=5)
+    except Exception:
+        logger.warning("Failed to load application context for %s", user.user_id)
+        return ""
+
+    if not apps:
+        return ""
+
+    # Pick the most advanced application as the primary one
+    primary = apps[0]
+    stage = primary.stage.value.replace("_", " ").title()
+    loan = f"${primary.loan_amount:,.0f}" if primary.loan_amount else "amount not set"
+    addr = primary.property_address or "no address"
+
+    return (
+        f"[System context] The user's primary application is #{primary.id} "
+        f"({stage}, {loan}, {addr}). "
+        f"Use application_id={primary.id} for all tool calls. "
+        "Do NOT ask the user for their application ID."
+    )
+
+
 def create_authenticated_chat_router(
     role: UserRole,
     agent_name: str,
@@ -382,6 +422,9 @@ def create_authenticated_chat_router(
         # Always use checkpointer when available; fallback to local list
         messages_fallback: list | None = [] if not use_checkpointer else None
 
+        # Build application context for authenticated agents
+        system_context = await _build_application_context(user)
+
         await run_agent_stream(
             ws,
             graph,
@@ -394,6 +437,7 @@ def create_authenticated_chat_router(
             use_checkpointer=use_checkpointer,
             messages_fallback=messages_fallback,
             pii_mask=getattr(user.data_scope, "pii_mask", False),
+            system_context=system_context,
         )
 
     @router.get(

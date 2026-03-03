@@ -1,3 +1,6 @@
+// This project was developed with assistance from AI tools.
+/* eslint-disable react-refresh/only-export-components */
+
 /**
  * Test utilities for React component testing
  *

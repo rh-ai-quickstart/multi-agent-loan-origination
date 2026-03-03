@@ -55,6 +55,31 @@ def _user_context_from_state(state: dict):
 
 
 @tool
+async def list_my_applications(
+    state: Annotated[dict, InjectedState],
+) -> str:
+    """List the borrower's mortgage applications. Use this to discover the borrower's application IDs before calling other tools that require an application_id."""
+    user = _user_context_from_state(state)
+    async with SessionLocal() as session:
+        apps, total = await app_service.list_applications(session, user, limit=10)
+
+    if total == 0:
+        return "You don't have any mortgage applications yet. Would you like to start one?"
+
+    lines = [f"You have {total} application(s):"]
+    for app in apps:
+        stage = format_enum_label(app.stage.value)
+        loan_amt = f"${app.loan_amount:,.0f}" if app.loan_amount else "not set"
+        addr = app.property_address or "no address"
+        lines.append(f"  Application #{app.id}: {stage}, loan {loan_amt}, {addr}")
+
+    if total == 1:
+        lines.append(f"\nYour active application ID is {apps[0].id}.")
+
+    return "\n".join(lines)
+
+
+@tool
 async def document_completeness(
     application_id: int,
     state: Annotated[dict, InjectedState],

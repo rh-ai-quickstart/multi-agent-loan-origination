@@ -10,11 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedUnderwriterIndexRouteImport } from './routes/_authenticated/underwriter/index'
+import { Route as AuthenticatedLoanOfficerIndexRouteImport } from './routes/_authenticated/loan-officer/index'
+import { Route as AuthenticatedCeoIndexRouteImport } from './routes/_authenticated/ceo/index'
+import { Route as AuthenticatedBorrowerIndexRouteImport } from './routes/_authenticated/borrower/index'
 
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -22,30 +31,81 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedUnderwriterIndexRoute =
+  AuthenticatedUnderwriterIndexRouteImport.update({
+    id: '/underwriter/',
+    path: '/underwriter/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedLoanOfficerIndexRoute =
+  AuthenticatedLoanOfficerIndexRouteImport.update({
+    id: '/loan-officer/',
+    path: '/loan-officer/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCeoIndexRoute = AuthenticatedCeoIndexRouteImport.update({
+  id: '/ceo/',
+  path: '/ceo/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedBorrowerIndexRoute =
+  AuthenticatedBorrowerIndexRouteImport.update({
+    id: '/borrower/',
+    path: '/borrower/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/borrower/': typeof AuthenticatedBorrowerIndexRoute
+  '/ceo/': typeof AuthenticatedCeoIndexRoute
+  '/loan-officer/': typeof AuthenticatedLoanOfficerIndexRoute
+  '/underwriter/': typeof AuthenticatedUnderwriterIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/borrower': typeof AuthenticatedBorrowerIndexRoute
+  '/ceo': typeof AuthenticatedCeoIndexRoute
+  '/loan-officer': typeof AuthenticatedLoanOfficerIndexRoute
+  '/underwriter': typeof AuthenticatedUnderwriterIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/_authenticated/borrower/': typeof AuthenticatedBorrowerIndexRoute
+  '/_authenticated/ceo/': typeof AuthenticatedCeoIndexRoute
+  '/_authenticated/loan-officer/': typeof AuthenticatedLoanOfficerIndexRoute
+  '/_authenticated/underwriter/': typeof AuthenticatedUnderwriterIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in'
+  fullPaths:
+    | '/'
+    | '/sign-in'
+    | '/borrower/'
+    | '/ceo/'
+    | '/loan-officer/'
+    | '/underwriter/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in'
-  id: '__root__' | '/' | '/sign-in'
+  to: '/' | '/sign-in' | '/borrower' | '/ceo' | '/loan-officer' | '/underwriter'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/sign-in'
+    | '/_authenticated/borrower/'
+    | '/_authenticated/ceo/'
+    | '/_authenticated/loan-officer/'
+    | '/_authenticated/underwriter/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   SignInRoute: typeof SignInRoute
 }
 
@@ -58,6 +118,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -65,11 +132,58 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/underwriter/': {
+      id: '/_authenticated/underwriter/'
+      path: '/underwriter'
+      fullPath: '/underwriter/'
+      preLoaderRoute: typeof AuthenticatedUnderwriterIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/loan-officer/': {
+      id: '/_authenticated/loan-officer/'
+      path: '/loan-officer'
+      fullPath: '/loan-officer/'
+      preLoaderRoute: typeof AuthenticatedLoanOfficerIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/ceo/': {
+      id: '/_authenticated/ceo/'
+      path: '/ceo'
+      fullPath: '/ceo/'
+      preLoaderRoute: typeof AuthenticatedCeoIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/borrower/': {
+      id: '/_authenticated/borrower/'
+      path: '/borrower'
+      fullPath: '/borrower/'
+      preLoaderRoute: typeof AuthenticatedBorrowerIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedBorrowerIndexRoute: typeof AuthenticatedBorrowerIndexRoute
+  AuthenticatedCeoIndexRoute: typeof AuthenticatedCeoIndexRoute
+  AuthenticatedLoanOfficerIndexRoute: typeof AuthenticatedLoanOfficerIndexRoute
+  AuthenticatedUnderwriterIndexRoute: typeof AuthenticatedUnderwriterIndexRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedBorrowerIndexRoute: AuthenticatedBorrowerIndexRoute,
+  AuthenticatedCeoIndexRoute: AuthenticatedCeoIndexRoute,
+  AuthenticatedLoanOfficerIndexRoute: AuthenticatedLoanOfficerIndexRoute,
+  AuthenticatedUnderwriterIndexRoute: AuthenticatedUnderwriterIndexRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   SignInRoute: SignInRoute,
 }
 export const routeTree = rootRouteImport

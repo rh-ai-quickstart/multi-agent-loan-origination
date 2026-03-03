@@ -19,10 +19,12 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         ws: true,
+        autoRewrite: true,
       },
       '/health': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        autoRewrite: true,
       },
     },
   },

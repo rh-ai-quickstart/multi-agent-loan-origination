@@ -3,135 +3,135 @@
 import { z } from 'zod';
 
 export const ApplicationStageSchema = z.enum([
-    'INQUIRY',
-    'PREQUALIFICATION',
-    'APPLICATION',
-    'PROCESSING',
-    'UNDERWRITING',
-    'CONDITIONAL_APPROVAL',
-    'CLEAR_TO_CLOSE',
-    'CLOSED',
-    'DENIED',
-    'WITHDRAWN',
+    'inquiry',
+    'prequalification',
+    'application',
+    'processing',
+    'underwriting',
+    'conditional_approval',
+    'clear_to_close',
+    'closed',
+    'denied',
+    'withdrawn',
 ]);
 export type ApplicationStage = z.infer<typeof ApplicationStageSchema>;
 
 export const APPLICATION_STAGE_LABELS: Record<ApplicationStage, string> = {
-    INQUIRY: 'Inquiry',
-    PREQUALIFICATION: 'Pre-Qualification',
-    APPLICATION: 'Application',
-    PROCESSING: 'Processing',
-    UNDERWRITING: 'Underwriting',
-    CONDITIONAL_APPROVAL: 'Conditional Approval',
-    CLEAR_TO_CLOSE: 'Clear to Close',
-    CLOSED: 'Closed',
-    DENIED: 'Denied',
-    WITHDRAWN: 'Withdrawn',
+    inquiry: 'Inquiry',
+    prequalification: 'Pre-Qualification',
+    application: 'Application',
+    processing: 'Processing',
+    underwriting: 'Underwriting',
+    conditional_approval: 'Decision',
+    clear_to_close: 'Clear to Close',
+    closed: 'Closed',
+    denied: 'Denied',
+    withdrawn: 'Withdrawn',
 };
 
 export const STAGE_ORDER: ApplicationStage[] = [
-    'INQUIRY',
-    'PREQUALIFICATION',
-    'APPLICATION',
-    'PROCESSING',
-    'UNDERWRITING',
-    'CONDITIONAL_APPROVAL',
-    'CLEAR_TO_CLOSE',
-    'CLOSED',
+    'inquiry',
+    'prequalification',
+    'application',
+    'processing',
+    'underwriting',
+    'conditional_approval',
+    'clear_to_close',
+    'closed',
 ];
 
 export const UserRoleSchema = z.enum([
-    'ADMIN',
-    'PROSPECT',
-    'BORROWER',
-    'LOAN_OFFICER',
-    'UNDERWRITER',
-    'CEO',
+    'admin',
+    'prospect',
+    'borrower',
+    'loan_officer',
+    'underwriter',
+    'ceo',
 ]);
 export type UserRole = z.infer<typeof UserRoleSchema>;
 
 export const LoanTypeSchema = z.enum([
-    'CONVENTIONAL_30',
-    'CONVENTIONAL_15',
-    'FHA',
-    'VA',
-    'JUMBO',
-    'USDA',
-    'ARM',
+    'conventional_30',
+    'conventional_15',
+    'fha',
+    'va',
+    'jumbo',
+    'usda',
+    'arm',
 ]);
 export type LoanType = z.infer<typeof LoanTypeSchema>;
 
 export const LOAN_TYPE_LABELS: Record<LoanType, string> = {
-    CONVENTIONAL_30: '30-Year Fixed',
-    CONVENTIONAL_15: '15-Year Fixed',
-    FHA: 'FHA Loan',
-    VA: 'VA Loan',
-    JUMBO: 'Jumbo Loan',
-    USDA: 'USDA Loan',
-    ARM: 'Adjustable-Rate Mortgage',
+    conventional_30: '30-Year Fixed',
+    conventional_15: '15-Year Fixed',
+    fha: 'FHA Loan',
+    va: 'VA Loan',
+    jumbo: 'Jumbo Loan',
+    usda: 'USDA Loan',
+    arm: 'Adjustable-Rate Mortgage',
 };
 
 export const DocumentTypeSchema = z.enum([
-    'W2',
-    'PAY_STUB',
-    'TAX_RETURN',
-    'BANK_STATEMENT',
-    'ID',
-    'PROPERTY_APPRAISAL',
-    'INSURANCE',
-    'OTHER',
+    'w2',
+    'pay_stub',
+    'tax_return',
+    'bank_statement',
+    'id',
+    'property_appraisal',
+    'insurance',
+    'other',
 ]);
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;
 
 export const DocumentStatusSchema = z.enum([
-    'UPLOADED',
-    'PROCESSING',
-    'PROCESSING_COMPLETE',
-    'PROCESSING_FAILED',
-    'PENDING_REVIEW',
-    'ACCEPTED',
-    'FLAGGED_FOR_RESUBMISSION',
-    'REJECTED',
+    'uploaded',
+    'processing',
+    'processing_complete',
+    'processing_failed',
+    'pending_review',
+    'accepted',
+    'flagged_for_resubmission',
+    'rejected',
 ]);
 export type DocumentStatus = z.infer<typeof DocumentStatusSchema>;
 
 export const ConditionSeveritySchema = z.enum([
-    'PRIOR_TO_APPROVAL',
-    'PRIOR_TO_DOCS',
-    'PRIOR_TO_CLOSING',
-    'PRIOR_TO_FUNDING',
+    'prior_to_approval',
+    'prior_to_docs',
+    'prior_to_closing',
+    'prior_to_funding',
 ]);
 export type ConditionSeverity = z.infer<typeof ConditionSeveritySchema>;
 
 export const ConditionStatusSchema = z.enum([
-    'OPEN',
-    'RESPONDED',
-    'UNDER_REVIEW',
-    'CLEARED',
-    'WAIVED',
-    'ESCALATED',
+    'open',
+    'responded',
+    'under_review',
+    'cleared',
+    'waived',
+    'escalated',
 ]);
 export type ConditionStatus = z.infer<typeof ConditionStatusSchema>;
 
 export const DecisionTypeSchema = z.enum([
-    'APPROVED',
-    'CONDITIONAL_APPROVAL',
-    'SUSPENDED',
-    'DENIED',
+    'approved',
+    'conditional_approval',
+    'suspended',
+    'denied',
 ]);
 export type DecisionType = z.infer<typeof DecisionTypeSchema>;
 
-export const UrgencyLevelSchema = z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'NORMAL']);
+export const UrgencyLevelSchema = z.enum(['critical', 'high', 'medium', 'normal']);
 export type UrgencyLevel = z.infer<typeof UrgencyLevelSchema>;
 
-export const RateLockStatusSchema = z.enum(['ACTIVE', 'EXPIRED', 'NONE']);
+export const RateLockStatusSchema = z.enum(['active', 'expired', 'none']);
 export type RateLockStatus = z.infer<typeof RateLockStatusSchema>;
 
 export const EmploymentStatusSchema = z.enum([
-    'W2_EMPLOYEE',
-    'SELF_EMPLOYED',
-    'RETIRED',
-    'UNEMPLOYED',
-    'OTHER',
+    'w2_employee',
+    'self_employed',
+    'retired',
+    'unemployed',
+    'other',
 ]);
 export type EmploymentStatus = z.infer<typeof EmploymentStatusSchema>;
