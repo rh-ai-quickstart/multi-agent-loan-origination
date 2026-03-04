@@ -16,7 +16,7 @@ class PrequalificationSummary(BaseModel):
 
     product_id: str
     product_name: str
-    max_loan_amount: Decimal
+    max_loan_amount: float
     estimated_rate: float
     issued_at: datetime
     expires_at: datetime

@@ -23,7 +23,7 @@ from db.database import SessionLocal
 from db.enums import ApplicationStage, DocumentStatus
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from ..services.application import (
     InvalidTransitionError,
@@ -32,6 +32,7 @@ from ..services.application import (
     transition_stage,
 )
 from ..services.audit import write_audit_event
+from ..services.calculator import compute_monthly_payment
 from ..services.completeness import check_completeness, check_underwriting_readiness
 from ..services.condition import get_conditions, parse_quality_flags
 from ..services.credit_bureau import get_credit_bureau_service
@@ -872,16 +873,25 @@ async def lo_issue_prequalification(
         if cr is None:
             return "No soft credit pull on file. Pull credit before issuing pre-qualification."
 
-        # Compute DTI and LTV for the decision record
+        # Compute DTI (including housing payment) and LTV for the decision record
         financials = await get_financials(session, application_id)
-        fin = financials[0] if financials else None
-        gross_monthly_income = float(fin.gross_monthly_income or 0) if fin else 0
-        monthly_debts = float(fin.monthly_debts or 0) if fin else 0
+        if not financials:
+            return "No financial records on file. Borrower must submit financials before pre-qualification."
+        fin = financials[0]
+        gross_monthly_income = float(fin.gross_monthly_income or 0)
+        monthly_debts = float(fin.monthly_debts or 0)
         loan_amount = float(app.loan_amount or 0)
         property_value = float(app.property_value or 0)
 
-        dti = (monthly_debts / gross_monthly_income) if gross_monthly_income > 0 else 1.0
         ltv = (loan_amount / property_value) if property_value > 0 else 1.0
+
+        # DTI must include the estimated housing payment to match the
+        # evaluate_prequalification formula used for eligibility decisions.
+        product_rate_for_dti = next((p.typical_rate for p in PRODUCTS if p.id == product_id), 0.0)
+        term_months = 360 if "30" in product_id or "arm" in product_id else 180
+        monthly_payment = compute_monthly_payment(loan_amount, product_rate_for_dti, term_months)
+        total_obligations = monthly_debts + monthly_payment
+        dti = total_obligations / gross_monthly_income if gross_monthly_income > 0 else 1.0
 
         # Find product name for the confirmation message
         product_name = next((p.name for p in PRODUCTS if p.id == product_id), product_id)
@@ -889,12 +899,25 @@ async def lo_issue_prequalification(
 
         now = datetime.now(UTC)
 
-        # Upsert: delete existing decision if any, then insert
-        await session.execute(
-            delete(PrequalificationDecision).where(
-                PrequalificationDecision.application_id == application_id
-            )
+        # Upsert: record superseded audit event for prior decision, then replace
+        existing_stmt = select(PrequalificationDecision).where(
+            PrequalificationDecision.application_id == application_id
         )
+        existing_row = (await session.execute(existing_stmt)).scalar_one_or_none()
+        if existing_row is not None:
+            await write_audit_event(
+                session,
+                event_type="prequalification_superseded",
+                user_id=user.user_id,
+                application_id=application_id,
+                event_data={
+                    "prior_product_id": existing_row.product_id,
+                    "prior_max_loan_amount": float(existing_row.max_loan_amount),
+                    "prior_issued_at": existing_row.issued_at.isoformat(),
+                    "reason": "replaced_by_new_decision",
+                },
+            )
+            await session.delete(existing_row)
 
         decision = PrequalificationDecision(
             application_id=application_id,

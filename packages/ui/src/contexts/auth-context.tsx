@@ -102,6 +102,14 @@ function loadStoredRole(): UserRole | null {
     return null;
 }
 
+/** Decode a JWT payload with proper base64url handling (RFC 7515). */
+function decodeJwtPayload(token: string): Record<string, unknown> {
+    const payload = token.split('.')[1];
+    if (!payload) throw new Error('Malformed JWT');
+    const padded = payload.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(padded));
+}
+
 function resolveRoleFromToken(keycloak: Keycloak): UserRole {
     const roles: string[] = keycloak.realmAccess?.roles ?? [];
     const match = roles.find((r) => KNOWN_ROLES.has(r));
@@ -225,7 +233,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const signInWithCredentials = useCallback(
         async (email: string, password: string) => {
             if (IS_KEYCLOAK_ENABLED) {
-                // Direct access grant (Resource Owner Password) against Keycloak token endpoint
+                // NOTE: Direct access grant (ROPC) is used for MVP demo convenience.
+                // ROPC is deprecated in OAuth 2.1. For production, switch to
+                // Authorization Code + PKCE flow (already configured on the client).
                 const tokenUrl = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`;
                 const body = new URLSearchParams({
                     grant_type: 'password',
@@ -240,10 +250,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 }
                 const data = await res.json();
                 const accessToken = data.access_token as string;
+                const refreshToken = data.refresh_token as string | undefined;
                 setToken(accessToken);
-                // Decode claims from the JWT payload
-                const payloadB64 = accessToken.split('.')[1];
-                const claims = JSON.parse(atob(payloadB64)) as Record<string, unknown>;
+
+                // Decode claims using base64url-safe decode
+                const claims = decodeJwtPayload(accessToken);
                 const roles = ((claims.realm_access as Record<string, unknown>)?.roles as string[]) ?? [];
                 const roleMatch = roles.find((r) => KNOWN_ROLES.has(r));
                 const role: UserRole = roleMatch === 'admin' ? 'ceo' : (roleMatch as UserRole) ?? 'borrower';
@@ -253,6 +264,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     name: (claims.name as string) ?? (claims.preferred_username as string) ?? '',
                     email: (claims.email as string) ?? '',
                 });
+
+                // Schedule token refresh using the refresh_token from ROPC response
+                if (refreshToken) {
+                    const exp = claims.exp as number | undefined;
+                    const msUntilExpiry = exp ? exp * 1000 - Date.now() : 840_000;
+                    const refreshIn = Math.max(msUntilExpiry - 60_000, 10_000);
+                    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+                    const doRefresh = () => {
+                        fetch(tokenUrl, {
+                            method: 'POST',
+                            body: new URLSearchParams({
+                                grant_type: 'refresh_token',
+                                client_id: KEYCLOAK_CLIENT_ID,
+                                refresh_token: refreshToken,
+                            }),
+                        })
+                            .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Refresh failed'))))
+                            .then((d) => {
+                                const newAccess = d.access_token as string;
+                                setToken(newAccess);
+                                const newClaims = decodeJwtPayload(newAccess);
+                                const newExp = newClaims.exp as number | undefined;
+                                const nextMs = newExp ? Math.max(newExp * 1000 - Date.now() - 60_000, 10_000) : 840_000;
+                                refreshTimerRef.current = setTimeout(doRefresh, nextMs);
+                            })
+                            .catch(() => {
+                                setUser(null);
+                                setToken(null);
+                            });
+                    };
+                    refreshTimerRef.current = setTimeout(doRefresh, refreshIn);
+                }
                 return;
             }
             // Dev mode: lookup DEV_USERS by email

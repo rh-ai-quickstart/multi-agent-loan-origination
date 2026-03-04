@@ -1,7 +1,15 @@
 // This project was developed with assistance from AI tools.
 
 import { createFileRoute } from '@tanstack/react-router';
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
+import {
+    Root as DialogRoot,
+    Portal as DialogPortal,
+    Overlay as DialogOverlay,
+    Content as DialogContent,
+    Title as DialogTitle,
+    Close as DialogClose,
+} from '@radix-ui/react-dialog';
 import {
     FileText,
     Upload,
@@ -34,6 +42,7 @@ import type { ConditionListResponse, Condition } from '@/schemas/conditions';
 import type { DisclosureStatusResponse, DisclosureItem } from '@/schemas/disclosures';
 import type { RateLockResponse } from '@/schemas/rate-lock';
 import { cn } from '@/lib/utils';
+import { DOC_TYPE_LABELS } from '@/lib/labels';
 
 export const Route = createFileRoute('/_authenticated/borrower/')({
     component: BorrowerDashboard,
@@ -181,17 +190,6 @@ function StatusCard({
         </CardShell>
     );
 }
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-    w2: 'W-2 Form',
-    pay_stub: 'Pay Stub',
-    tax_return: 'Tax Return',
-    bank_statement: 'Bank Statement',
-    id: 'Photo ID',
-    property_appraisal: 'Property Appraisal',
-    insurance: 'Insurance',
-    other: 'Other Document',
-};
 
 function DocumentsCard({
     documents,
@@ -476,56 +474,50 @@ function DisclosureModal({
     onClose: () => void;
     onAcknowledge: () => void;
 }) {
-    useEffect(() => {
-        function handleKey(e: KeyboardEvent) {
-            if (e.key === 'Escape') onClose();
-        }
-        document.addEventListener('keydown', handleKey);
-        return () => document.removeEventListener('keydown', handleKey);
-    }, [onClose]);
-
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="disclosure-modal-title"
-        >
-            <div className="relative mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl dark:bg-slate-900">
-                <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                    <h2 id="disclosure-modal-title" className="text-lg font-semibold text-foreground">
-                        {item.label}
-                    </h2>
-                    <button
-                        onClick={onClose}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800"
-                        aria-label="Close"
-                    >
-                        <X className="h-4 w-4" />
-                    </button>
-                </div>
-                <div className="flex-1 overflow-y-auto px-6 py-4">
-                    <div className="whitespace-pre-line text-sm leading-relaxed text-foreground">
-                        {item.content}
+        <DialogRoot open onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogPortal>
+                <DialogOverlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                <DialogContent
+                    className="fixed left-1/2 top-1/2 z-50 mx-4 flex max-h-[85vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl bg-white shadow-xl dark:bg-slate-900"
+                    aria-describedby={undefined}
+                >
+                    <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                        <DialogTitle className="text-lg font-semibold text-foreground">
+                            {item.label}
+                        </DialogTitle>
+                        <DialogClose asChild>
+                            <button
+                                className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800"
+                                aria-label="Close"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </DialogClose>
                     </div>
-                </div>
-                <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
-                    <button
-                        onClick={onClose}
-                        className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-                    >
-                        Close
-                    </button>
-                    <button
-                        onClick={onAcknowledge}
-                        className="rounded-md bg-[#1e3a5f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42]"
-                    >
-                        I Acknowledge
-                    </button>
-                </div>
-            </div>
-        </div>
+                    <div className="flex-1 overflow-y-auto px-6 py-4">
+                        <div className="whitespace-pre-line text-sm leading-relaxed text-foreground">
+                            {item.content}
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+                        <DialogClose asChild>
+                            <button
+                                className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                            >
+                                Close
+                            </button>
+                        </DialogClose>
+                        <button
+                            onClick={onAcknowledge}
+                            className="rounded-md bg-[#1e3a5f] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42]"
+                        >
+                            I Acknowledge
+                        </button>
+                    </div>
+                </DialogContent>
+            </DialogPortal>
+        </DialogRoot>
     );
 }
 

@@ -93,7 +93,7 @@ def evaluate_prequalification(
 
     eligible: list[ProductPrequalResult] = []
     ineligible: list[ProductPrequalResult] = []
-    dti_pct = 0.0
+    product_dti: dict[str, float] = {}  # product_id -> DTI% for deterministic lookup
 
     for product in products_to_evaluate:
         elig = product.eligibility
@@ -119,6 +119,7 @@ def evaluate_prequalification(
             else 1.0
         )
         dti_pct = dti * 100.0
+        product_dti[product.id] = dti_pct
 
         if dti_pct > elig.max_dti_pct:
             reasons.append(f"DTI {dti_pct:.1f}% exceeds maximum {elig.max_dti_pct:.1f}%")
@@ -182,10 +183,18 @@ def evaluate_prequalification(
             if not recommended:
                 recommended = eligible[0].product_id
 
+    # Use the recommended product's DTI (or first evaluated if none eligible)
+    if recommended and recommended in product_dti:
+        final_dti_pct = product_dti[recommended]
+    elif product_dti:
+        final_dti_pct = next(iter(product_dti.values()))
+    else:
+        final_dti_pct = 0.0
+
     # Build summary
     if not eligible:
         summary = (
-            f"Based on a credit score of {credit_score}, DTI of {dti_pct:.1f}%, "
+            f"Based on a credit score of {credit_score}, DTI of {final_dti_pct:.1f}%, "
             f"and LTV of {ltv_pct:.1f}%, no products currently meet eligibility "
             "requirements. Consider reducing the loan amount, paying down debts, "
             "or improving credit score."
@@ -204,7 +213,7 @@ def evaluate_prequalification(
         ineligible_products=ineligible,
         recommended_product_id=recommended,
         summary=summary,
-        dti_ratio=round(dti_pct, 2),
+        dti_ratio=round(final_dti_pct, 2),
         ltv_ratio=round(ltv_pct, 2),
         down_payment_pct=round(down_payment_pct, 2),
     )

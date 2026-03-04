@@ -7,7 +7,7 @@ single status summary for the borrower or loan officer.
 
 import logging
 
-from db import Condition
+from db import Application, Condition
 from db.enums import ApplicationStage, ConditionStatus
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -99,10 +99,13 @@ async def get_application_status(
     session: AsyncSession,
     user: UserContext,
     application_id: int,
-) -> ApplicationStatusResponse | None:
+    *,
+    return_app: bool = False,
+) -> ApplicationStatusResponse | None | tuple["ApplicationStatusResponse", "Application"]:
     """Build an aggregated status summary for an application.
 
     Returns None if the application is not found or not accessible.
+    If return_app=True, returns (response, app) tuple to avoid redundant queries.
     """
     # Get document completeness (also validates app exists + scope)
     completeness = await check_completeness(session, user, application_id)
@@ -169,7 +172,7 @@ async def get_application_status(
                 )
             )
 
-    return ApplicationStatusResponse(
+    response = ApplicationStatusResponse(
         application_id=application_id,
         stage=stage,
         stage_info=stage_info,
@@ -179,3 +182,6 @@ async def get_application_status(
         open_condition_count=open_conditions_count,
         pending_actions=pending_actions,
     )
+    if return_app:
+        return response, app
+    return response

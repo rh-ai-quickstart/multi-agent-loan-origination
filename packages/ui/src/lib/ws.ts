@@ -35,7 +35,9 @@ export function connectChat(
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const params = new URLSearchParams();
     if (options?.token) {
-        // Keycloak mode: backend expects ?token=<jwt>
+        // NOTE: JWT in query string is an accepted MVP trade-off. The WebSocket API
+        // does not support custom headers. For production, use a short-lived ticket
+        // token exchanged via REST, or send the JWT as the first WS message.
         params.set('token', options.token);
     } else {
         // Dev mode: pass identity headers as query params

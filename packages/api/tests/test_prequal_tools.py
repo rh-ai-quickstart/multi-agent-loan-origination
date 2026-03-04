@@ -420,8 +420,8 @@ class TestLoIssuePrequalification:
         assert decision.max_loan_amount == Decimal("350000.0")
         assert decision.credit_score_at_decision == 742
         assert decision.issued_by == "lo-james"
-        # DTI = 1500/10000 = 0.15
-        assert float(decision.dti_at_decision) == 0.15
+        # DTI includes housing payment: (1500 + ~1896) / 10000 = ~0.3396
+        assert 0.33 <= float(decision.dti_at_decision) <= 0.35
         # LTV = 300000/400000 = 0.75
         assert float(decision.ltv_at_decision) == 0.75
         # Expires in 90 days
@@ -501,3 +501,95 @@ class TestLoIssuePrequalification:
             )
 
         assert "No soft credit pull" in result
+
+    @pytest.mark.asyncio
+    async def test_application_not_found_returns_error(self):
+        """W-28: issue tool should return error when application doesn't exist."""
+        mock_session_cls, _ = _mock_session_ctx()
+        with (
+            patch(
+                "src.agents.loan_officer_tools.get_application",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("src.agents.loan_officer_tools.SessionLocal", mock_session_cls),
+        ):
+            result = await lo_issue_prequalification.ainvoke(
+                {
+                    "application_id": 999,
+                    "product_id": "conventional_30",
+                    "max_amount": 300000.0,
+                    "state": _STATE,
+                }
+            )
+        assert "not found" in result.lower() or "access denied" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_no_financials_rejects(self):
+        """W-29: issue tool should reject when no financials are on file."""
+        mock_cr = MagicMock()
+        mock_cr.credit_score = 742
+
+        mock_session_cls, mock_session = _mock_session_ctx()
+        mock_exec_result = MagicMock()
+        mock_exec_result.scalar_one_or_none.return_value = mock_cr
+        mock_session.execute = AsyncMock(return_value=mock_exec_result)
+
+        with (
+            patch(
+                "src.agents.loan_officer_tools.get_application",
+                new_callable=AsyncMock,
+                return_value=_mock_app(),
+            ),
+            patch(
+                "src.agents.loan_officer_tools.get_financials",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch("src.agents.loan_officer_tools.SessionLocal", mock_session_cls),
+        ):
+            result = await lo_issue_prequalification.ainvoke(
+                {
+                    "application_id": 101,
+                    "product_id": "conventional_30",
+                    "max_amount": 300000.0,
+                    "state": _STATE,
+                }
+            )
+        assert "financials" in result.lower() or "financial" in result.lower()
+
+
+class TestApplicationNotFoundErrors:
+    """W-28: All three prequal tools should handle missing applications."""
+
+    @pytest.mark.asyncio
+    async def test_pull_credit_app_not_found(self):
+        mock_session_cls, _ = _mock_session_ctx()
+        with (
+            patch(
+                "src.agents.loan_officer_tools.get_application",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("src.agents.loan_officer_tools.SessionLocal", mock_session_cls),
+        ):
+            result = await lo_pull_credit.ainvoke(
+                {"application_id": 999, "pull_type": "soft", "state": _STATE}
+            )
+        assert "not found" in result.lower() or "access denied" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_prequalification_check_app_not_found(self):
+        mock_session_cls, _ = _mock_session_ctx()
+        with (
+            patch(
+                "src.agents.loan_officer_tools.get_application",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("src.agents.loan_officer_tools.SessionLocal", mock_session_cls),
+        ):
+            result = await lo_prequalification_check.ainvoke(
+                {"application_id": 999, "state": _STATE}
+            )
+        assert "not found" in result.lower() or "access denied" in result.lower()

@@ -216,19 +216,25 @@ async def get_status(
     session: AsyncSession = Depends(get_db),
 ) -> ApplicationStatusResponse:
     """Get aggregated status summary for an application."""
-    result = await get_application_status(session, user, application_id)
-    if result is None:
+    needs_urgency = user.role in _URGENCY_ROLES
+    status_result = await get_application_status(
+        session,
+        user,
+        application_id,
+        return_app=needs_urgency,
+    )
+    if status_result is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Application not found",
         )
 
-    # Enrich with urgency for LO/admin
-    if user.role in _URGENCY_ROLES:
-        app = await app_service.get_application(session, user, application_id)
-        if app is not None:
-            urgency_map = await compute_urgency(session, [app])
-            result = result.model_copy(update={"urgency": urgency_map.get(application_id)})
+    if needs_urgency:
+        result, app = status_result
+        urgency_map = await compute_urgency(session, [app])
+        result = result.model_copy(update={"urgency": urgency_map.get(application_id)})
+    else:
+        result = status_result
 
     return result
 

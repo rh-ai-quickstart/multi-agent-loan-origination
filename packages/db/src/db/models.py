@@ -22,7 +22,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import backref, relationship
+from sqlalchemy.orm import relationship
 
 from pgvector.sqlalchemy import Vector
 
@@ -60,6 +60,9 @@ class Borrower(Base):
 
     application_borrowers = relationship(
         "ApplicationBorrower", back_populates="borrower", cascade="all, delete-orphan",
+    )
+    credit_reports = relationship(
+        "CreditReport", back_populates="borrower", cascade="all, delete-orphan",
     )
 
     def __repr__(self):
@@ -109,6 +112,13 @@ class Application(Base):
     )
     documents = relationship(
         "Document", back_populates="application", cascade="all, delete-orphan",
+    )
+    credit_reports = relationship(
+        "CreditReport", back_populates="application", cascade="all, delete-orphan",
+    )
+    prequalification_decision = relationship(
+        "PrequalificationDecision", back_populates="application", uselist=False,
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self):
@@ -437,8 +447,8 @@ class CreditReport(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    borrower = relationship("Borrower", backref="credit_reports")
-    application = relationship("Application", backref="credit_reports")
+    borrower = relationship("Borrower", back_populates="credit_reports")
+    application = relationship("Application", back_populates="credit_reports")
 
     def __repr__(self):
         return (
@@ -470,7 +480,7 @@ class PrequalificationDecision(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     application = relationship(
-        "Application", backref=backref("prequalification_decision", uselist=False)
+        "Application", back_populates="prequalification_decision",
     )
 
     def __repr__(self):
