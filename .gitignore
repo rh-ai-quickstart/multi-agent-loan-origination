@@ -54,6 +54,12 @@ venv.bak/
 .pytest_cache/
 .vitest/
 
+# Playwright
+.auth/
+playwright-report/
+test-results/
+blob-report/
+
 # Database
 *.db
 *.sqlite

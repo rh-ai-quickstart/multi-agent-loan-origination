@@ -57,6 +57,8 @@ help:
 	@echo "    dev              Run dev servers (turbo dev)"
 	@echo "    build            Build all packages"
 	@echo "    test             Run tests for all packages"
+	@echo "    test-e2e         Run Playwright E2E tests"
+	@echo "    test-e2e-setup   Prepare environment for E2E tests"
 	@echo "    lint             Run linters for all packages"
 	@echo "    clean            Remove build artifacts and dependencies"
 	@echo ""
@@ -130,6 +132,22 @@ test:
 
 lint:
 	pnpm lint
+
+test-e2e-setup:
+	@echo "Clearing stale LangGraph checkpoints..."
+	@$(COMPOSE) exec -T summit-cap-db psql -U user -d summit-cap \
+		-c "DELETE FROM checkpoints; DELETE FROM checkpoint_writes; DELETE FROM checkpoint_blobs;" 2>/dev/null || true
+	@echo "Seeding demo data..."
+	@$(COMPOSE) exec -T summit-cap-api python -m src.seed --force 2>/dev/null || true
+	@echo "Waiting for API health..."
+	@for i in $$(seq 1 30); do \
+		curl -sf http://localhost:8000/health/ >/dev/null 2>&1 && echo "API ready" && break; \
+		sleep 2; \
+	done
+	@echo "E2E environment ready."
+
+test-e2e: test-e2e-setup
+	pnpm --filter @summit-cap/e2e test:e2e
 
 lint-hmda:
 	@scripts/lint-hmda-isolation.sh
@@ -263,7 +281,7 @@ helm-template: helm-dep-update
 		--set secrets.VITE_ENVIRONMENT="$${VITE_ENVIRONMENT:-}"
 
 .PHONY: help run run-minimal run-auth run-ai run-obs stop \
-        setup dev build test lint lint-hmda clean \
+        setup dev build test test-e2e test-e2e-setup lint lint-hmda clean \
         db-start db-stop db-logs db-upgrade \
         containers-build containers-up containers-down containers-logs \
         build-images push-images smoke \
