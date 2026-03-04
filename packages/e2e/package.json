@@ -1,0 +1,14 @@
+{
+    "name": "@summit-cap/e2e",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "test:e2e": "playwright test",
+        "report": "playwright show-report"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.52.0",
+        "typescript": "^5.9.3"
+    }
+}

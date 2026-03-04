@@ -19,6 +19,9 @@
     "format": {},
     "format:check": {},
     "test": {},
+    "test:e2e": {
+      "cache": false
+    },
     "type-check": {},
     "storybook": {
       "cache": false,

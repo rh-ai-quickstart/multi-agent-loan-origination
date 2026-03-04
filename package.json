@@ -26,6 +26,7 @@
     "format": "turbo format",
     "format:check": "turbo format:check",
     "test": "turbo test",
+    "test:e2e": "turbo test:e2e",
     "type-check": "turbo type-check",
     "storybook": "turbo storybook",
     "build-storybook": "turbo build-storybook",
