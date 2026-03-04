@@ -1343,6 +1343,101 @@ for i in range(30):
 
 
 # ---------------------------------------------------------------------------
+# Credit bureau profiles -- keyed by keycloak user ID
+# ---------------------------------------------------------------------------
+# Used by the mock credit bureau service to return deterministic data for
+# seed borrowers. Each profile corresponds to a borrower in BORROWERS above,
+# with credit data consistent with the financials in ACTIVE_APPLICATIONS.
+
+CREDIT_PROFILES: dict[str, dict] = {
+    SARAH_MITCHELL_ID: {
+        "credit_score": 742,
+        "outstanding_accounts": 4,
+        "total_outstanding_debt": Decimal("45200.00"),
+        "derogatory_marks": 0,
+        "oldest_account_years": 12,
+    },
+    JENNIFER_MITCHELL_ID: {
+        "credit_score": 735,
+        "outstanding_accounts": 3,
+        "total_outstanding_debt": Decimal("38500.00"),
+        "derogatory_marks": 0,
+        "oldest_account_years": 10,
+    },
+    EMILY_RODRIGUEZ_ID: {
+        "credit_score": 688,
+        "outstanding_accounts": 6,
+        "total_outstanding_debt": Decimal("67800.00"),
+        "derogatory_marks": 1,
+        "oldest_account_years": 7,
+    },
+    MICHAEL_JOHNSON_ID: {
+        "credit_score": 765,
+        "outstanding_accounts": 5,
+        "total_outstanding_debt": Decimal("52000.00"),
+        "derogatory_marks": 0,
+        "oldest_account_years": 15,
+    },
+    ROBERT_KIM_ID: {
+        "credit_score": 710,
+        "outstanding_accounts": 5,
+        "total_outstanding_debt": Decimal("58300.00"),
+        "derogatory_marks": 1,
+        "oldest_account_years": 8,
+    },
+    LISA_WASHINGTON_ID: {
+        "credit_score": 695,
+        "outstanding_accounts": 7,
+        "total_outstanding_debt": Decimal("71200.00"),
+        "derogatory_marks": 2,
+        "oldest_account_years": 6,
+    },
+    THOMAS_NGUYEN_ID: {
+        "credit_score": 780,
+        "outstanding_accounts": 3,
+        "total_outstanding_debt": Decimal("28900.00"),
+        "derogatory_marks": 0,
+        "oldest_account_years": 18,
+    },
+    AMANDA_FOSTER_ID: {
+        "credit_score": 725,
+        "outstanding_accounts": 4,
+        "total_outstanding_debt": Decimal("41500.00"),
+        "derogatory_marks": 0,
+        "oldest_account_years": 9,
+    },
+    DANIEL_RAMIREZ_ID: {
+        "credit_score": 612,
+        "outstanding_accounts": 8,
+        "total_outstanding_debt": Decimal("89500.00"),
+        "derogatory_marks": 3,
+        "oldest_account_years": 5,
+    },
+    PATRICIA_CHANG_ID: {
+        "credit_score": 648,
+        "outstanding_accounts": 7,
+        "total_outstanding_debt": Decimal("78200.00"),
+        "derogatory_marks": 2,
+        "oldest_account_years": 6,
+    },
+    DAVID_PARK_ID: {
+        "credit_score": 655,
+        "outstanding_accounts": 6,
+        "total_outstanding_debt": Decimal("72100.00"),
+        "derogatory_marks": 2,
+        "oldest_account_years": 7,
+    },
+    MARIA_CHEN_ID: {
+        "credit_score": 632,
+        "outstanding_accounts": 9,
+        "total_outstanding_debt": Decimal("95300.00"),
+        "derogatory_marks": 4,
+        "oldest_account_years": 4,
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # Config hash -- deterministic hash of fixture content for manifest comparison
 # ---------------------------------------------------------------------------
 

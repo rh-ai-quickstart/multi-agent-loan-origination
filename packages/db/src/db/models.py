@@ -408,6 +408,45 @@ class KBChunk(Base):
         return f"<KBChunk(id={self.id}, doc_id={self.document_id}, index={self.chunk_index})>"
 
 
+class CreditReport(Base):
+    """Credit bureau report (soft or hard pull)."""
+
+    __tablename__ = "credit_reports"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    borrower_id = Column(
+        Integer, ForeignKey("borrowers.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    application_id = Column(
+        Integer, ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    pull_type = Column(String(10), nullable=False)  # "soft" | "hard"
+    credit_score = Column(Integer, nullable=False)  # 300-850
+    bureau = Column(String(50), nullable=False)  # "mock_equifax" for MVP
+    outstanding_accounts = Column(Integer, nullable=True)
+    total_outstanding_debt = Column(Numeric(14, 2), nullable=True)
+    derogatory_marks = Column(Integer, nullable=True)
+    oldest_account_years = Column(Integer, nullable=True)
+    # Hard-pull-only fields
+    trade_lines = Column(JSONB, nullable=True)
+    collections_count = Column(Integer, nullable=True)
+    bankruptcy_flag = Column(Boolean, nullable=True)
+    public_records_count = Column(Integer, nullable=True)
+    pulled_at = Column(DateTime(timezone=True), nullable=False)
+    pulled_by = Column(String(255), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    borrower = relationship("Borrower", backref="credit_reports")
+    application = relationship("Application", backref="credit_reports")
+
+    def __repr__(self):
+        return (
+            f"<CreditReport(id={self.id}, borrower_id={self.borrower_id}, "
+            f"pull_type='{self.pull_type}', score={self.credit_score})>"
+        )
+
+
 class HmdaDemographic(Base):
     """HMDA demographic data -- isolated in hmda schema."""
 
