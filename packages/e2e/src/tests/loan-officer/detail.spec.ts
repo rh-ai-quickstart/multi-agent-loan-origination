@@ -67,13 +67,22 @@ test.describe("Loan Officer Application Detail", () => {
         await expect(page).toHaveURL(/\/loan-officer$/);
     });
 
+    // W-10: Added 5s rejection timeout to the chat-prefill promise so the test
+    // fails fast instead of hanging for 30s when the event is never fired.
     test("should send chat message when clicking Request Documents", async ({ page }) => {
         // Listen for chat-prefill event before clicking
         const prefillPromise = page.evaluate(() => {
-            return new Promise<{ message: string; autoSend: boolean }>((resolve) => {
+            return new Promise<{ message: string; autoSend: boolean }>((resolve, reject) => {
+                const timeout = setTimeout(
+                    () => reject(new Error("chat-prefill event not received within 5s")),
+                    5_000,
+                );
                 window.addEventListener(
                     "chat-prefill",
-                    ((e: CustomEvent) => resolve(e.detail)) as EventListener,
+                    ((e: CustomEvent) => {
+                        clearTimeout(timeout);
+                        resolve(e.detail);
+                    }) as EventListener,
                     { once: true },
                 );
             });
@@ -86,12 +95,20 @@ test.describe("Loan Officer Application Detail", () => {
         expect(detail_.autoSend).toBe(true);
     });
 
+    // W-10: Added 5s rejection timeout to the chat-prefill promise.
     test("should send chat message when clicking Submit to Underwriting", async ({ page }) => {
         const prefillPromise = page.evaluate(() => {
-            return new Promise<{ message: string; autoSend: boolean }>((resolve) => {
+            return new Promise<{ message: string; autoSend: boolean }>((resolve, reject) => {
+                const timeout = setTimeout(
+                    () => reject(new Error("chat-prefill event not received within 5s")),
+                    5_000,
+                );
                 window.addEventListener(
                     "chat-prefill",
-                    ((e: CustomEvent) => resolve(e.detail)) as EventListener,
+                    ((e: CustomEvent) => {
+                        clearTimeout(timeout);
+                        resolve(e.detail);
+                    }) as EventListener,
                     { once: true },
                 );
             });
@@ -109,18 +126,20 @@ test.describe("Loan Officer Application Detail", () => {
         await expect(detail.docUploadZone).toBeVisible();
     });
 
+    // C-2: Replace silent if-guard with explicit test.skip so CI reports a skip
+    // rather than a silent pass when no documents exist for the application.
     test("should expand document row to show extraction details", async ({ page }) => {
         await detail.documentsTab.click();
 
         // Find document rows in the table
         const docRows = page.locator("table tbody tr").filter({ hasNot: page.locator("td[colspan]") });
         const count = await docRows.count();
-        if (count > 0) {
-            await docRows.first().click();
-            // Expanded row should appear below (extraction details or "No extraction data")
-            const expandedContent = page.getByText(/extraction|No extraction data/i);
-            await expect(expandedContent.first()).toBeVisible({ timeout: 5_000 });
-        }
+        test.skip(count === 0, "No document rows for this application in seed data");
+
+        await docRows.first().click();
+        // Expanded row should appear below (extraction details or "No extraction data")
+        const expandedContent = page.getByText(/extraction|No extraction data/i);
+        await expect(expandedContent.first()).toBeVisible({ timeout: 5_000 });
     });
 
     test("should show application not found for invalid ID", async ({ page }) => {

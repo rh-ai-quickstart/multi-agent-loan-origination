@@ -48,6 +48,7 @@ test.describe("Borrower Document Upload", () => {
             // Verify document count increased or upload area is still usable
             // (upload may fail due to API validation of fake PDF, which is OK --
             // we're testing the upload flow, not backend processing)
+            void docsBefore;
         } finally {
             if (fs.existsSync(testFile)) {
                 fs.unlinkSync(testFile);
@@ -55,13 +56,14 @@ test.describe("Borrower Document Upload", () => {
         }
     });
 
+    // C-2: Replace silent if-guard with explicit test.skip so CI reports a skip
+    // rather than a silent pass when no documents exist in seed data.
     test("should display document status badges", async ({ page }) => {
-        // If there are documents, check that status badges exist
         const docRows = page.locator(".divide-y > div");
         const count = await docRows.count();
-        if (count > 0) {
-            // Each doc row should have a status badge (rounded-full span)
-            await expect(docRows.first().locator("span.rounded-full")).toBeVisible();
-        }
+        test.skip(count === 0, "No documents in seed data -- upload a document first");
+
+        // Each doc row should have a status badge (rounded-full span)
+        await expect(docRows.first().locator("span.rounded-full")).toBeVisible();
     });
 });

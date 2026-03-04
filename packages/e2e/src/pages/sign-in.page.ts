@@ -24,14 +24,14 @@ export class SignInPage {
         this.emailInput = page.locator("#email");
         this.passwordInput = page.locator("#password");
         this.submitButton = page.locator('button[type="submit"]');
-        this.errorMessage = page.locator("p.bg-red-50");
+        this.errorMessage = page.locator("p.text-red-700, p.text-red-400");
 
         this.borrowerButton = page.getByTitle("Borrower");
         this.loanOfficerButton = page.getByTitle("Loan Officer");
         this.underwriterButton = page.getByTitle("Underwriter");
         this.ceoButton = page.getByTitle("CEO");
 
-        this.closeButton = page.locator('button').filter({ has: page.locator('svg.lucide-x') }).first();
+        this.closeButton = page.getByLabel("Return to home");
         this.passwordToggle = page.getByLabel(/Show password|Hide password/);
     }
 

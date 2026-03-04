@@ -13,6 +13,9 @@ async function signInAndSave(
 ): Promise<void> {
     await page.goto("/sign-in");
 
+    // Wait for the page to be ready before interacting (prevents races on slow environments)
+    await expect(page.locator("#email")).toBeVisible();
+
     // Click the persona demo button (fills email + password)
     await page.getByTitle(persona.title).click();
 

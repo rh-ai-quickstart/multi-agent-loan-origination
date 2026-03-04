@@ -50,11 +50,11 @@ export class LODetailPage {
         this.documentsTab = page.getByRole("button", { name: "Documents", exact: true });
         this.conditionsTab = page.getByRole("button", { name: "Conditions" });
 
-        this.borrowerInfoCard = page.getByText("Borrower Info").locator("../..");
-        this.propertyInfoCard = page.getByText("Property Info").locator("../..");
-        this.loanDetailsCard = page.getByText("Loan Details").locator("../..");
+        this.borrowerInfoCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Borrower Info" }) }).first();
+        this.propertyInfoCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Property Info" }) }).first();
+        this.loanDetailsCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Loan Details" }) }).first();
 
-        this.docCompletenessCard = page.getByText("Document Completeness").locator("../..");
+        this.docCompletenessCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Document Completeness" }) }).first();
 
         this.conditionsEmptyState = page.getByText("No underwriting conditions");
 

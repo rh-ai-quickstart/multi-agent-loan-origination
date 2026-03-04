@@ -136,9 +136,9 @@ lint:
 test-e2e-setup:
 	@echo "Clearing stale LangGraph checkpoints..."
 	@$(COMPOSE) exec -T summit-cap-db psql -U user -d summit-cap \
-		-c "DELETE FROM checkpoints; DELETE FROM checkpoint_writes; DELETE FROM checkpoint_blobs;" 2>/dev/null || true
+		-c "DELETE FROM checkpoints; DELETE FROM checkpoint_writes; DELETE FROM checkpoint_blobs;" 2>/dev/null || echo "WARNING: DB cleanup failed (container may not be running)"
 	@echo "Seeding demo data..."
-	@$(COMPOSE) exec -T summit-cap-api python -m src.seed --force 2>/dev/null || true
+	@$(COMPOSE) exec -T summit-cap-api python -m src.seed --force 2>/dev/null || echo "WARNING: Seed failed (container may not be running)"
 	@echo "Waiting for API health..."
 	@for i in $$(seq 1 30); do \
 		curl -sf http://localhost:8000/health/ >/dev/null 2>&1 && echo "API ready" && break; \

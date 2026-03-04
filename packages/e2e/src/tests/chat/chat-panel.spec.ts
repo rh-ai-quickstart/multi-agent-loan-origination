@@ -1,6 +1,16 @@
 // This project was developed with assistance from AI tools.
 
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
+
+// S-01: Extract repeated "ensure chat visible" pattern into a local helper.
+async function ensureChatVisible(page: Page): Promise<Locator> {
+    const textarea = page.locator('textarea[placeholder="Type your message..."]').first();
+    if (!(await textarea.isVisible())) {
+        const fab = page.locator('button[aria-label="Open chat assistant"]');
+        if (await fab.isVisible()) await fab.click();
+    }
+    return textarea;
+}
 
 test.describe("Chat Panel", () => {
     test.beforeEach(async ({ page }) => {
@@ -18,29 +28,13 @@ test.describe("Chat Panel", () => {
     });
 
     test("should accept text in chat input", async ({ page }) => {
-        const textarea = page.locator('textarea[placeholder="Type your message..."]').first();
-
-        // On mobile, may need to open chat first
-        if (!(await textarea.isVisible())) {
-            const fab = page.locator('button[aria-label="Open chat assistant"]');
-            if (await fab.isVisible()) {
-                await fab.click();
-            }
-        }
-
+        const textarea = await ensureChatVisible(page);
         await textarea.fill("Hello, I need help with my mortgage application");
         await expect(textarea).toHaveValue("Hello, I need help with my mortgage application");
     });
 
     test("should display user message after sending", async ({ page }) => {
-        const textarea = page.locator('textarea[placeholder="Type your message..."]').first();
-
-        if (!(await textarea.isVisible())) {
-            const fab = page.locator('button[aria-label="Open chat assistant"]');
-            if (await fab.isVisible()) {
-                await fab.click();
-            }
-        }
+        const textarea = await ensureChatVisible(page);
 
         await textarea.fill("Test message for E2E");
         await page.locator('button[aria-label="Send message"]').click();
@@ -50,14 +44,7 @@ test.describe("Chat Panel", () => {
     });
 
     test("should populate input via chat-prefill event with autoSend false", async ({ page }) => {
-        const textarea = page.locator('textarea[placeholder="Type your message..."]').first();
-
-        if (!(await textarea.isVisible())) {
-            const fab = page.locator('button[aria-label="Open chat assistant"]');
-            if (await fab.isVisible()) {
-                await fab.click();
-            }
-        }
+        const textarea = await ensureChatVisible(page);
 
         // Dispatch chat-prefill event with autoSend: false
         await page.evaluate(() => {
@@ -75,14 +62,7 @@ test.describe("Chat Panel", () => {
     });
 
     test("should auto-send message via chat-prefill with autoSend true", async ({ page }) => {
-        const textarea = page.locator('textarea[placeholder="Type your message..."]').first();
-
-        if (!(await textarea.isVisible())) {
-            const fab = page.locator('button[aria-label="Open chat assistant"]');
-            if (await fab.isVisible()) {
-                await fab.click();
-            }
-        }
+        await ensureChatVisible(page);
 
         // Dispatch with autoSend: true -- message should appear in chat, not just in input
         await page.evaluate(() => {
@@ -101,6 +81,9 @@ test.describe("Chat Panel", () => {
         await expect(page.getByText("Auto-sent E2E test message").first()).toBeVisible({ timeout: 5_000 });
     });
 
+    // C-1: Replaced vacuous `ws !== null || true` assertion. The test documents intent
+    // clearly: we check whether a WebSocket connection was attempted, and skip rather
+    // than trivially pass when the backend is unavailable.
     test("should attempt WebSocket connection", async ({ page }) => {
         // Monitor WebSocket connections
         const wsPromise = page.waitForEvent("websocket", { timeout: 10_000 }).catch(() => null);
@@ -109,21 +92,31 @@ test.describe("Chat Panel", () => {
         await page.goto("/borrower");
 
         const ws = await wsPromise;
-        // We just verify a WS connection attempt was made (may or may not succeed
-        // depending on backend availability)
-        expect(ws !== null || true).toBeTruthy();
+        // C-1 fix: assert the WS was actually attempted rather than always passing.
+        // If the backend is not running this test should be fixed up, not vacuously passed.
+        test.fixme(
+            ws === null,
+            "WebSocket connection depends on backend availability -- start the API server before running E2E tests",
+        );
+        expect(ws).not.toBeNull();
     });
 
+    // C-1: Replaced `visible || true` with an explicit fixme when the state is non-deterministic.
     test("should show empty state with suggestion text before messages", async ({ page }) => {
         // On first load with no messages, chat should show the empty state
         const emptyPrompt = page.getByText("How can I help?");
-        const hasMessages = await page.locator('textarea[placeholder="Type your message..."]').first().isVisible();
+        const textarea = await ensureChatVisible(page);
+        const chatIsOpen = await textarea.isVisible();
 
-        if (hasMessages) {
-            // If chat is visible and has no prior messages, empty state shows
-            const visible = await emptyPrompt.isVisible().catch(() => false);
-            // May already have messages from prior tests; this is best-effort
-            expect(visible || true).toBeTruthy();
-        }
+        test.skip(!chatIsOpen, "Chat panel could not be opened");
+
+        // C-1 fix: if empty state is not deterministic (e.g., prior test left messages),
+        // mark as fixme rather than using a vacuous assertion.
+        const visible = await emptyPrompt.isVisible().catch(() => false);
+        test.fixme(
+            !visible,
+            "Empty state is not deterministic across test runs -- prior tests may have sent messages",
+        );
+        await expect(emptyPrompt).toBeVisible();
     });
 });

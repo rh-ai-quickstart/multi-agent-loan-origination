@@ -26,31 +26,34 @@ test.describe("Borrower Disclosures", () => {
         expect(isAllDone || hasPending).toBeTruthy();
     });
 
+    // C-2: Replace silent if-guard with explicit test.skip so CI reports a skip
+    // rather than a silent pass when all disclosures are already acknowledged in seed data.
     test("should open disclosure modal on Review & Acknowledge click", async ({ page }) => {
         const reviewButton = page.getByRole("button", {
             name: "Review & Acknowledge",
         });
+        test.skip((await reviewButton.count()) === 0, "No pending disclosures in seed data");
 
-        if ((await reviewButton.count()) > 0) {
-            await reviewButton.first().click();
-            await expect(dashboard.disclosureModal).toBeVisible();
-        }
+        await reviewButton.first().click();
+        await expect(dashboard.disclosureModal).toBeVisible();
     });
 
+    // C-2: Same skip pattern for the close modal test.
     test("should close disclosure modal via close button", async ({ page }) => {
         const reviewButton = page.getByRole("button", {
             name: "Review & Acknowledge",
         });
+        test.skip((await reviewButton.count()) === 0, "No pending disclosures in seed data");
 
-        if ((await reviewButton.count()) > 0) {
-            await reviewButton.first().click();
-            await expect(dashboard.disclosureModal).toBeVisible();
+        await reviewButton.first().click();
+        await expect(dashboard.disclosureModal).toBeVisible();
 
-            await dashboard.modalCloseButton.click();
-            await expect(dashboard.disclosureModal).not.toBeVisible();
-        }
+        await dashboard.modalCloseButton.click();
+        await expect(dashboard.disclosureModal).not.toBeVisible();
     });
 
+    // W-10: Added 5s rejection timeout to the chat-prefill promise so the test
+    // fails fast instead of hanging for 30s when the event is never fired.
     test("should trigger chat-prefill when acknowledging disclosure", async ({ page }) => {
         const reviewButton = page.getByRole("button", {
             name: "Review & Acknowledge",
@@ -62,10 +65,17 @@ test.describe("Borrower Disclosures", () => {
 
             // Listen for the chat-prefill event
             const prefillPromise = page.evaluate(() => {
-                return new Promise<string>((resolve) => {
+                return new Promise<string>((resolve, reject) => {
+                    const timeout = setTimeout(
+                        () => reject(new Error("chat-prefill event not received within 5s")),
+                        5_000,
+                    );
                     window.addEventListener(
                         "chat-prefill",
-                        ((e: CustomEvent) => resolve(e.detail.message)) as EventListener,
+                        ((e: CustomEvent) => {
+                            clearTimeout(timeout);
+                            resolve(e.detail.message);
+                        }) as EventListener,
                         { once: true },
                     );
                 });

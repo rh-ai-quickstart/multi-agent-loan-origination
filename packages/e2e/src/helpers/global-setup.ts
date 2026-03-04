@@ -18,8 +18,11 @@ async function pollHealth(url: string, label: string): Promise<void> {
                 console.log(`[global-setup] ${label} ready (attempt ${i})`);
                 return;
             }
-        } catch {
+        } catch (e) {
             // connection refused -- keep retrying
+            if (i > MAX_RETRIES - 3) {
+                console.warn(`[global-setup] ${label} attempt ${i}/${MAX_RETRIES}: ${(e as Error).message}`);
+            }
         }
         if (i < MAX_RETRIES) {
             await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));

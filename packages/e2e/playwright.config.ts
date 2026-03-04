@@ -25,6 +25,9 @@ export default defineConfig({
         video: "retain-on-failure",
     },
 
+    // globalSetup health-checks verify that the full stack (UI + API + DB) is already
+    // running before tests begin. Run `make test-e2e` (or `make test-e2e-setup` first)
+    // rather than invoking playwright directly, so that services are up and seeded.
     globalSetup: "./src/helpers/global-setup.ts",
 
     projects: [

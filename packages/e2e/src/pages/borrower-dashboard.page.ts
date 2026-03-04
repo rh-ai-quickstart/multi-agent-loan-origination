@@ -30,23 +30,15 @@ export class BorrowerDashboardPage {
     constructor(page: Page) {
         this.page = page;
 
-        this.statusCard = page.getByText("Application #").locator("../..");
+        this.statusCard = page.locator("div").filter({ has: page.getByRole("heading", { name: /Application #/ }) }).first();
         this.applicationHeading = page.getByRole("heading", { name: /Application #/ });
 
-        this.documentsCard = page.getByRole("heading", { name: "Documents" }).locator("../..");
-        this.conditionsCard = page
-            .getByRole("heading", { name: "Underwriting Conditions" })
-            .locator("../..");
-        this.disclosuresCard = page
-            .getByRole("heading", { name: "Disclosures" })
-            .locator("../..");
-        this.rateLockCard = page.getByRole("heading", { name: "Rate Lock" }).locator("../..");
-        this.prequalCard = page
-            .getByRole("heading", { name: "Pre-Qualification" })
-            .locator("../..");
-        this.summaryCard = page
-            .getByRole("heading", { name: "Application Summary" })
-            .locator("../..");
+        this.documentsCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Documents" }) }).first();
+        this.conditionsCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Underwriting Conditions" }) }).first();
+        this.disclosuresCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Disclosures" }) }).first();
+        this.rateLockCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Rate Lock" }) }).first();
+        this.prequalCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Pre-Qualification" }) }).first();
+        this.summaryCard = page.locator("div").filter({ has: page.getByRole("heading", { name: "Application Summary" }) }).first();
 
         this.uploadZone = page.getByRole("button", { name: /Drop files here|click to upload/ });
         this.fileInput = page.locator('input[type="file"]');

@@ -30,15 +30,16 @@ export class LOPipelinePage {
 
         this.heading = page.getByRole("heading", { name: "Pipeline" });
 
-        this.activeLoansCard = page.getByText("Active Loans").locator("..");
-        this.inUnderwritingCard = page.getByText("In Underwriting").locator("..");
-        this.criticalUrgencyCard = page.getByText("Critical Urgency").locator("..");
-        this.avgDaysCard = page.getByText("Avg Days in Stage").locator("..");
+        this.activeLoansCard = page.locator("div").filter({ has: page.getByText("Active Loans") }).first();
+        this.inUnderwritingCard = page.locator("div").filter({ has: page.getByText("In Underwriting") }).first();
+        this.criticalUrgencyCard = page.locator("div").filter({ has: page.getByText("Critical Urgency") }).first();
+        this.avgDaysCard = page.locator("div").filter({ has: page.getByText("Avg Days in Stage") }).first();
 
         this.searchInput = page.getByPlaceholder("Search by borrower name or ID");
-        this.stageFilter = page.locator("select").nth(0);
-        this.urgencyFilter = page.locator("select").nth(1);
-        this.sortSelect = page.locator("select").nth(2);
+        // Identify each select by its unique first/default option text
+        this.stageFilter = page.locator("select").filter({ has: page.locator("option", { hasText: "All Stages" }) });
+        this.urgencyFilter = page.locator("select").filter({ has: page.locator("option", { hasText: "All Urgency" }) });
+        this.sortSelect = page.locator("select").filter({ has: page.locator("option", { hasText: "Urgency" }) }).filter({ hasNot: page.locator("option", { hasText: "All Urgency" }) });
         this.stalledCheckbox = page.getByLabel("Stalled only");
 
         this.tableRows = page.locator("tbody tr");

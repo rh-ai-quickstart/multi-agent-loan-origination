@@ -14,8 +14,9 @@ test.describe("Pipeline Keyboard Navigation", () => {
     });
 
     test("should focus pipeline rows via Tab key", async ({ page }) => {
-        // Tab through until we reach a table row (may need many presses
-        // to pass header, filters, selects, and checkbox)
+        // W-7: Tab through until we reach a table row. The cap of 40 accounts for
+        // header nav, filters, dropdowns, checkboxes, and other focusable
+        // elements before the table body. Increase if new controls are added.
         for (let i = 0; i < 40; i++) {
             await page.keyboard.press("Tab");
             const focused = page.locator("tbody tr:focus");

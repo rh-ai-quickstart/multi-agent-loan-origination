@@ -42,8 +42,8 @@ export class LandingPage {
         this.downPaymentInput = page.locator("#down_payment");
         this.interestRateInput = page.locator("#interest_rate");
         this.calculateButton = page.getByRole("button", { name: "Calculate" });
-        this.estimatedBudget = page.getByText("Estimated Home Budget").locator("..");
-        this.estimatedPayment = page.getByText("Est. Monthly Payment").locator("..");
+        this.estimatedBudget = page.locator("div").filter({ has: page.getByText("Estimated Home Budget") }).first();
+        this.estimatedPayment = page.locator("div").filter({ has: page.getByText("Est. Monthly Payment") }).first();
         this.calculatorError = page.getByRole("alert").filter({ hasText: "Unable to calculate" });
         this.dtiWarning = page.getByRole("alert").first();
         this.askAssistantButton = page.getByRole("button", { name: /Ask our assistant/ });

@@ -12,22 +12,13 @@ test.describe("Sign Out", () => {
         await signIn.signInAs(signIn.borrowerButton, getPassword());
         await page.waitForURL("**/borrower**");
 
-        // Find and click sign-out (dropdown menu or direct link)
-        const signOutButton = page.getByText("Sign Out").or(page.getByText("Log Out"));
-        if (await signOutButton.isVisible()) {
-            await signOutButton.click();
-        } else {
-            // Try dropdown menu
-            const avatar = page.locator('[data-testid="user-menu"]').or(
-                page.getByRole("button", { name: /avatar|user|profile/i }),
-            );
-            if (await avatar.isVisible()) {
-                await avatar.click();
-                await page.getByText("Sign Out").or(page.getByText("Log Out")).click();
-            }
-        }
+        // The header renders a direct "Sign out" button (aria-label) on desktop viewports.
+        // This is deterministic -- if it is not visible the test must fail clearly.
+        const signOutButton = page.getByRole("button", { name: "Sign out" });
+        await expect(signOutButton).toBeVisible({ timeout: 5_000 });
+        await signOutButton.click();
 
-        // After sign-out, should be on landing or sign-in
+        // After sign-out the app navigates to the landing page
         await expect(page).toHaveURL(/\/(sign-in)?$/);
     });
 
