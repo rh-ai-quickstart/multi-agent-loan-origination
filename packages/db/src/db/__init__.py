@@ -37,6 +37,7 @@ from .models import (
     HmdaLoanData,
     KBChunk,
     KBDocument,
+    PrequalificationDecision,
     RateLock,
 )
 
@@ -75,5 +76,6 @@ __all__ = [
     "HmdaLoanData",
     "KBChunk",
     "KBDocument",
+    "PrequalificationDecision",
     "RateLock",
 ]

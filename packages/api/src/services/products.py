@@ -6,7 +6,7 @@ agent tools module import from the service layer rather than one importing
 from the other.
 """
 
-from ..schemas.products import ProductInfo
+from ..schemas.products import ProductEligibility, ProductInfo
 
 PRODUCTS: list[ProductInfo] = [
     ProductInfo(
@@ -16,6 +16,11 @@ PRODUCTS: list[ProductInfo] = [
         "Ideal for buyers planning to stay long-term.",
         min_down_payment_pct=3.0,
         typical_rate=6.5,
+        eligibility=ProductEligibility(
+            min_credit_score=620,
+            max_dti_pct=45.0,
+            max_ltv_pct=97.0,
+        ),
     ),
     ProductInfo(
         id="conventional_15",
@@ -24,6 +29,11 @@ PRODUCTS: list[ProductInfo] = [
         "significantly less total interest paid.",
         min_down_payment_pct=3.0,
         typical_rate=5.75,
+        eligibility=ProductEligibility(
+            min_credit_score=620,
+            max_dti_pct=45.0,
+            max_ltv_pct=97.0,
+        ),
     ),
     ProductInfo(
         id="fha",
@@ -32,6 +42,12 @@ PRODUCTS: list[ProductInfo] = [
         "Requires mortgage insurance premium (MIP).",
         min_down_payment_pct=3.5,
         typical_rate=6.25,
+        eligibility=ProductEligibility(
+            min_credit_score=580,
+            max_dti_pct=50.0,
+            max_ltv_pct=96.5,
+            special_requirements="MIP required",
+        ),
     ),
     ProductInfo(
         id="va",
@@ -40,6 +56,12 @@ PRODUCTS: list[ProductInfo] = [
         "and no private mortgage insurance.",
         min_down_payment_pct=0.0,
         typical_rate=6.0,
+        eligibility=ProductEligibility(
+            min_credit_score=580,
+            max_dti_pct=41.0,
+            max_ltv_pct=100.0,
+            special_requirements="Veteran status required",
+        ),
     ),
     ProductInfo(
         id="jumbo",
@@ -48,6 +70,11 @@ PRODUCTS: list[ProductInfo] = [
         "scores and larger down payments.",
         min_down_payment_pct=10.0,
         typical_rate=6.75,
+        eligibility=ProductEligibility(
+            min_credit_score=700,
+            max_dti_pct=43.0,
+            max_ltv_pct=90.0,
+        ),
     ),
     ProductInfo(
         id="usda",
@@ -56,6 +83,12 @@ PRODUCTS: list[ProductInfo] = [
         "Income limits apply.",
         min_down_payment_pct=0.0,
         typical_rate=6.25,
+        eligibility=ProductEligibility(
+            min_credit_score=640,
+            max_dti_pct=41.0,
+            max_ltv_pct=100.0,
+            special_requirements="Rural property required",
+        ),
     ),
     ProductInfo(
         id="arm",
@@ -64,5 +97,10 @@ PRODUCTS: list[ProductInfo] = [
         "index. Rate caps limit adjustment per period and over the life of the loan.",
         min_down_payment_pct=5.0,
         typical_rate=5.75,
+        eligibility=ProductEligibility(
+            min_credit_score=620,
+            max_dti_pct=45.0,
+            max_ltv_pct=95.0,
+        ),
     ),
 ]

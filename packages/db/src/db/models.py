@@ -447,6 +447,37 @@ class CreditReport(Base):
         )
 
 
+class PrequalificationDecision(Base):
+    """Loan officer's pre-qualification decision for an application."""
+
+    __tablename__ = "prequalification_decisions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    application_id = Column(
+        Integer, ForeignKey("applications.id", ondelete="CASCADE"),
+        nullable=False, unique=True, index=True,
+    )
+    product_id = Column(String(50), nullable=False)
+    max_loan_amount = Column(Numeric(12, 2), nullable=False)
+    estimated_rate = Column(Numeric(5, 3), nullable=False)
+    credit_score_at_decision = Column(Integer, nullable=False)
+    dti_at_decision = Column(Numeric(5, 4), nullable=False)
+    ltv_at_decision = Column(Numeric(5, 4), nullable=False)
+    issued_by = Column(String(255), nullable=False)
+    issued_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    application = relationship("Application", backref="prequalification_decision")
+
+    def __repr__(self):
+        return (
+            f"<PrequalificationDecision(id={self.id}, app_id={self.application_id}, "
+            f"product='{self.product_id}')>"
+        )
+
+
 class HmdaDemographic(Base):
     """HMDA demographic data -- isolated in hmda schema."""
 
