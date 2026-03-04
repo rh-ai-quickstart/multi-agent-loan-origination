@@ -24,12 +24,14 @@ from ..schemas.condition import (
     ConditionRespondRequest,
     ConditionResponse,
 )
+from ..schemas.disclosure import DisclosureItem, DisclosureStatusResponse
 from ..schemas.rate_lock import RateLockResponse
 from ..schemas.status import ApplicationStatusResponse
 from ..schemas.urgency import UrgencyLevel
 from ..services import application as app_service
 from ..services.application import InvalidTransitionError
 from ..services.condition import get_conditions, respond_to_condition
+from ..services.disclosure import REQUIRED_DISCLOSURES, get_disclosure_status
 from ..services.rate_lock import get_rate_lock_status
 from ..services.status import get_application_status
 from ..services.urgency import compute_urgency
@@ -279,6 +281,51 @@ async def list_conditions(
             limit=len(result),
             has_more=False,
         ),
+    )
+
+
+@router.get(
+    "/{application_id}/disclosures",
+    response_model=DisclosureStatusResponse,
+    dependencies=[
+        Depends(
+            require_roles(
+                UserRole.ADMIN,
+                UserRole.BORROWER,
+                UserRole.LOAN_OFFICER,
+                UserRole.UNDERWRITER,
+            )
+        )
+    ],
+)
+async def list_disclosures(
+    application_id: int,
+    user: CurrentUser,
+    session: AsyncSession = Depends(get_db),
+) -> DisclosureStatusResponse:
+    """Get disclosure acknowledgment status for an application."""
+    app = await app_service.get_application(session, user, application_id)
+    if app is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Application not found",
+        )
+    result = await get_disclosure_status(session, application_id)
+    acknowledged_set = set(result["acknowledged"])
+    disclosures = [
+        DisclosureItem(
+            id=d["id"],
+            label=d["label"],
+            summary=d["summary"],
+            content=d["content"],
+            acknowledged=d["id"] in acknowledged_set,
+        )
+        for d in REQUIRED_DISCLOSURES
+    ]
+    return DisclosureStatusResponse(
+        application_id=application_id,
+        all_acknowledged=result["all_acknowledged"],
+        disclosures=disclosures,
     )
 
 

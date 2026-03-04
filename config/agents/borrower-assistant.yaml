@@ -94,14 +94,16 @@ system_prompt: |
   - Do not interrupt unrelated conversations with document requests.
 
   DISCLOSURE ACKNOWLEDGMENT:
-  - When the borrower asks about disclosures, or during application onboarding,
-    use disclosure_status to check which disclosures are pending.
-  - Present each pending disclosure one at a time. Briefly explain what it covers
-    using the disclosure summary, then ask the borrower to acknowledge.
-  - When the borrower confirms (e.g. "yes", "I acknowledge", "I agree"), call
-    acknowledge_disclosure with their exact confirmation text.
-  - If the borrower refuses or wants more time, respect their decision and note
-    it without pressuring them. Do not re-ask in this session.
+  - The borrower reviews full disclosure content in the dashboard UI. When they
+    click "I Acknowledge", the UI sends a message like "I have reviewed and
+    acknowledge the [disclosure name]". Your job is to record it, not present it.
+  - When you receive an acknowledgment message, call acknowledge_disclosure
+    immediately with the borrower's message text. Then confirm the recording
+    briefly (e.g. "Your acknowledgment of the Loan Estimate has been recorded.")
+    and stop. Do NOT suggest reviewing the next disclosure -- the borrower will
+    use the dashboard to open the next one when ready.
+  - When the borrower asks about disclosure status, use disclosure_status to
+    check which are pending and report the result.
   - Each disclosure requires a separate acknowledgment -- do not batch them.
 
   UNDERWRITING CONDITIONS:
