@@ -17,6 +17,7 @@ import {
     CheckCircle2,
     Loader2,
     X,
+    Award,
 } from 'lucide-react';
 import { useApplications } from '@/hooks/use-applications';
 import { useApplicationStatus } from '@/hooks/use-status';
@@ -52,6 +53,7 @@ function CardShell({ children, className }: { children: React.ReactNode; classNa
 
 const STEPPER_STAGES: ApplicationStage[] = [
     'inquiry',
+    'prequalification',
     'application',
     'processing',
     'underwriting',
@@ -768,6 +770,70 @@ function SummaryCard({
     );
 }
 
+function PrequalificationCard({
+    application,
+    isLoading,
+}: {
+    application: ApplicationResponse | undefined;
+    isLoading: boolean;
+}) {
+    if (isLoading) {
+        return (
+            <CardShell>
+                <Skeleton className="mb-4 h-6 w-48" />
+                <Skeleton className="mb-2 h-12 w-full" />
+                <Skeleton className="h-4 w-48" />
+            </CardShell>
+        );
+    }
+
+    const prequal = application?.prequalification;
+    if (!prequal) return null;
+
+    const isExpired = new Date(prequal.expires_at) < new Date();
+
+    return (
+        <CardShell>
+            <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-base font-semibold text-foreground">Pre-Qualification</h3>
+                <div
+                    className={cn(
+                        'flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                        isExpired ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700',
+                    )}
+                >
+                    <Award className="h-3 w-3" />
+                    {isExpired ? 'EXPIRED' : 'PRE-QUALIFIED'}
+                </div>
+            </div>
+
+            <div className="mb-4 text-center">
+                <p className="text-3xl font-bold text-foreground">
+                    {formatCurrency(prequal.max_loan_amount)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                    {prequal.product_name} at {formatPercent(prequal.estimated_rate / 100)}
+                </p>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-border pt-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>Issued {formatDate(prequal.issued_at)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                        {isExpired
+                            ? `Expired ${formatDate(prequal.expires_at)}`
+                            : `Expires ${formatDate(prequal.expires_at)}`}
+                    </span>
+                </div>
+            </div>
+        </CardShell>
+    );
+}
+
 function BorrowerDashboard() {
     const applicationsQuery = useApplications();
     const application = applicationsQuery.data?.data?.[0];
@@ -810,6 +876,10 @@ function BorrowerDashboard() {
                     </div>
 
                     <div className="flex flex-col gap-6 xl:col-span-5">
+                        <PrequalificationCard
+                            application={application}
+                            isLoading={isInitialLoading}
+                        />
                         <RateLockCard
                             rateLock={rateLockQuery.data}
                             isLoading={isInitialLoading || rateLockQuery.isLoading}

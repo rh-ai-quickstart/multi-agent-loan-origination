@@ -3,7 +3,7 @@
 
 from typing import Literal
 
-from db import Application, get_db
+from db import Application, PrequalificationDecision, get_db
 from db.enums import ApplicationStage, UserRole
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,7 @@ from ..schemas.application import (
     ApplicationResponse,
     ApplicationUpdate,
     BorrowerSummary,
+    PrequalificationSummary,
 )
 from ..schemas.condition import (
     ConditionItem,
@@ -32,11 +33,14 @@ from ..services import application as app_service
 from ..services.application import InvalidTransitionError
 from ..services.condition import get_conditions, respond_to_condition
 from ..services.disclosure import REQUIRED_DISCLOSURES, get_disclosure_status
+from ..services.products import PRODUCTS
 from ..services.rate_lock import get_rate_lock_status
 from ..services.status import get_application_status
 from ..services.urgency import compute_urgency
 
 router = APIRouter()
+
+_PRODUCT_NAMES = {p.id: p.name for p in PRODUCTS}
 
 
 def _build_app_response(app: Application) -> ApplicationResponse:
@@ -61,6 +65,18 @@ def _build_app_response(app: Application) -> ApplicationResponse:
                 )
             )
 
+    prequal = None
+    pq = getattr(app, "prequalification_decision", None)
+    if isinstance(pq, PrequalificationDecision):
+        prequal = PrequalificationSummary(
+            product_id=pq.product_id,
+            product_name=_PRODUCT_NAMES.get(pq.product_id, pq.product_id),
+            max_loan_amount=pq.max_loan_amount,
+            estimated_rate=float(pq.estimated_rate),
+            issued_at=pq.issued_at,
+            expires_at=pq.expires_at,
+        )
+
     return ApplicationResponse(
         id=app.id,
         stage=app.stage,
@@ -72,6 +88,7 @@ def _build_app_response(app: Application) -> ApplicationResponse:
         created_at=app.created_at,
         updated_at=app.updated_at,
         borrowers=borrowers,
+        prequalification=prequal,
     )
 
 

@@ -24,6 +24,17 @@ export const UrgencyIndicatorSchema = z.object({
     expected_stage_days: z.number(),
 }).nullable().optional();
 
+export const PrequalificationSummarySchema = z.object({
+    product_id: z.string(),
+    product_name: z.string(),
+    max_loan_amount: z.coerce.number(),
+    estimated_rate: z.number(),
+    issued_at: z.string(),
+    expires_at: z.string(),
+});
+
+export type PrequalificationSummary = z.infer<typeof PrequalificationSummarySchema>;
+
 export const ApplicationResponseSchema = z.object({
     id: z.number(),
     stage: ApplicationStageSchema,
@@ -36,6 +47,7 @@ export const ApplicationResponseSchema = z.object({
     updated_at: z.string(),
     borrowers: z.array(BorrowerSummarySchema).optional().default([]),
     urgency: UrgencyIndicatorSchema,
+    prequalification: PrequalificationSummarySchema.nullable().optional(),
 });
 
 export type ApplicationResponse = z.infer<typeof ApplicationResponseSchema>;

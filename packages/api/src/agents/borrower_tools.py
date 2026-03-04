@@ -16,6 +16,7 @@ Design note -- session-per-tool-call:
 """
 
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
 from db.database import SessionLocal
@@ -737,5 +738,115 @@ async def get_application_summary(
         lines.append(f"Still needed: {', '.join(progress['remaining'])}")
     else:
         lines.append("All required fields are complete!")
+
+    return "\n".join(lines)
+
+
+@tool
+async def prequalification_estimate(
+    application_id: int,
+    state: Annotated[dict, InjectedState],
+) -> str:
+    """Show a preliminary pre-qualification estimate based on the borrower's self-reported information.
+
+    Uses the borrower's credit score, income, debts, loan amount, and property
+    value to estimate product eligibility. Results are preliminary -- the loan
+    officer will conduct a credit check for official pre-qualification.
+
+    Args:
+        application_id: The loan application ID to evaluate.
+    """
+    from ..services.prequalification import evaluate_prequalification
+
+    user = _user_context_from_state(state)
+    async with SessionLocal() as session:
+        app = await app_service.get_application(session, user, application_id)
+        if app is None:
+            return "Application not found or you don't have access to it."
+
+        financials = await app_service.get_financials(session, application_id)
+
+    if not financials:
+        return (
+            "I need your financial information before I can show a pre-qualification "
+            "estimate. Please provide your credit score, gross monthly income, "
+            "monthly debts, loan amount, and property value."
+        )
+
+    fin = financials[0]
+    missing: list[str] = []
+    if not fin.credit_score:
+        missing.append("credit score")
+    if not fin.gross_monthly_income:
+        missing.append("gross monthly income")
+    if not fin.monthly_debts and fin.monthly_debts != 0:
+        missing.append("monthly debts")
+    if not app.loan_amount:
+        missing.append("loan amount")
+    if not app.property_value:
+        missing.append("property value")
+
+    if missing:
+        return (
+            f"I still need the following before I can estimate your eligibility: "
+            f"{', '.join(missing)}. Would you like to provide them now?"
+        )
+
+    loan_type = app.loan_type.value if app.loan_type else None
+    result = evaluate_prequalification(
+        credit_score=fin.credit_score,
+        gross_monthly_income=Decimal(str(fin.gross_monthly_income)),
+        monthly_debts=Decimal(str(fin.monthly_debts)),
+        loan_amount=Decimal(str(app.loan_amount)),
+        property_value=Decimal(str(app.property_value)),
+        loan_type=loan_type,
+    )
+
+    lines = ["Preliminary Pre-Qualification Estimate", ""]
+    lines.append(
+        "IMPORTANT: This is a preliminary estimate based on the information "
+        "you provided. Your loan officer will review your application and "
+        "conduct a credit check for official pre-qualification."
+    )
+    lines.append("")
+    lines.append(f"DTI Ratio: {result.dti_ratio:.1f}%")
+    lines.append(f"LTV Ratio: {result.ltv_ratio:.1f}%")
+    lines.append(f"Down Payment: {result.down_payment_pct:.1f}%")
+    lines.append("")
+
+    if result.eligible_products:
+        lines.append(f"Eligible Products ({len(result.eligible_products)}):")
+        for p in result.eligible_products:
+            rec = " (Recommended)" if p.product_id == result.recommended_product_id else ""
+            lines.append(
+                f"  - {p.product_name}{rec}: up to ${p.max_loan_amount:,.0f} "
+                f"at {p.estimated_rate:.3f}%, est. ${p.estimated_monthly_payment:,.0f}/mo"
+            )
+    else:
+        lines.append("No products match your current profile.")
+
+    if result.ineligible_products:
+        lines.append("")
+        lines.append("Ineligible Products:")
+        for p in result.ineligible_products:
+            reasons = "; ".join(p.ineligibility_reasons)
+            lines.append(f"  - {p.product_name}: {reasons}")
+
+    lines.append("")
+    lines.append(result.summary)
+
+    async with SessionLocal() as session:
+        await write_audit_event(
+            session,
+            event_type="prequalification_estimate_viewed",
+            user_id=user.user_id,
+            user_role=user.role.value,
+            application_id=application_id,
+            event_data={
+                "eligible_count": len(result.eligible_products),
+                "recommended": result.recommended_product_id,
+            },
+        )
+        await session.commit()
 
     return "\n".join(lines)

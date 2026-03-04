@@ -14,18 +14,30 @@ Design note -- session-per-tool-call:
     self-contained and avoids cross-tool state leakage.
 """
 
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
+from db import CreditReport, PrequalificationDecision
 from db.database import SessionLocal
 from db.enums import ApplicationStage, DocumentStatus
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
+from sqlalchemy import delete, select
 
-from ..services.application import get_application, transition_stage
+from ..services.application import (
+    InvalidTransitionError,
+    get_application,
+    get_financials,
+    transition_stage,
+)
 from ..services.audit import write_audit_event
 from ..services.completeness import check_completeness, check_underwriting_readiness
 from ..services.condition import get_conditions, parse_quality_flags
+from ..services.credit_bureau import get_credit_bureau_service
 from ..services.document import get_document, list_documents, update_document_status
+from ..services.prequalification import evaluate_prequalification
+from ..services.products import PRODUCTS
 from ..services.rate_lock import get_rate_lock_status
 from ..services.status import get_application_status
 from .shared import format_enum_label, user_context_from_state
@@ -578,4 +590,359 @@ async def lo_send_communication(
         f"Communication recorded: '{subject}' to {recipient_name} "
         f"for application #{application_id}. "
         "(MVP: audit log only -- no email delivery.)"
+    )
+
+
+_VALID_PRODUCT_IDS = {p.id for p in PRODUCTS}
+
+
+@tool
+async def lo_pull_credit(
+    application_id: int,
+    pull_type: str,
+    state: Annotated[dict, InjectedState],
+) -> str:
+    """Pull credit for the primary borrower on a loan application.
+
+    Performs a simulated soft or hard credit pull and stores the result.
+    Soft pulls are used for pre-qualification; hard pulls for underwriting.
+
+    Args:
+        application_id: The loan application ID.
+        pull_type: "soft" or "hard".
+    """
+    if pull_type not in ("soft", "hard"):
+        return "Invalid pull_type. Must be 'soft' or 'hard'."
+
+    user = _user_context_from_state(state)
+    async with SessionLocal() as session:
+        app = await get_application(session, user, application_id)
+        if app is None:
+            return "Application not found or you don't have access to it."
+
+        # Find primary borrower
+        primary_ab = next(
+            (ab for ab in (app.application_borrowers or []) if ab.is_primary),
+            None,
+        )
+        if primary_ab is None or primary_ab.borrower is None:
+            return "No primary borrower found for this application."
+
+        borrower = primary_ab.borrower
+        bureau = get_credit_bureau_service()
+
+        if pull_type == "soft":
+            result = bureau.soft_pull(borrower.id, borrower.keycloak_user_id)
+        else:
+            result = bureau.hard_pull(borrower.id, borrower.keycloak_user_id)
+
+        now = datetime.now(UTC)
+        expiry_days = 30 if pull_type == "soft" else 120
+
+        # Serialize trade lines for hard pulls
+        trade_lines_json = None
+        if pull_type == "hard":
+            trade_lines_json = [tl.model_dump(mode="json") for tl in result.trade_lines]
+
+        report = CreditReport(
+            borrower_id=borrower.id,
+            application_id=application_id,
+            pull_type=pull_type,
+            credit_score=result.credit_score,
+            bureau=result.bureau,
+            outstanding_accounts=result.outstanding_accounts,
+            total_outstanding_debt=result.total_outstanding_debt,
+            derogatory_marks=result.derogatory_marks,
+            oldest_account_years=result.oldest_account_years,
+            trade_lines=trade_lines_json,
+            collections_count=getattr(result, "collections_count", None),
+            bankruptcy_flag=getattr(result, "bankruptcy_flag", None),
+            public_records_count=getattr(result, "public_records_count", None),
+            pulled_at=now,
+            pulled_by=user.user_id,
+            expires_at=now + timedelta(days=expiry_days),
+        )
+        session.add(report)
+
+        await write_audit_event(
+            session,
+            event_type="credit_pull",
+            user_id=user.user_id,
+            user_role=user.role.value,
+            application_id=application_id,
+            event_data={
+                "pull_type": pull_type,
+                "bureau": result.bureau,
+                "credit_score": result.credit_score,
+                "borrower_id": borrower.id,
+            },
+        )
+        await session.commit()
+
+    lines = [
+        f"Credit {pull_type} pull complete for {borrower.first_name} {borrower.last_name}:",
+        f"Bureau: {result.bureau}",
+        f"Credit score: {result.credit_score}",
+        f"Outstanding accounts: {result.outstanding_accounts}",
+        f"Total outstanding debt: ${result.total_outstanding_debt:,.2f}",
+        f"Derogatory marks: {result.derogatory_marks}",
+        f"Oldest account: {result.oldest_account_years} years",
+        f"Expires: {report.expires_at.strftime('%Y-%m-%d')}",
+    ]
+
+    if pull_type == "hard":
+        lines.append(f"Trade lines: {len(result.trade_lines)}")
+        lines.append(f"Collections: {result.collections_count}")
+        lines.append(f"Bankruptcy flag: {result.bankruptcy_flag}")
+        lines.append(f"Public records: {result.public_records_count}")
+
+    return "\n".join(lines)
+
+
+@tool
+async def lo_prequalification_check(
+    application_id: int,
+    state: Annotated[dict, InjectedState],
+) -> str:
+    """Run a pre-qualification evaluation for a loan application.
+
+    Uses the bureau credit score from the most recent soft pull (not the
+    self-reported score). Requires a credit pull to be on file first.
+
+    Args:
+        application_id: The loan application ID.
+    """
+    user = _user_context_from_state(state)
+    async with SessionLocal() as session:
+        app = await get_application(session, user, application_id)
+        if app is None:
+            return "Application not found or you don't have access to it."
+
+        # Load most recent soft-pull credit report
+        stmt = (
+            select(CreditReport)
+            .where(
+                CreditReport.application_id == application_id,
+                CreditReport.pull_type == "soft",
+            )
+            .order_by(CreditReport.pulled_at.desc())
+            .limit(1)
+        )
+        cr = (await session.execute(stmt)).scalar_one_or_none()
+        if cr is None:
+            return (
+                "No soft credit pull on file for this application. "
+                "Use lo_pull_credit with pull_type='soft' first."
+            )
+
+        # Check expiration
+        now = datetime.now(UTC)
+        expired_warning = ""
+        if cr.expires_at and cr.expires_at < now:
+            expired_warning = (
+                "WARNING: Credit report expired on "
+                f"{cr.expires_at.strftime('%Y-%m-%d')}. Consider pulling fresh credit.\n\n"
+            )
+
+        # Load financials
+        financials = await get_financials(session, application_id)
+        if not financials:
+            return "No financial data found for this application. Borrower needs to provide income and debt information."
+
+        fin = financials[0]
+        gross_monthly_income = fin.gross_monthly_income or Decimal("0")
+        monthly_debts = fin.monthly_debts or Decimal("0")
+        loan_amount = app.loan_amount or Decimal("0")
+        property_value = app.property_value or Decimal("0")
+
+        if loan_amount <= 0 or property_value <= 0:
+            return "Loan amount and property value must be set on the application before running pre-qualification."
+
+        loan_type = app.loan_type.value if app.loan_type else None
+
+        result = evaluate_prequalification(
+            credit_score=cr.credit_score,
+            gross_monthly_income=gross_monthly_income,
+            monthly_debts=monthly_debts,
+            loan_amount=loan_amount,
+            property_value=property_value,
+            loan_type=loan_type,
+        )
+
+        await write_audit_event(
+            session,
+            event_type="prequalification_reviewed",
+            user_id=user.user_id,
+            user_role=user.role.value,
+            application_id=application_id,
+            event_data={
+                "credit_score_used": cr.credit_score,
+                "dti_ratio": result.dti_ratio,
+                "ltv_ratio": result.ltv_ratio,
+                "eligible_count": len(result.eligible_products),
+                "recommended": result.recommended_product_id,
+            },
+        )
+        await session.commit()
+
+    # Format output
+    lines = [expired_warning] if expired_warning else []
+    lines.extend(
+        [
+            f"Pre-qualification evaluation for application #{application_id}:",
+            f"Bureau credit score: {cr.credit_score} (pulled {cr.pulled_at.strftime('%Y-%m-%d')})",
+            f"Gross monthly income: ${gross_monthly_income:,.2f}",
+            f"Monthly debts: ${monthly_debts:,.2f}",
+            f"Loan amount: ${loan_amount:,.2f}",
+            f"Property value: ${property_value:,.2f}",
+            f"DTI: {result.dti_ratio:.1f}%  |  LTV: {result.ltv_ratio:.1f}%  |  Down payment: {result.down_payment_pct:.1f}%",
+            "",
+        ]
+    )
+
+    if result.eligible_products:
+        lines.append(f"ELIGIBLE ({len(result.eligible_products)}):")
+        for p in result.eligible_products:
+            rec = " ** RECOMMENDED" if p.product_id == result.recommended_product_id else ""
+            lines.append(
+                f"  - {p.product_name}: max ${p.max_loan_amount:,.2f} "
+                f"at {p.estimated_rate:.2f}% (${p.estimated_monthly_payment:,.2f}/mo){rec}"
+            )
+        lines.append("")
+
+    if result.ineligible_products:
+        lines.append(f"INELIGIBLE ({len(result.ineligible_products)}):")
+        for p in result.ineligible_products:
+            reasons = "; ".join(p.ineligibility_reasons)
+            lines.append(f"  - {p.product_name}: {reasons}")
+        lines.append("")
+
+    lines.append(result.summary)
+
+    return "\n".join(lines)
+
+
+@tool
+async def lo_issue_prequalification(
+    application_id: int,
+    product_id: str,
+    max_amount: float,
+    state: Annotated[dict, InjectedState],
+    notes: str | None = None,
+) -> str:
+    """Issue a pre-qualification decision for an application.
+
+    Transitions the application from INQUIRY to PREQUALIFICATION and records
+    the decision. The application must be in the INQUIRY stage.
+
+    Args:
+        application_id: The loan application ID.
+        product_id: The mortgage product ID (e.g., "conventional_30", "fha").
+        max_amount: The maximum pre-qualified loan amount.
+        notes: Optional notes from the loan officer.
+    """
+    if product_id not in _VALID_PRODUCT_IDS:
+        valid = ", ".join(sorted(_VALID_PRODUCT_IDS))
+        return f"Invalid product_id '{product_id}'. Must be one of: {valid}"
+
+    user = _user_context_from_state(state)
+    async with SessionLocal() as session:
+        app = await get_application(session, user, application_id)
+        if app is None:
+            return "Application not found or you don't have access to it."
+
+        current_stage = app.stage or ApplicationStage.INQUIRY
+        if current_stage != ApplicationStage.INQUIRY:
+            return (
+                f"Application is in '{current_stage.value}' stage. "
+                "Pre-qualification can only be issued from the INQUIRY stage."
+            )
+
+        # Load latest soft pull for credit score
+        stmt = (
+            select(CreditReport)
+            .where(
+                CreditReport.application_id == application_id,
+                CreditReport.pull_type == "soft",
+            )
+            .order_by(CreditReport.pulled_at.desc())
+            .limit(1)
+        )
+        cr = (await session.execute(stmt)).scalar_one_or_none()
+        if cr is None:
+            return "No soft credit pull on file. Pull credit before issuing pre-qualification."
+
+        # Compute DTI and LTV for the decision record
+        financials = await get_financials(session, application_id)
+        fin = financials[0] if financials else None
+        gross_monthly_income = float(fin.gross_monthly_income or 0) if fin else 0
+        monthly_debts = float(fin.monthly_debts or 0) if fin else 0
+        loan_amount = float(app.loan_amount or 0)
+        property_value = float(app.property_value or 0)
+
+        dti = (monthly_debts / gross_monthly_income) if gross_monthly_income > 0 else 1.0
+        ltv = (loan_amount / property_value) if property_value > 0 else 1.0
+
+        # Find product name for the confirmation message
+        product_name = next((p.name for p in PRODUCTS if p.id == product_id), product_id)
+        product_rate = next((p.typical_rate for p in PRODUCTS if p.id == product_id), 0.0)
+
+        now = datetime.now(UTC)
+
+        # Upsert: delete existing decision if any, then insert
+        await session.execute(
+            delete(PrequalificationDecision).where(
+                PrequalificationDecision.application_id == application_id
+            )
+        )
+
+        decision = PrequalificationDecision(
+            application_id=application_id,
+            product_id=product_id,
+            max_loan_amount=Decimal(str(max_amount)),
+            estimated_rate=Decimal(str(product_rate)),
+            credit_score_at_decision=cr.credit_score,
+            dti_at_decision=Decimal(str(round(dti, 4))),
+            ltv_at_decision=Decimal(str(round(ltv, 4))),
+            issued_by=user.user_id,
+            issued_at=now,
+            expires_at=now + timedelta(days=90),
+            notes=notes,
+        )
+        session.add(decision)
+
+        # Transition INQUIRY -> PREQUALIFICATION
+        try:
+            await transition_stage(
+                session,
+                user,
+                application_id,
+                ApplicationStage.PREQUALIFICATION,
+            )
+        except InvalidTransitionError as e:
+            return str(e)
+
+        await write_audit_event(
+            session,
+            event_type="prequalification_issued",
+            user_id=user.user_id,
+            user_role=user.role.value,
+            application_id=application_id,
+            event_data={
+                "product_id": product_id,
+                "max_loan_amount": max_amount,
+                "credit_score": cr.credit_score,
+                "dti": round(dti, 4),
+                "ltv": round(ltv, 4),
+            },
+        )
+        await session.commit()
+
+    return (
+        f"Pre-qualification issued for application #{application_id}:\n"
+        f"Product: {product_name}\n"
+        f"Max amount: ${max_amount:,.2f}\n"
+        f"Rate: {product_rate:.2f}%\n"
+        f"Expires: {decision.expires_at.strftime('%Y-%m-%d')}\n"
+        f"Stage transitioned to: PREQUALIFICATION"
     )

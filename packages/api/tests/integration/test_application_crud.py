@@ -130,3 +130,96 @@ async def test_update_empty_body_returns_400(client_factory, seed_data):
     )
     assert resp.status_code == 400
     await client.aclose()
+
+
+# ---------------------------------------------------------------------------
+# PrequalificationDecision in response
+# ---------------------------------------------------------------------------
+
+
+async def test_get_application_without_prequal_returns_null(client_factory, seed_data):
+    """GET returns prequalification: null when no decision exists."""
+    from tests.functional.personas import borrower_sarah
+
+    client = await client_factory(borrower_sarah())
+    resp = await client.get(f"/api/applications/{seed_data.sarah_app1.id}")
+    assert resp.status_code == 200
+    assert resp.json()["prequalification"] is None
+    await client.aclose()
+
+
+async def test_get_application_with_prequal_returns_summary(client_factory, db_session, seed_data):
+    """GET returns prequalification summary when a decision exists in DB."""
+    from datetime import UTC, datetime
+
+    from db.models import PrequalificationDecision
+
+    from tests.functional.personas import borrower_sarah
+
+    pq = PrequalificationDecision(
+        application_id=seed_data.sarah_app1.id,
+        product_id="conventional_30",
+        max_loan_amount=350000,
+        estimated_rate=6.5,
+        credit_score_at_decision=742,
+        dti_at_decision=0.2800,
+        ltv_at_decision=0.7778,
+        issued_by="james-torres-lo",
+        issued_at=datetime(2026, 3, 1, tzinfo=UTC),
+        expires_at=datetime(2026, 5, 30, tzinfo=UTC),
+    )
+    db_session.add(pq)
+    await db_session.flush()
+
+    client = await client_factory(borrower_sarah())
+    resp = await client.get(f"/api/applications/{seed_data.sarah_app1.id}")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    pq_data = data["prequalification"]
+    assert pq_data is not None
+    assert pq_data["product_id"] == "conventional_30"
+    assert pq_data["product_name"] == "30-Year Fixed Conventional"
+    assert pq_data["max_loan_amount"] == 350000.0
+    assert pq_data["estimated_rate"] == 6.5
+    assert pq_data["issued_at"] is not None
+    assert pq_data["expires_at"] is not None
+    await client.aclose()
+
+
+async def test_list_applications_includes_prequal(client_factory, db_session, seed_data):
+    """GET list includes prequalification on applications that have one."""
+    from datetime import UTC, datetime
+
+    from db.models import PrequalificationDecision
+
+    from tests.functional.personas import admin
+
+    pq = PrequalificationDecision(
+        application_id=seed_data.sarah_app1.id,
+        product_id="fha",
+        max_loan_amount=275000,
+        estimated_rate=6.0,
+        credit_score_at_decision=680,
+        dti_at_decision=0.3200,
+        ltv_at_decision=0.8462,
+        issued_by="james-torres-lo",
+        issued_at=datetime(2026, 3, 1, tzinfo=UTC),
+        expires_at=datetime(2026, 5, 30, tzinfo=UTC),
+    )
+    db_session.add(pq)
+    await db_session.flush()
+
+    client = await client_factory(admin())
+    resp = await client.get("/api/applications/")
+    assert resp.status_code == 200
+    items = resp.json()["data"]
+
+    app_with_pq = next(i for i in items if i["id"] == seed_data.sarah_app1.id)
+    app_without_pq = next(i for i in items if i["id"] == seed_data.sarah_app2.id)
+
+    assert app_with_pq["prequalification"] is not None
+    assert app_with_pq["prequalification"]["product_id"] == "fha"
+    assert app_with_pq["prequalification"]["product_name"] == "FHA Loan"
+    assert app_without_pq["prequalification"] is None
+    await client.aclose()

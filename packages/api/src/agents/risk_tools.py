@@ -28,13 +28,18 @@ _RISK_MEDIUM = "Medium"
 _RISK_HIGH = "High"
 
 
-def compute_risk_factors(app, financials_rows, borrowers) -> RiskAssessment:
+def compute_risk_factors(
+    app, financials_rows, borrowers, *, bureau_credit_score: int | None = None
+) -> RiskAssessment:
     """Compute risk factors from application data.
 
     Pure function -- no DB access.  Returns a RiskAssessment dataclass with:
       dti, ltv, credit, income_stability, asset_sufficiency,
       compensating_factors, warnings
     Each factor has: value, rating, notes.
+
+    If ``bureau_credit_score`` is provided (from a hard-pull CreditReport),
+    it takes precedence over self-reported scores in financials_rows.
     """
     warnings: list[str] = []
 
@@ -71,9 +76,14 @@ def compute_risk_factors(app, financials_rows, borrowers) -> RiskAssessment:
         warnings.append("Missing loan amount or property value -- LTV cannot be computed")
 
     # --- Credit score ---
-    credit_scores = [f.credit_score for f in financials_rows if f.credit_score]
-    if credit_scores:
-        min_score = min(credit_scores)
+    # Prefer bureau score from hard-pull CreditReport over self-reported
+    if bureau_credit_score is not None:
+        min_score = bureau_credit_score
+    else:
+        credit_scores = [f.credit_score for f in financials_rows if f.credit_score]
+        min_score = min(credit_scores) if credit_scores else None
+
+    if min_score is not None:
         if min_score > 680:
             credit_rating = _RISK_LOW
         elif min_score >= 620:

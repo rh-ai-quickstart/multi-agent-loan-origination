@@ -22,7 +22,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import backref, relationship
 
 from pgvector.sqlalchemy import Vector
 
@@ -469,7 +469,9 @@ class PrequalificationDecision(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    application = relationship("Application", backref="prequalification_decision")
+    application = relationship(
+        "Application", backref=backref("prequalification_decision", uselist=False)
+    )
 
     def __repr__(self):
         return (

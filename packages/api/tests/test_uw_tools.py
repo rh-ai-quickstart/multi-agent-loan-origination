@@ -553,11 +553,23 @@ class TestComputeRiskFactors:
 
 
 def _mock_session_with_fins(financials_rows):
-    """Create a mock session that returns given financials from execute()."""
+    """Create a mock session that returns given financials from execute().
+
+    Returns two results in order:
+      1. Financials query (via get_financials) -- scalars().all() -> financials_rows
+      2. CreditReport query (no hard pull) -- scalars().first() -> None
+    """
     mock_session = AsyncMock()
+
+    # Financials query result (first execute call via get_financials)
     mock_fin_result = MagicMock()
     mock_fin_result.scalars.return_value.all.return_value = financials_rows
-    mock_session.execute = AsyncMock(return_value=mock_fin_result)
+
+    # CreditReport query result (second execute call -- no hard pull on file)
+    mock_cr_result = MagicMock()
+    mock_cr_result.scalars.return_value.first.return_value = None
+
+    mock_session.execute = AsyncMock(side_effect=[mock_fin_result, mock_cr_result])
     return mock_session
 
 

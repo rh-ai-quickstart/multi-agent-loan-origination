@@ -6,7 +6,7 @@ start_application, update_application_data, get_application_summary,
 document_completeness, document_processing_status, application_status,
 regulatory_deadlines, acknowledge_disclosure, disclosure_status,
 rate_lock_status, list_conditions, respond_to_condition_tool,
-check_condition_satisfaction.
+check_condition_satisfaction, prequalification_estimate.
 """
 
 from typing import Any
@@ -22,6 +22,7 @@ from .borrower_tools import (
     get_application_summary,
     list_conditions,
     list_my_applications,
+    prequalification_estimate,
     rate_lock_status,
     regulatory_deadlines,
     respond_to_condition_tool,
@@ -52,6 +53,7 @@ def build_graph(config: dict[str, Any], checkpointer=None):
             list_conditions,
             respond_to_condition_tool,
             check_condition_satisfaction,
+            prequalification_estimate,
         ],
         checkpointer=checkpointer,
     )

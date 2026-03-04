@@ -2,8 +2,9 @@
 """Tests for demo data seeding service and admin endpoints."""
 
 import json
+from contextlib import asynccontextmanager
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from db import get_compliance_db, get_db
@@ -129,6 +130,13 @@ def test_fixture_config_hash_stable():
 # ---------------------------------------------------------------------------
 
 
+@asynccontextmanager
+async def _mock_engine_begin():
+    """Fake async context manager replacing engine.begin() in tests."""
+    conn = AsyncMock()
+    yield conn
+
+
 @pytest.mark.asyncio
 async def test_seed_creates_borrowers():
     """Seed creates borrower records with correct keycloak IDs."""
@@ -163,7 +171,11 @@ async def test_seed_creates_borrowers():
     session.flush = fake_flush
     compliance_session.add = MagicMock()
 
-    await seed_demo_data(session, compliance_session, force=False)
+    # Patch engine so timestamp overrides don't open a real asyncpg connection
+    mock_engine = MagicMock()
+    mock_engine.begin = _mock_engine_begin
+    with patch("db.database.engine", mock_engine):
+        await seed_demo_data(session, compliance_session, force=False)
 
     # Verify borrowers were added
     from db import Borrower
@@ -248,7 +260,10 @@ async def test_seed_force_reseed():
     session.flush = fake_flush
     compliance_session.add = MagicMock()
 
-    result = await seed_demo_data(session, compliance_session, force=True)
+    mock_engine = MagicMock()
+    mock_engine.begin = _mock_engine_begin
+    with patch("db.database.engine", mock_engine):
+        result = await seed_demo_data(session, compliance_session, force=True)
 
     assert result["status"] == "seeded"
     session.commit.assert_awaited_once()
