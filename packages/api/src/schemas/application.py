@@ -11,6 +11,17 @@ from . import Pagination
 from .urgency import UrgencyIndicator
 
 
+class PrequalificationSummary(BaseModel):
+    """Pre-qualification decision summary for API responses."""
+
+    product_id: str
+    product_name: str
+    max_loan_amount: Decimal
+    estimated_rate: float
+    issued_at: datetime
+    expires_at: datetime
+
+
 class ApplicationCreate(BaseModel):
     """Create a new mortgage application."""
 
@@ -67,6 +78,7 @@ class ApplicationResponse(BaseModel):
     updated_at: datetime
     borrowers: list[BorrowerSummary] = []
     urgency: UrgencyIndicator | None = None
+    prequalification: PrequalificationSummary | None = None
 
 
 class ApplicationListResponse(BaseModel):

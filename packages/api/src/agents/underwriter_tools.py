@@ -16,10 +16,12 @@ Design note -- session-per-tool-call:
 
 from typing import Annotated
 
+from db import CreditReport
 from db.database import SessionLocal
 from db.enums import ApplicationStage, EmploymentStatus
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
+from sqlalchemy import select
 
 from ..schemas.urgency import UrgencyLevel
 from ..services.application import get_application, get_financials, list_applications
@@ -337,9 +339,25 @@ async def uw_risk_assessment(
 
         financials = await get_financials(session, application_id)
 
-        borrowers = extract_borrower_info(app)
-        risk = compute_risk_factors(app, financials, borrowers)
+        # Prefer bureau credit score from hard-pull CreditReport
+        bureau_score = None
+        cr_result = await session.execute(
+            select(CreditReport)
+            .where(
+                CreditReport.application_id == application_id,
+                CreditReport.pull_type == "hard",
+            )
+            .order_by(CreditReport.pulled_at.desc())
+            .limit(1)
+        )
+        hard_pull = cr_result.scalars().first()
+        if hard_pull:
+            bureau_score = hard_pull.credit_score
 
+        borrowers = extract_borrower_info(app)
+        risk = compute_risk_factors(app, financials, borrowers, bureau_credit_score=bureau_score)
+
+        credit_source = "bureau_hard_pull" if bureau_score else "self_reported"
         await write_audit_event(
             session,
             event_type="tool_call",
@@ -351,6 +369,7 @@ async def uw_risk_assessment(
                 "dti": risk.dti.get("value"),
                 "ltv": risk.ltv.get("value"),
                 "credit": risk.credit.get("value"),
+                "credit_source": credit_source,
             },
         )
         await session.commit()
@@ -490,9 +509,24 @@ async def uw_preliminary_recommendation(
 
         financials = await get_financials(session, application_id)
 
+        # Prefer bureau credit score from hard-pull CreditReport
+        bureau_score = None
+        cr_result = await session.execute(
+            select(CreditReport)
+            .where(
+                CreditReport.application_id == application_id,
+                CreditReport.pull_type == "hard",
+            )
+            .order_by(CreditReport.pulled_at.desc())
+            .limit(1)
+        )
+        hard_pull = cr_result.scalars().first()
+        if hard_pull:
+            bureau_score = hard_pull.credit_score
+
         documents, doc_total = await list_documents(session, user, application_id, limit=50)
         borrowers = extract_borrower_info(app)
-        risk = compute_risk_factors(app, financials, borrowers)
+        risk = compute_risk_factors(app, financials, borrowers, bureau_credit_score=bureau_score)
 
         # Decision tree
         recommendation = "Approve"

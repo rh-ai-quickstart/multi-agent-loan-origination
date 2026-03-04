@@ -65,7 +65,10 @@ async def list_applications(
     stmt = (
         select(Application)
         .options(
-            selectinload(Application.application_borrowers).joinedload(ApplicationBorrower.borrower)
+            selectinload(Application.application_borrowers).joinedload(
+                ApplicationBorrower.borrower
+            ),
+            selectinload(Application.prequalification_decision),
         )
         .order_by(order)
         .offset(offset)
@@ -105,7 +108,10 @@ async def get_application(
     stmt = (
         select(Application)
         .options(
-            selectinload(Application.application_borrowers).joinedload(ApplicationBorrower.borrower)
+            selectinload(Application.application_borrowers).joinedload(
+                ApplicationBorrower.borrower
+            ),
+            selectinload(Application.prequalification_decision),
         )
         .where(Application.id == application_id)
     )
