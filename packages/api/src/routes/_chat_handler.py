@@ -422,8 +422,16 @@ def create_authenticated_chat_router(
 
         # Per-app threads for roles that manage multiple applications
         app_id_param = ws.query_params.get("app_id")
-        app_id = int(app_id_param) if app_id_param else None
+        app_id: int | None = None
+        if app_id_param:
+            try:
+                app_id = int(app_id_param)
+            except (ValueError, OverflowError):
+                await ws.send_json({"type": "error", "content": "Invalid app_id parameter."})
+                await ws.close(code=4000)
+                return
         thread_id = ConversationService.get_thread_id(user.user_id, agent_name, app_id)
+        ConversationService.verify_thread_ownership(thread_id, user.user_id)
         session_id = str(uuid.uuid4())
 
         # Always use checkpointer when available; fallback to local list
@@ -463,6 +471,7 @@ def create_authenticated_chat_router(
         """
         service = get_conversation_service()
         thread_id = ConversationService.get_thread_id(user.user_id, agent_name, app_id)
+        ConversationService.verify_thread_ownership(thread_id, user.user_id)
         messages = await service.get_conversation_history(thread_id)
         return ConversationHistoryResponse(data=messages)
 

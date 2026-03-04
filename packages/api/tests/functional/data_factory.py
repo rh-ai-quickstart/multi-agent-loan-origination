@@ -82,6 +82,9 @@ def _make_application(**fields) -> MagicMock:
         setattr(app, key, value)
     # Schema-only fields that the ORM model doesn't carry
     app.urgency = None
+    # Explicit None prevents MagicMock from auto-creating a truthy mock attribute
+    if "prequalification_decision" not in fields:
+        app.prequalification_decision = None
     return app
 
 

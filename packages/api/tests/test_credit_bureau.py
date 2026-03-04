@@ -92,6 +92,16 @@ class TestHardPull:
         assert result.bankruptcy_flag is False
         assert result.collections_count == 0  # 0 derogatory marks
 
+    def test_bankruptcy_always_false_for_mock_data(self):
+        """W-30: Bankruptcy detection requires public records. Mock data always returns False."""
+        # Low-credit borrower (612)
+        low = _service().hard_pull(borrower_id=1, keycloak_user_id=DANIEL_RAMIREZ_ID)
+        assert low.bankruptcy_flag is False
+
+        # High-credit borrower (742)
+        high = _service().hard_pull(borrower_id=1, keycloak_user_id=SARAH_MITCHELL_ID)
+        assert high.bankruptcy_flag is False
+
     def test_should_generate_valid_trade_line_fields(self):
         result = _service().hard_pull(borrower_id=1, keycloak_user_id=SARAH_MITCHELL_ID)
 

@@ -125,8 +125,10 @@ class CreditBureauService:
         trade_lines = _generate_trade_lines(borrower_id, num_accounts)
         derog = soft.derogatory_marks
         collections = max(0, derog - 1) if derog > 0 else 0
-        bankruptcy = soft.credit_score < 580
-        public_records = 1 if bankruptcy else (1 if derog >= 3 else 0)
+        # Bankruptcy detection requires public records data (not available in mock).
+        # Always False for simulated data; production would check court records.
+        bankruptcy = False
+        public_records = 1 if derog >= 3 else 0
 
         return HardPullResult(
             credit_score=soft.credit_score,

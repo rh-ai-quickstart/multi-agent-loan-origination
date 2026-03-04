@@ -8,6 +8,7 @@ identity and role, and provides FastAPI dependencies for route-level auth.
 Set AUTH_DISABLED=true to bypass validation (tests / local dev without Keycloak).
 """
 
+import asyncio
 import logging
 import time
 from typing import Annotated
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 _jwks_data: dict | None = None
 _jwks_fetched_at: float = 0
+_jwks_lock = asyncio.Lock()
 
 
 async def _fetch_jwks() -> dict:
@@ -45,7 +47,22 @@ async def _get_jwks(force_refresh: bool = False) -> dict:
     global _jwks_data, _jwks_fetched_at  # noqa: PLW0603
 
     now = time.time()
-    if _jwks_data is None or force_refresh or (now - _jwks_fetched_at) > settings.JWKS_CACHE_TTL:
+    if (
+        _jwks_data is not None
+        and not force_refresh
+        and (now - _jwks_fetched_at) <= settings.JWKS_CACHE_TTL
+    ):
+        return _jwks_data
+
+    async with _jwks_lock:
+        # Re-check after acquiring lock (another coroutine may have refreshed)
+        now = time.time()
+        if (
+            _jwks_data is not None
+            and not force_refresh
+            and (now - _jwks_fetched_at) <= settings.JWKS_CACHE_TTL
+        ):
+            return _jwks_data
         _jwks_data = await _fetch_jwks()
         _jwks_fetched_at = now
 

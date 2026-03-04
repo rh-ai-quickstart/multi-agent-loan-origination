@@ -10,6 +10,7 @@ export interface ChatMessage {
     content: string;
     toolCalls?: ToolCall[];
     timestamp: Date;
+    _streaming?: boolean;
 }
 
 interface ToolCall {
@@ -34,6 +35,8 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
     const currentToolCallsRef = useRef<ToolCall[]>([]);
     const mountedRef = useRef(true);
     const prevOptionsRef = useRef<string>('');
+    const connectCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const pendingMessageRef = useRef<string | null>(null);
 
     const loadHistory = useCallback(async () => {
         if (!historyPath) return;
@@ -102,7 +105,7 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                                     content: streamBufferRef.current,
                                     timestamp: new Date(),
                                     _streaming: true,
-                                } as ChatMessage & { _streaming?: boolean },
+                                },
                             ];
                         });
                         break;
@@ -193,20 +196,29 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
         );
 
         wsRef.current = ws;
+        if (connectCheckRef.current) clearInterval(connectCheckRef.current);
         const check = setInterval(() => {
             if (ws.readyState() === WebSocket.OPEN) {
                 setIsConnected(true);
                 setConnectionError(null);
                 clearInterval(check);
+                connectCheckRef.current = null;
                 // Load history once connected
                 if (optionsChanged) {
                     loadHistory();
                 }
+                // Send any message queued while connecting
+                if (pendingMessageRef.current) {
+                    ws.send(pendingMessageRef.current);
+                    pendingMessageRef.current = null;
+                }
             }
             if (ws.readyState() === WebSocket.CLOSED) {
                 clearInterval(check);
+                connectCheckRef.current = null;
             }
         }, 100);
+        connectCheckRef.current = check;
     }, [path, wsOptions, loadHistory]);
 
     const disconnect = useCallback(() => {
@@ -219,10 +231,8 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
         (content: string, displayContent?: string) => {
             if (!content.trim()) return;
             if (!wsRef.current || wsRef.current.readyState() !== WebSocket.OPEN) {
+                pendingMessageRef.current = content;
                 connect();
-                setTimeout(() => {
-                    wsRef.current?.send(content);
-                }, 500);
             } else {
                 wsRef.current.send(content);
             }
@@ -248,6 +258,10 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
         return () => {
             mountedRef.current = false;
             prevOptionsRef.current = '';
+            if (connectCheckRef.current) {
+                clearInterval(connectCheckRef.current);
+                connectCheckRef.current = null;
+            }
             wsRef.current?.close();
         };
     }, []);
@@ -264,5 +278,5 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
 }
 
 function isStreamingMsg(msg: ChatMessage): boolean {
-    return '_streaming' in msg && (msg as Record<string, unknown>)['_streaming'] === true;
+    return msg._streaming === true;
 }

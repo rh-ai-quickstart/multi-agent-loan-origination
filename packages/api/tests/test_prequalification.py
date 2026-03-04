@@ -245,3 +245,38 @@ class TestEdgeCases:
         assert len(result.eligible_products) == 0
         assert len(result.ineligible_products) == 0
         assert result.recommended_product_id is None
+
+    def test_should_show_ineligible_when_credit_too_low_for_filtered_product(self):
+        """W-31: Credit score 580 is below conventional_30 minimum (620)."""
+        result = evaluate_prequalification(
+            credit_score=580,
+            gross_monthly_income=Decimal("8000"),
+            monthly_debts=Decimal("800"),
+            loan_amount=Decimal("200000"),
+            property_value=Decimal("250000"),
+            loan_type="conventional_30",
+        )
+
+        assert len(result.eligible_products) == 0
+        assert len(result.ineligible_products) == 1
+        assert result.ineligible_products[0].product_id == "conventional_30"
+        assert any(
+            "credit score" in r.lower() for r in result.ineligible_products[0].ineligibility_reasons
+        )
+        assert result.recommended_product_id is None
+
+    def test_dti_ratio_uses_recommended_product(self):
+        """S-1: DTI in result should correspond to the recommended product, not the last evaluated."""
+        result = evaluate_prequalification(
+            credit_score=750,
+            gross_monthly_income=Decimal("10000"),
+            monthly_debts=Decimal("1500"),
+            loan_amount=Decimal("300000"),
+            property_value=Decimal("400000"),
+        )
+
+        # Recommended should be conventional_30 (first in preference order)
+        assert result.recommended_product_id == "conventional_30"
+        # DTI should be deterministic and reasonable (includes housing payment)
+        assert result.dti_ratio > 0
+        assert result.dti_ratio < 100

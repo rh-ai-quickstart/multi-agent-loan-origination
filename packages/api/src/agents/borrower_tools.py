@@ -31,7 +31,7 @@ from ..services.condition import (
     get_conditions,
     respond_to_condition,
 )
-from ..services.disclosure import get_disclosure_status
+from ..services.disclosure import DISCLOSURE_BY_ID, get_disclosure_status
 from ..services.document import list_documents
 from ..services.intake import (
     get_application_progress,
@@ -304,8 +304,6 @@ async def acknowledge_disclosure(
         disclosure_id: Identifier of the disclosure (loan_estimate, privacy_notice, hmda_notice, equal_opportunity_notice).
         borrower_confirmation: The borrower's exact confirmation text.
     """
-    from ..services.disclosure import DISCLOSURE_BY_ID
-
     disclosure = DISCLOSURE_BY_ID.get(disclosure_id)
     if disclosure is None:
         valid = ", ".join(sorted(DISCLOSURE_BY_ID.keys()))
@@ -362,8 +360,6 @@ async def disclosure_status(
         lines.append("")
         lines.append("Acknowledged:")
         for d_id in result["acknowledged"]:
-            from ..services.disclosure import DISCLOSURE_BY_ID
-
             label = DISCLOSURE_BY_ID.get(d_id, {}).get("label", d_id)
             lines.append(f"  - {label}")
 
@@ -371,8 +367,6 @@ async def disclosure_status(
         lines.append("")
         lines.append("Pending:")
         for d_id in result["pending"]:
-            from ..services.disclosure import DISCLOSURE_BY_ID
-
             label = DISCLOSURE_BY_ID.get(d_id, {}).get("label", d_id)
             lines.append(f"  - {label}")
 
@@ -779,7 +773,7 @@ async def prequalification_estimate(
         missing.append("credit score")
     if not fin.gross_monthly_income:
         missing.append("gross monthly income")
-    if not fin.monthly_debts and fin.monthly_debts != 0:
+    if fin.monthly_debts is None:
         missing.append("monthly debts")
     if not app.loan_amount:
         missing.append("loan amount")
