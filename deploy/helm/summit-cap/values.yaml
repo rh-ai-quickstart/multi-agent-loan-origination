@@ -48,6 +48,7 @@ secrets:
   LLM_BASE_URL: "http://vllm:8000/v1"
   LLM_MODEL_FAST: "gpt-4o-mini"
   LLM_MODEL_CAPABLE: "gpt-4o-mini"
+  EMBEDDING_MODEL: ""
 
   # Safety / Shields (optional)
   SAFETY_MODEL: ""

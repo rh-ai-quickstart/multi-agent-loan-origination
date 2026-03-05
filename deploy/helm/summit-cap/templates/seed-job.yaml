@@ -53,6 +53,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "summit-cap.fullname" . }}-secret
                   key: DATABASE_URL
+            - name: COMPLIANCE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: COMPLIANCE_DATABASE_URL
             - name: S3_ENDPOINT
               valueFrom:
                 secretKeyRef:

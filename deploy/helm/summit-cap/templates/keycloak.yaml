@@ -53,6 +53,10 @@ spec:
                   key: KC_BOOTSTRAP_ADMIN_PASSWORD
             - name: KC_HEALTH_ENABLED
               value: "true"
+            - name: KC_PROXY_HEADERS
+              value: "xforwarded"
+            - name: KC_HTTP_ENABLED
+              value: "true"
           volumeMounts:
             - name: realm-config
               mountPath: /opt/keycloak/data/import

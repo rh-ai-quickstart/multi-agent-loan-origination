@@ -6,8 +6,9 @@
 # and /admin requests to the API backend. WebSocket upgrade is supported
 # for the chat endpoints under /api/chat/*.
 #
-# The API_UPSTREAM variable is substituted at container start via envsubst.
-# Default: summit-cap-api:8000  (compose service name)
+# The following variables are substituted at container start via envsubst:
+#   API_UPSTREAM        - API backend host:port (default: summit-cap-api:8000)
+#   KEYCLOAK_EXTERNAL   - Browser-reachable Keycloak URL (empty = auth disabled in UI)
 
 server {
     listen 8080;
@@ -59,6 +60,12 @@ server {
         proxy_pass http://${API_UPSTREAM}/admin/;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # --- Runtime config (injected at container start) ---
+    location = /runtime-config.js {
+        default_type application/javascript;
+        return 200 'window.__RUNTIME_CONFIG__={KEYCLOAK_URL:"${KEYCLOAK_EXTERNAL}",KEYCLOAK_REALM:"summit-cap",KEYCLOAK_CLIENT_ID:"summit-cap-ui"};';
     }
 
     # --- SPA client-side routing ---

@@ -31,6 +31,10 @@ spec:
           env:
             - name: API_UPSTREAM
               value: "{{ .Values.api.name }}:{{ .Values.api.service.port }}"
+            {{- if .Values.keycloak.enabled }}
+            - name: KEYCLOAK_EXTERNAL
+              value: "https://keycloak-{{ .Values.routes.sharedHost }}"
+            {{- end }}
           {{- if .Values.ui.healthCheck.enabled }}
           livenessProbe:
             httpGet:

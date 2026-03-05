@@ -174,4 +174,33 @@ spec:
   {{- end }}
   wildcardPolicy: None
 {{- end }}
+{{- if .Values.keycloak.enabled }}
+---
+# Keycloak Route - browser-accessible OIDC endpoint
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.keycloak.name }}-route
+  labels:
+    {{- include "summit-cap.keycloak.labels" . | nindent 4 }}
+  {{- with .Values.routes.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- $kcHost := printf "keycloak-%s.%s" .Release.Namespace (trimPrefix (printf "%s-%s." .Release.Name .Release.Namespace) .Values.routes.sharedHost | default "") }}
+  {{- if .Values.routes.sharedHost }}
+  host: {{ printf "keycloak-%s" .Values.routes.sharedHost }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ .Values.keycloak.name }}
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+{{- end }}
 {{- end }}

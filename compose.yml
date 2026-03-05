@@ -131,6 +131,7 @@ services:
       - "3000:8080"
     environment:
       API_UPSTREAM: summit-cap-api:8000
+      KEYCLOAK_EXTERNAL: ${KEYCLOAK_EXTERNAL:-}
     depends_on:
       summit-cap-api:
         condition: service_healthy

@@ -72,6 +72,14 @@ async def _clear_demo_data(session: AsyncSession, compliance_session: AsyncSessi
 
         if app_ids:
             # Delete child records first (no FK cascade assumed)
+            doc_result = await session.execute(
+                select(Document.id).where(Document.application_id.in_(app_ids))
+            )
+            doc_ids = list(doc_result.scalars().all())
+            if doc_ids:
+                await session.execute(
+                    delete(DocumentExtraction).where(DocumentExtraction.document_id.in_(doc_ids))
+                )
             await session.execute(delete(Document).where(Document.application_id.in_(app_ids)))
             await session.execute(delete(Condition).where(Condition.application_id.in_(app_ids)))
             await session.execute(delete(Decision).where(Decision.application_id.in_(app_ids)))

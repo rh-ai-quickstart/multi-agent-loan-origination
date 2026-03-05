@@ -46,6 +46,9 @@ COPY packages/db/ ./packages/db/
 # Copy config files (models.yaml, agent configs, keycloak realm)
 COPY config/ ./config/
 
+# Copy compliance KB data for seeding
+COPY data/ ./data/
+
 # Set working directory to API package
 WORKDIR /app/packages/api
 

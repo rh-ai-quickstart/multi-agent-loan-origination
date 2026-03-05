@@ -66,10 +66,13 @@ const ROLE_HISTORY_PATHS: Record<UserRole, string | null> = {
     ceo: '/api/ceo/conversations/history',
 };
 
-// Keycloak config from Vite env -- when VITE_KEYCLOAK_URL is set, real OIDC is used
-const KEYCLOAK_URL = import.meta.env.VITE_KEYCLOAK_URL as string | undefined;
-const KEYCLOAK_REALM = (import.meta.env.VITE_KEYCLOAK_REALM as string) || 'summit-cap';
-const KEYCLOAK_CLIENT_ID = (import.meta.env.VITE_KEYCLOAK_CLIENT_ID as string) || 'summit-cap-ui';
+// Keycloak config: runtime config (container) takes precedence over Vite env (local dev)
+const _rtc = (window as unknown as Record<string, unknown>).__RUNTIME_CONFIG__ as
+    | { KEYCLOAK_URL?: string; KEYCLOAK_REALM?: string; KEYCLOAK_CLIENT_ID?: string }
+    | undefined;
+const KEYCLOAK_URL = _rtc?.KEYCLOAK_URL || (import.meta.env.VITE_KEYCLOAK_URL as string | undefined) || undefined;
+const KEYCLOAK_REALM = _rtc?.KEYCLOAK_REALM || (import.meta.env.VITE_KEYCLOAK_REALM as string) || 'summit-cap';
+const KEYCLOAK_CLIENT_ID = _rtc?.KEYCLOAK_CLIENT_ID || (import.meta.env.VITE_KEYCLOAK_CLIENT_ID as string) || 'summit-cap-ui';
 const IS_KEYCLOAK_ENABLED = !!KEYCLOAK_URL;
 
 const KNOWN_ROLES = new Set<string>(['borrower', 'loan_officer', 'underwriter', 'ceo', 'admin']);

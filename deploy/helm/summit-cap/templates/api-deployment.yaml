@@ -173,6 +173,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "summit-cap.fullname" . }}-secret
                   key: LLM_MODEL_CAPABLE
+            - name: EMBEDDING_MODEL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: EMBEDDING_MODEL
             - name: SAFETY_MODEL
               valueFrom:
                 secretKeyRef:
