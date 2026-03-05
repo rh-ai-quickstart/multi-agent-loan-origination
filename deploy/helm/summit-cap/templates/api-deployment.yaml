@@ -108,6 +108,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "summit-cap.fullname" . }}-secret
                   key: KEYCLOAK_URL
+            - name: KEYCLOAK_ISSUER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: KEYCLOAK_ISSUER
             - name: KEYCLOAK_REALM
               valueFrom:
                 secretKeyRef:

@@ -31,6 +31,7 @@ secrets:
   # Auth (Keycloak) -- set AUTH_DISABLED=true to bypass for demo
   AUTH_DISABLED: "false"
   KEYCLOAK_URL: "http://keycloak:8080"
+  KEYCLOAK_ISSUER: ""
   KEYCLOAK_REALM: "summit-cap"
   KEYCLOAK_CLIENT_ID: "summit-cap-ui"
   JWKS_CACHE_TTL: "300"

@@ -114,7 +114,8 @@ def _extract_token(request: Request) -> str | None:
 async def _decode_token(token: str) -> TokenPayload:
     """Validate and decode a JWT against Keycloak's JWKS."""
     signing_key = await _get_signing_key(token)
-    issuer = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}"
+    base = settings.KEYCLOAK_ISSUER or settings.KEYCLOAK_URL
+    issuer = f"{base}/realms/{settings.KEYCLOAK_REALM}"
 
     payload = jwt.decode(
         token,

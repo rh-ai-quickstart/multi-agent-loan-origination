@@ -48,6 +48,10 @@ class Settings(BaseSettings):
         description="Bypass JWT validation. Set True for tests and local dev without Keycloak.",
     )
     KEYCLOAK_URL: str = "http://localhost:8080"
+    KEYCLOAK_ISSUER: str = Field(
+        default="",
+        description="JWT issuer URL if different from KEYCLOAK_URL (e.g. external route).",
+    )
     KEYCLOAK_REALM: str = "summit-cap"
     KEYCLOAK_CLIENT_ID: str = "summit-cap-ui"
     JWKS_CACHE_TTL: int = Field(

@@ -75,6 +75,7 @@ add_if_set secrets.DEBUG DEBUG
 add_if_set secrets.ALLOWED_HOSTS ALLOWED_HOSTS
 add_if_set secrets.AUTH_DISABLED AUTH_DISABLED
 add_if_set secrets.KEYCLOAK_URL KEYCLOAK_URL
+add_if_set secrets.KEYCLOAK_ISSUER KEYCLOAK_ISSUER
 add_if_set secrets.KEYCLOAK_REALM KEYCLOAK_REALM
 add_if_set secrets.KEYCLOAK_CLIENT_ID KEYCLOAK_CLIENT_ID
 add_if_set secrets.JWKS_CACHE_TTL JWKS_CACHE_TTL
