@@ -81,6 +81,26 @@ test.describe("Chat Panel", () => {
         await expect(page.getByText("Auto-sent E2E test message").first()).toBeVisible({ timeout: 5_000 });
     });
 
+    test("should show clear history button after sending a message and clear on click", async ({ page }) => {
+        const textarea = await ensureChatVisible(page);
+        const clearButton = page.locator('button[aria-label="Clear chat history"]');
+
+        // Send a message so the trash button appears
+        await textarea.fill("Message to be cleared");
+        await page.locator('button[aria-label="Send message"]').click();
+        await expect(page.getByText("Message to be cleared")).toBeVisible({ timeout: 5_000 });
+
+        // Trash button should now be visible
+        await expect(clearButton).toBeVisible();
+
+        // Click it to clear history
+        await clearButton.click();
+
+        // The message should be gone and empty state should return
+        await expect(page.getByText("Message to be cleared")).not.toBeVisible();
+        await expect(page.getByText("How can I help?")).toBeVisible({ timeout: 5_000 });
+    });
+
     // C-1: Replaced vacuous `ws !== null || true` assertion. The test documents intent
     // clearly: we check whether a WebSocket connection was attempted, and skip rather
     // than trivially pass when the backend is unavailable.
