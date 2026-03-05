@@ -93,6 +93,17 @@ export default defineConfig({
             },
         },
 
+        // CEO tests -- use saved CEO auth
+        {
+            name: "ceo",
+            testMatch: "ceo/**/*.spec.ts",
+            dependencies: ["auth-setup"],
+            use: {
+                ...devices["Desktop Chrome"],
+                storageState: ".auth/ceo.json",
+            },
+        },
+
         // Placeholder tests -- sign in as UW/CEO directly (no stored auth)
         {
             name: "placeholders",

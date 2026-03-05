@@ -7,6 +7,7 @@ node_modules/
 dist/
 build/
 lib/
+!packages/ui/src/lib/
 out/
 
 agent-memory/
@@ -53,12 +54,14 @@ venv.bak/
 .coverage
 .pytest_cache/
 .vitest/
+storybook-static/
 
 # Playwright
 .auth/
 playwright-report/
 test-results/
 blob-report/
+.playwright-mcp/
 
 # Database
 *.db

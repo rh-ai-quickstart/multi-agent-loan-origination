@@ -323,8 +323,8 @@ class TestGetModelMonitoringSummary:
     """Tests for get_model_monitoring_summary."""
 
     @pytest.mark.asyncio
-    async def test_should_return_unavailable_when_langfuse_not_configured(self):
-        """When LangFuse is not configured, return langfuse_available=False."""
+    async def test_should_return_demo_data_when_langfuse_not_configured(self):
+        """When LangFuse is not configured, return demo metrics with langfuse_available=False."""
         with patch(
             "src.services.model_monitoring.fetch_observations", new_callable=AsyncMock
         ) as mock_fetch:
@@ -333,10 +333,10 @@ class TestGetModelMonitoringSummary:
 
         assert isinstance(result, ModelMonitoringSummary)
         assert result.langfuse_available is False
-        assert result.latency is None
-        assert result.token_usage is None
-        assert result.errors is None
-        assert result.routing is None
+        assert result.latency is not None
+        assert result.token_usage is not None
+        assert result.errors is not None
+        assert result.routing is not None
         assert result.time_range_hours == 24
 
     @pytest.mark.asyncio
@@ -453,11 +453,13 @@ class TestModelMonitoringErrorHandling:
         assert response.status_code == 503
 
     @patch("src.services.model_monitoring.fetch_observations", new_callable=AsyncMock)
-    def test_should_return_503_on_sub_endpoint_when_langfuse_unconfigured(self, mock_fetch):
-        """GET /api/analytics/model-monitoring/latency returns 503 when LangFuse not configured."""
+    def test_should_return_demo_latency_when_langfuse_unconfigured(self, mock_fetch):
+        """GET /api/analytics/model-monitoring/latency returns demo data when LangFuse not configured."""
         mock_fetch.return_value = None
         client = self._make_client()
 
         response = client.get("/api/analytics/model-monitoring/latency")
 
-        assert response.status_code == 503
+        assert response.status_code == 200
+        data = response.json()
+        assert "p50_ms" in data

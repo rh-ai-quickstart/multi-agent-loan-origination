@@ -324,7 +324,7 @@ async def uw_risk_assessment(
             stage_val = app.stage.value if app.stage else "unknown"
             await write_audit_event(
                 session,
-                event_type="tool_call",
+                event_type="agent_tool_called",
                 user_id=user.user_id,
                 user_role=user.role.value,
                 application_id=application_id,
@@ -410,7 +410,7 @@ async def uw_risk_assessment(
 
         await write_audit_event(
             session,
-            event_type="tool_call",
+            event_type="agent_tool_called",
             user_id=user.user_id,
             user_role=user.role.value,
             application_id=application_id,
@@ -543,7 +543,7 @@ async def uw_preliminary_recommendation(
             stage_val = app.stage.value if app.stage else "unknown"
             await write_audit_event(
                 session,
-                event_type="tool_call",
+                event_type="agent_tool_called",
                 user_id=user.user_id,
                 user_role=user.role.value,
                 application_id=application_id,
@@ -599,7 +599,7 @@ async def uw_preliminary_recommendation(
         # Audit
         await write_audit_event(
             session,
-            event_type="tool_call",
+            event_type="agent_tool_called",
             user_id=user.user_id,
             user_role=user.role.value,
             application_id=application_id,

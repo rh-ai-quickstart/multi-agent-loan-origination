@@ -70,58 +70,68 @@ const STEPPER_STAGES: ApplicationStage[] = [
     'closed',
 ];
 
+const STEPPER_SHORT_LABELS: Partial<Record<ApplicationStage, string>> = {
+    prequalification: 'Pre-Qual',
+    underwriting: 'UW',
+    conditional_approval: 'Decision',
+};
+
 function StageStepper({ currentStage }: { currentStage: ApplicationStage }) {
     const currentIdx = STAGE_ORDER.indexOf(currentStage);
 
     return (
-        <div className="flex items-center justify-between px-2 py-4">
-            {STEPPER_STAGES.map((stage, i) => {
-                const stageIdx = STAGE_ORDER.indexOf(stage);
-                const isCurrent = stage === currentStage;
-                const isCompleted = stageIdx < currentIdx;
-                const label = APPLICATION_STAGE_LABELS[stage];
+        <div className="overflow-x-auto px-2 py-4 scrollbar-none">
+            <div className="flex min-w-[360px] items-center justify-between">
+                {STEPPER_STAGES.map((stage, i) => {
+                    const stageIdx = STAGE_ORDER.indexOf(stage);
+                    const isCurrent = stage === currentStage;
+                    const isCompleted = stageIdx < currentIdx;
+                    const fullLabel = APPLICATION_STAGE_LABELS[stage];
+                    const shortLabel = STEPPER_SHORT_LABELS[stage];
 
-                return (
-                    <div key={stage} className="flex flex-1 flex-col items-center gap-2">
-                        <div className="flex w-full items-center">
-                            {i > 0 && (
+                    return (
+                        <div key={stage} className="flex flex-1 flex-col items-center gap-2">
+                            <div className="flex w-full items-center">
+                                {i > 0 && (
+                                    <div
+                                        className={cn(
+                                            'h-0.5 flex-1',
+                                            isCompleted || isCurrent ? 'bg-[#1e3a5f]' : 'bg-slate-200 dark:bg-slate-700',
+                                        )}
+                                    />
+                                )}
                                 <div
                                     className={cn(
-                                        'h-0.5 flex-1',
-                                        isCompleted || isCurrent ? 'bg-[#1e3a5f]' : 'bg-slate-200 dark:bg-slate-700',
+                                        'flex shrink-0 items-center justify-center rounded-full transition-all',
+                                        isCurrent && 'h-5 w-5 bg-[#1e3a5f] ring-4 ring-[#1e3a5f]/20',
+                                        isCompleted && 'h-4 w-4 bg-[#1e3a5f]',
+                                        !isCurrent && !isCompleted && 'h-3 w-3 bg-slate-300 dark:bg-slate-600',
                                     )}
-                                />
-                            )}
-                            <div
+                                >
+                                    {isCompleted && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                </div>
+                                {i < STEPPER_STAGES.length - 1 && (
+                                    <div
+                                        className={cn(
+                                            'h-0.5 flex-1',
+                                            isCompleted ? 'bg-[#1e3a5f]' : 'bg-slate-200 dark:bg-slate-700',
+                                        )}
+                                    />
+                                )}
+                            </div>
+                            <span
                                 className={cn(
-                                    'flex shrink-0 items-center justify-center rounded-full transition-all',
-                                    isCurrent && 'h-5 w-5 bg-[#1e3a5f] ring-4 ring-[#1e3a5f]/20',
-                                    isCompleted && 'h-4 w-4 bg-[#1e3a5f]',
-                                    !isCurrent && !isCompleted && 'h-3 w-3 bg-slate-300 dark:bg-slate-600',
+                                    'whitespace-nowrap text-center text-[10px] font-medium leading-tight',
+                                    isCurrent ? 'text-[#1e3a5f] dark:text-blue-400' : 'text-muted-foreground',
                                 )}
                             >
-                                {isCompleted && <CheckCircle2 className="h-3 w-3 text-white" />}
-                            </div>
-                            {i < STEPPER_STAGES.length - 1 && (
-                                <div
-                                    className={cn(
-                                        'h-0.5 flex-1',
-                                        isCompleted ? 'bg-[#1e3a5f]' : 'bg-slate-200 dark:bg-slate-700',
-                                    )}
-                                />
-                            )}
+                                <span className="sm:hidden">{shortLabel ?? fullLabel}</span>
+                                <span className="hidden sm:inline">{fullLabel}</span>
+                            </span>
                         </div>
-                        <span
-                            className={cn(
-                                'text-center text-[10px] font-medium leading-tight',
-                                isCurrent ? 'text-[#1e3a5f] dark:text-blue-400' : 'text-muted-foreground',
-                            )}
-                        >
-                            {label}
-                        </span>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 }

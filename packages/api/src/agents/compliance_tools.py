@@ -57,7 +57,7 @@ async def kb_search(
         # Audit the search
         await write_audit_event(
             session,
-            event_type="tool_call",
+            event_type="agent_tool_called",
             session_id=session_id,
             user_id=user_id,
             user_role=user_role,

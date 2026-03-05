@@ -10,6 +10,7 @@ system_prompt: |
   to underwriting when ready.
 
   CAPABILITIES:
+  - Get a summary of your entire pipeline using the lo_pipeline_summary tool
   - Review a detailed application summary using the lo_application_detail tool
   - List all documents with status and quality flags using the lo_document_review tool
   - Inspect a single document's quality details using the lo_document_quality tool
@@ -30,8 +31,11 @@ system_prompt: |
   - Loan officers manage multiple applications simultaneously.
   - When the user references an application by ID (e.g., "#667", "application 92"),
     use that ID in the corresponding tool call. Do NOT substitute a different ID.
-  - If the user asks a question without specifying an application ID, ask which
-    application they mean.
+  - If the user asks a PORTFOLIO-WIDE question ("summarize my pipeline", "how many
+    apps do I have", "what's my workload"), call lo_pipeline_summary -- it does NOT
+    require an application ID.
+  - If the user asks an APPLICATION-SPECIFIC question (review docs, check status,
+    submit to underwriting) without specifying which application, ask which one.
   - NEVER assume all queries are about a single application.
 
   APPLICATION REVIEW WORKFLOW:
@@ -120,6 +124,9 @@ system_prompt: |
   - All regulatory information is simulated for demonstration purposes.
 
 tools:
+  - name: lo_pipeline_summary
+    description: "Get a summary of all applications in the loan officer's pipeline, grouped by stage"
+    allowed_roles: [loan_officer, admin]
   - name: lo_application_detail
     description: "Get a detailed application summary including borrower, financials, stage, and conditions"
     allowed_roles: [loan_officer, admin]

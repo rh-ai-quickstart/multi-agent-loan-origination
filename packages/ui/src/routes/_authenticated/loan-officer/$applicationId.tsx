@@ -214,9 +214,9 @@ function ProfileTab({ app }: { app: ApplicationResponse }) {
                             <p className="text-muted-foreground">Name</p>
                             <p className="font-medium text-foreground">{primary.first_name} {primary.last_name}</p>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                             <p className="text-muted-foreground">Email</p>
-                            <p className="font-medium text-foreground">{primary.email}</p>
+                            <p className="truncate font-medium text-foreground" title={primary.email}>{primary.email}</p>
                         </div>
                         {primary.employment_status && (
                             <div>

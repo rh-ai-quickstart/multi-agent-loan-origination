@@ -72,7 +72,7 @@ async def _add_conditions(db_session, app_id, *, outstanding=2, cleared=1):
 async def _write_ai_recommendation(db_session, app_id, recommendation: str):
     """Insert an audit event that mimics uw_preliminary_recommendation output."""
     event = AuditEvent(
-        event_type="tool_call",
+        event_type="agent_tool_called",
         user_id="uw-test",
         user_role="underwriter",
         application_id=app_id,

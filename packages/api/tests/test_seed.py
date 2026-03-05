@@ -74,17 +74,17 @@ def test_fixture_active_stage_distribution():
 
 
 def test_fixture_historical_loan_count():
-    """Fixture defines 20 historical loans (16 approved + 4 denied)."""
-    assert len(HISTORICAL_LOANS) == 20
+    """Fixture defines 28 historical loans (16 approved + 12 denied)."""
+    assert len(HISTORICAL_LOANS) == 28
     closed = [h for h in HISTORICAL_LOANS if h["stage"] == ApplicationStage.CLOSED]
     denied = [h for h in HISTORICAL_LOANS if h["stage"] == ApplicationStage.DENIED]
     assert len(closed) == 16
-    assert len(denied) == 4
+    assert len(denied) == 12
 
 
 def test_fixture_hmda_demographics_count():
-    """Fixture defines 30 HMDA demographics (10 active + 20 historical)."""
-    assert len(HMDA_DEMOGRAPHICS) == 30
+    """Fixture defines 38 HMDA demographics (10 active + 28 historical)."""
+    assert len(HMDA_DEMOGRAPHICS) == 38
 
 
 def test_fixture_active_apps_use_multiple_loan_officers():
