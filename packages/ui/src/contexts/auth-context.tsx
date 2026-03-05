@@ -49,6 +49,7 @@ export const DEV_USERS: Record<UserRole, AuthUser> = {
 };
 
 const STORAGE_KEY = 'summit-cap-dev-role';
+const KC_AUTH_KEY = 'summit-cap-kc-auth';
 
 const ROLE_CHAT_PATHS: Record<UserRole, string> = {
     prospect: '/api/chat',
@@ -103,6 +104,42 @@ function loadStoredRole(): UserRole | null {
         // localStorage unavailable (SSR or privacy mode)
     }
     return null;
+}
+
+interface StoredKcAuth {
+    access_token: string;
+    refresh_token?: string;
+    user: AuthUser;
+    exp?: number;
+}
+
+function storeKcAuth(data: StoredKcAuth): void {
+    try {
+        localStorage.setItem(KC_AUTH_KEY, JSON.stringify(data));
+    } catch {
+        // localStorage unavailable
+    }
+}
+
+function loadStoredKcAuth(): StoredKcAuth | null {
+    try {
+        const raw = localStorage.getItem(KC_AUTH_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw) as StoredKcAuth;
+        // Skip expired tokens (with 30s buffer)
+        if (data.exp && data.exp * 1000 < Date.now() + 30_000) return null;
+        return data;
+    } catch {
+        return null;
+    }
+}
+
+function clearKcAuth(): void {
+    try {
+        localStorage.removeItem(KC_AUTH_KEY);
+    } catch {
+        // localStorage unavailable
+    }
 }
 
 /** Decode a JWT payload with proper base64url handling (RFC 7515). */
@@ -177,6 +214,65 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (initCalledRef.current) return;
         initCalledRef.current = true;
 
+        // Restore ROPC session from localStorage (survives page reload and
+        // Playwright storageState capture for e2e tests).
+        const stored = loadStoredKcAuth();
+        if (stored) {
+            setToken(stored.access_token);
+            setUser(stored.user);
+
+            // Schedule refresh if we have a refresh_token
+            if (stored.refresh_token) {
+                const msUntilExpiry = stored.exp ? stored.exp * 1000 - Date.now() : 840_000;
+                const refreshIn = Math.max(msUntilExpiry - 60_000, 10_000);
+                const tokenUrl = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`;
+                if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+                const doRefresh = (rt: string) => {
+                    fetch(tokenUrl, {
+                        method: 'POST',
+                        body: new URLSearchParams({
+                            grant_type: 'refresh_token',
+                            client_id: KEYCLOAK_CLIENT_ID,
+                            refresh_token: rt,
+                        }),
+                    })
+                        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Refresh failed'))))
+                        .then((d) => {
+                            const newAccess = d.access_token as string;
+                            const newRefresh = (d.refresh_token as string) || rt;
+                            setToken(newAccess);
+                            const newClaims = decodeJwtPayload(newAccess);
+                            const roles = ((newClaims.realm_access as Record<string, unknown>)?.roles as string[]) ?? [];
+                            const roleMatch = roles.find((r2) => KNOWN_ROLES.has(r2));
+                            const role: UserRole = roleMatch === 'admin' ? 'ceo' : (roleMatch as UserRole) ?? 'borrower';
+                            const newUser: AuthUser = {
+                                role,
+                                user_id: (newClaims.sub as string) ?? '',
+                                name: (newClaims.name as string) ?? (newClaims.preferred_username as string) ?? '',
+                                email: (newClaims.email as string) ?? '',
+                            };
+                            setUser(newUser);
+                            const newExp = newClaims.exp as number | undefined;
+                            storeKcAuth({ access_token: newAccess, refresh_token: newRefresh, user: newUser, exp: newExp });
+                            const nextMs = newExp ? Math.max(newExp * 1000 - Date.now() - 60_000, 10_000) : 840_000;
+                            refreshTimerRef.current = setTimeout(() => doRefresh(newRefresh), nextMs);
+                        })
+                        .catch(() => {
+                            setUser(null);
+                            setToken(null);
+                            clearKcAuth();
+                        });
+                };
+                refreshTimerRef.current = setTimeout(() => doRefresh(stored.refresh_token!), refreshIn);
+            }
+
+            setIsInitializing(false);
+            return () => {
+                if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+            };
+        }
+
+        // No stored ROPC session -- fall back to keycloak-js check-sso
         const kc = new Keycloak({
             url: KEYCLOAK_URL!,
             realm: KEYCLOAK_REALM,
@@ -261,11 +357,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 const roles = ((claims.realm_access as Record<string, unknown>)?.roles as string[]) ?? [];
                 const roleMatch = roles.find((r) => KNOWN_ROLES.has(r));
                 const role: UserRole = roleMatch === 'admin' ? 'ceo' : (roleMatch as UserRole) ?? 'borrower';
-                setUser({
+                const authUser: AuthUser = {
                     role,
                     user_id: (claims.sub as string) ?? '',
                     name: (claims.name as string) ?? (claims.preferred_username as string) ?? '',
                     email: (claims.email as string) ?? '',
+                };
+                setUser(authUser);
+
+                // Persist to localStorage (survives page reload + Playwright storageState)
+                storeKcAuth({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                    user: authUser,
+                    exp: claims.exp as number | undefined,
                 });
 
                 // Schedule token refresh using the refresh_token from ROPC response
@@ -289,12 +394,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
                                 setToken(newAccess);
                                 const newClaims = decodeJwtPayload(newAccess);
                                 const newExp = newClaims.exp as number | undefined;
+                                const newRoles = ((newClaims.realm_access as Record<string, unknown>)?.roles as string[]) ?? [];
+                                const newRoleMatch = newRoles.find((r2) => KNOWN_ROLES.has(r2));
+                                const newRole: UserRole = newRoleMatch === 'admin' ? 'ceo' : (newRoleMatch as UserRole) ?? 'borrower';
+                                const newUser: AuthUser = {
+                                    role: newRole,
+                                    user_id: (newClaims.sub as string) ?? '',
+                                    name: (newClaims.name as string) ?? (newClaims.preferred_username as string) ?? '',
+                                    email: (newClaims.email as string) ?? '',
+                                };
+                                setUser(newUser);
+                                storeKcAuth({ access_token: newAccess, refresh_token: refreshToken, user: newUser, exp: newExp });
                                 const nextMs = newExp ? Math.max(newExp * 1000 - Date.now() - 60_000, 10_000) : 840_000;
                                 refreshTimerRef.current = setTimeout(doRefresh, nextMs);
                             })
                             .catch(() => {
                                 setUser(null);
                                 setToken(null);
+                                clearKcAuth();
                             });
                     };
                     refreshTimerRef.current = setTimeout(doRefresh, refreshIn);
@@ -312,8 +429,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     );
 
     const signOut = useCallback(() => {
+        clearKcAuth();
         if (IS_KEYCLOAK_ENABLED && keycloakRef.current) {
             keycloakRef.current.logout({ redirectUri: window.location.origin });
+            return;
+        }
+        if (IS_KEYCLOAK_ENABLED) {
+            // ROPC session (no keycloak-js adapter) -- clear and redirect
+            setUser(null);
+            setToken(null);
+            window.location.href = window.location.origin;
             return;
         }
         setUser(null);
