@@ -1,11 +1,11 @@
 # This project was developed with assistance from AI tools.
 """Loan officer assistant -- LangGraph agent for authenticated loan officers.
 
-Tools: lo_application_detail, lo_document_review, lo_document_quality,
-lo_completeness_check, lo_mark_resubmission, lo_underwriting_readiness,
-lo_submit_to_underwriting, lo_draft_communication, lo_send_communication,
-lo_pull_credit, lo_prequalification_check, lo_issue_prequalification,
-product_info, affordability_calc, kb_search.
+Tools: lo_pipeline_summary, lo_application_detail, lo_document_review,
+lo_document_quality, lo_completeness_check, lo_mark_resubmission,
+lo_underwriting_readiness, lo_submit_to_underwriting, lo_draft_communication,
+lo_send_communication, lo_pull_credit, lo_prequalification_check,
+lo_issue_prequalification, product_info, affordability_calc, kb_search.
 """
 
 from typing import Any
@@ -20,6 +20,7 @@ from .loan_officer_tools import (
     lo_draft_communication,
     lo_issue_prequalification,
     lo_mark_resubmission,
+    lo_pipeline_summary,
     lo_prequalification_check,
     lo_pull_credit,
     lo_send_communication,
@@ -36,6 +37,7 @@ def build_graph(config: dict[str, Any], checkpointer=None):
         [
             product_info,
             affordability_calc,
+            lo_pipeline_summary,
             lo_application_detail,
             lo_document_review,
             lo_document_quality,

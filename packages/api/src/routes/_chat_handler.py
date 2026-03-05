@@ -289,7 +289,7 @@ async def run_agent_stream(
                         tool_output = event.get("data", {}).get("output")
                         tool_name = event.get("name", "unknown")
                         await _audit(
-                            "tool_invocation",
+                            "agent_tool_called",
                             {
                                 "tool_name": tool_name,
                                 "result_length": len(str(tool_output)) if tool_output else 0,

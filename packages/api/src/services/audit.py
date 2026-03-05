@@ -67,7 +67,7 @@ async def write_audit_event(
 
     Args:
         session: Database session.
-        event_type: Event category (e.g. 'tool_invocation', 'safety_block').
+        event_type: Event category (e.g. 'agent_tool_called', 'safety_block').
         session_id: WebSocket/LangFuse session ID for trace correlation.
         user_id: User who triggered the event.
         user_role: Role at the time of the event.
@@ -245,7 +245,7 @@ async def search_events(
     if event_type is not None:
         stmt = stmt.where(AuditEvent.event_type == event_type)
 
-    stmt = stmt.order_by(AuditEvent.timestamp.desc()).limit(limit)
+    stmt = stmt.order_by(AuditEvent.timestamp.desc(), AuditEvent.id.desc()).limit(limit)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 

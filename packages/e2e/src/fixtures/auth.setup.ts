@@ -50,3 +50,7 @@ setup("sign in as loan officer", async ({ page }) => {
 setup("sign in as underwriter", async ({ page }) => {
     await signInAndSave(page, PERSONAS.underwriter, ".auth/uw.json");
 });
+
+setup("sign in as ceo", async ({ page }) => {
+    await signInAndSave(page, PERSONAS.ceo, ".auth/ceo.json");
+});

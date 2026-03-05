@@ -1122,7 +1122,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
 
 
 # ---------------------------------------------------------------------------
-# Historical (closed) loans -- 20 total: 16 approved, 4 denied
+# Historical (closed) loans -- 28 total: 16 approved, 12 denied
 # Distributed across 3 loan officers; loan types include all 7 products.
 # ---------------------------------------------------------------------------
 
@@ -1147,6 +1147,14 @@ _HISTORICAL_ADDRESSES = [
     "1965 Clarkson St, Denver, CO 80218",
     "2080 Downing St, Denver, CO 80205",
     "2195 York St, Denver, CO 80205",
+    "2310 Race St, Denver, CO 80205",
+    "2425 Vine St, Denver, CO 80205",
+    "2540 Gaylord St, Denver, CO 80205",
+    "2655 Gilpin St, Denver, CO 80218",
+    "2770 Williams St, Denver, CO 80205",
+    "2885 High St, Denver, CO 80205",
+    "3000 Cook St, Denver, CO 80205",
+    "3115 Steele St, Denver, CO 80205",
 ]
 
 # Borrower refs cycle through the fictional borrowers for historical loans
@@ -1246,12 +1254,36 @@ for i in range(16):
         }
     )
 
-# 4 denied historical loans -- spread across LOs and loan types
-_DENIAL_REASONS = [
+# 12 denied historical loans -- spread across 6 months, 3 LOs, all loan types
+_DENIAL_RATIONALES = [
     "Debt-to-income ratio exceeds 43% threshold. Monthly obligations are disproportionate to income.",
     "Credit score of 612 falls below minimum program requirement of 620.",
     "Insufficient documented income to support requested loan amount.",
     "Property appraisal came in significantly below purchase price. LTV exceeds program limits.",
+    "Employment gap of 8 months within last 2 years raises income stability concerns.",
+    "Debt-to-income ratio at 47% is well above program guidelines.",
+    "Credit score of 598 is below minimum for all available programs.",
+    "Insufficient reserves. Borrower has less than 2 months of mortgage payments in savings.",
+    "Property appraisal value 15% below contract price. Borrower unable to cover gap.",
+    "Undisclosed liabilities discovered during verification. DTI recalculated at 52%.",
+    "Credit score of 605 with recent derogatory marks. Does not meet FHA minimum.",
+    "Insufficient income documentation. Self-employment income cannot be adequately verified.",
+]
+
+# Structured denial reasons (JSONB) -- short labels for analytics
+_DENIAL_REASON_LABELS: list[list[str]] = [
+    ["High DTI ratio"],
+    ["Credit score below minimum"],
+    ["Insufficient income documentation"],
+    ["Appraisal shortfall"],
+    ["High DTI ratio"],
+    ["Credit score below minimum", "High DTI ratio"],
+    ["Insufficient income documentation"],
+    ["Appraisal shortfall"],
+    ["High DTI ratio"],
+    ["Credit score below minimum"],
+    ["Appraisal shortfall", "High DTI ratio"],
+    ["Credit score below minimum", "Insufficient income documentation"],
 ]
 
 _DENIAL_LOAN_TYPES = [
@@ -1259,16 +1291,30 @@ _DENIAL_LOAN_TYPES = [
     LoanType.FHA,
     LoanType.USDA,
     LoanType.ARM,
+    LoanType.CONVENTIONAL_30,
+    LoanType.JUMBO,
+    LoanType.FHA,
+    LoanType.VA,
+    LoanType.CONVENTIONAL_15,
+    LoanType.ARM,
+    LoanType.FHA,
+    LoanType.CONVENTIONAL_30,
 ]
 
-for i in range(4):
+# Spread denials unevenly across 6 months for a realistic trend chart.
+# Target month distribution (from today = 2026-03-05):
+#   Sep/Oct(1), Nov(1), Dec(3), Jan(3), Feb(2), Mar(2)
+# This creates a visible spike in Dec/Jan and a taper toward edges.
+_DENIAL_DAYS_AGO = [165, 118, 95, 88, 82, 62, 55, 48, 25, 15, 4, 2]
+_DENIED_CREDIT_SCORES = [612, 648, 655, 632, 640, 618, 598, 660, 625, 610, 605, 645]
+
+for i in range(12):
     _borrower_ref = _HISTORICAL_BORROWER_REFS[i % len(_HISTORICAL_BORROWER_REFS)]
     _lo_ref = _HISTORICAL_LO_REFS[i % len(_HISTORICAL_LO_REFS)]
     _idx = 16 + i
-    _created = _days_ago(150 - (i * 15))
+    _created = _days_ago(_DENIAL_DAYS_AGO[i])
     _loan_amount = Decimal(str(250000 + i * 30000))
     _property_value = _loan_amount + Decimal(str(30000 + i * 5000))
-    _denied_credit_scores = [612, 648, 655, 632]
 
     HISTORICAL_LOANS.append(
         {
@@ -1280,13 +1326,13 @@ for i in range(4):
             "property_value": _property_value,
             "assigned_to": _lo_ref,
             "created_at": _created,
-            "updated_at": _created + timedelta(days=20 + i * 5),
+            "updated_at": _created + timedelta(days=20 + i * 3),
             "financials": {
                 "gross_monthly_income": Decimal(str(5500 + i * 300)),
                 "monthly_debts": Decimal(str(2500 + i * 200)),
                 "total_assets": Decimal(str(15000 + i * 5000)),
-                "credit_score": _denied_credit_scores[i],
-                "dti_ratio": round(0.42 + i * 0.02, 3),
+                "credit_score": _DENIED_CREDIT_SCORES[i],
+                "dti_ratio": round(0.42 + i * 0.015, 3),
             },
             "documents": [
                 {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
@@ -1296,7 +1342,8 @@ for i in range(4):
             "decisions": [
                 {
                     "decision_type": DecisionType.DENIED,
-                    "rationale": _DENIAL_REASONS[i],
+                    "rationale": _DENIAL_RATIONALES[i],
+                    "denial_reasons": _DENIAL_REASON_LABELS[i],
                     "decided_by": MARIA_CHEN_ID,
                     "created_at": _created + timedelta(days=25),
                 },
@@ -1306,7 +1353,7 @@ for i in range(4):
 
 
 # ---------------------------------------------------------------------------
-# HMDA demographics -- one per application (30 total: 10 active + 20 historical)
+# HMDA demographics -- one per application (38 total: 10 active + 28 historical)
 # ---------------------------------------------------------------------------
 
 # Distribution: ~40% White, ~20% Black, ~15% Hispanic, ~15% Asian, ~10% Other
@@ -1329,7 +1376,7 @@ _SEX_DIST = ["Male"] * 15 + ["Female"] * 14 + ["Prefer not to say"] * 1
 _AGE_DIST = ["25-34"] * 9 + ["35-44"] * 11 + ["45-54"] * 6 + ["55-64"] * 4
 
 HMDA_DEMOGRAPHICS: list[dict] = []
-for i in range(30):
+for i in range(38):
     HMDA_DEMOGRAPHICS.append(
         {
             "application_index": i,  # resolved at seed time to actual application_id

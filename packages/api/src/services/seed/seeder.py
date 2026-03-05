@@ -33,8 +33,10 @@ from ..compliance.seed_hmda import clear_hmda_demographics, seed_hmda_demographi
 from .fixtures import (
     ACTIVE_APPLICATIONS,
     BORROWERS,
+    DAVID_PARK_ID,
     HISTORICAL_LOANS,
     HMDA_DEMOGRAPHICS,
+    MARIA_CHEN_ID,
     compute_config_hash,
 )
 
@@ -207,6 +209,8 @@ async def _seed_applications(
                 decision_type=dec_def["decision_type"],
                 rationale=dec_def["rationale"],
                 decided_by=dec_def.get("decided_by"),
+                denial_reasons=dec_def.get("denial_reasons"),
+                created_at=dec_def.get("created_at"),
             )
             session.add(decision)
 
@@ -235,6 +239,108 @@ async def _seed_applications(
         applications.append(app)
 
     return applications
+
+
+async def _seed_recent_audit_events(
+    session: AsyncSession,
+    active_apps: list[Application],
+    app_defs: list[dict],
+) -> None:
+    """Create synthetic audit events simulating recent user activity.
+
+    These become the most recent events in the audit trail, so the CEO
+    dashboard "Recent Audit Events" card shows realistic actions instead
+    of only "application created / system" rows.
+    """
+    # Map a few active apps to realistic recent events
+    # Use first 3 active apps (they have different LOs assigned)
+    events: list[dict] = [
+        {
+            "event_type": "stage_transition",
+            "user_id": app_defs[0]["assigned_to"],
+            "user_role": "loan_officer",
+            "application_id": active_apps[0].id,
+            "event_data": {
+                "from_stage": "application",
+                "to_stage": "underwriting",
+                "reason": "All documentation received, submitting for review",
+            },
+        },
+        {
+            "event_type": "compliance_check",
+            "user_id": MARIA_CHEN_ID,
+            "user_role": "underwriter",
+            "application_id": active_apps[2].id,
+            "event_data": {
+                "checks": ["ecoa", "atr_qm", "trid"],
+                "result": "pass",
+                "flags": 0,
+            },
+        },
+        {
+            "event_type": "credit_pull",
+            "user_id": app_defs[1]["assigned_to"],
+            "user_role": "loan_officer",
+            "application_id": active_apps[1].id,
+            "event_data": {
+                "bureau": "equifax",
+                "score": 742,
+                "result": "approved",
+            },
+        },
+        {
+            "event_type": "condition_issued",
+            "user_id": MARIA_CHEN_ID,
+            "user_role": "underwriter",
+            "application_id": active_apps[3].id,
+            "event_data": {
+                "condition_type": "prior_to_close",
+                "title": "Updated pay stubs required",
+            },
+        },
+        {
+            "event_type": "decision",
+            "user_id": MARIA_CHEN_ID,
+            "user_role": "underwriter",
+            "application_id": active_apps[4].id,
+            "event_data": {
+                "decision_type": "conditionally_approved",
+                "rationale": "Strong financials, pending final documentation",
+            },
+        },
+        {
+            "event_type": "query",
+            "user_id": DAVID_PARK_ID,
+            "user_role": "ceo",
+            "event_data": {
+                "query_type": "pipeline_summary",
+                "parameters": {"days": 90},
+            },
+        },
+        {
+            "event_type": "communication_sent",
+            "user_id": app_defs[5]["assigned_to"],
+            "user_role": "loan_officer",
+            "application_id": active_apps[5].id,
+            "event_data": {
+                "channel": "email",
+                "subject": "Application status update",
+            },
+        },
+        {
+            "event_type": "condition_cleared",
+            "user_id": MARIA_CHEN_ID,
+            "user_role": "underwriter",
+            "application_id": active_apps[6].id,
+            "event_data": {
+                "condition_type": "prior_to_close",
+                "title": "Proof of homeowners insurance",
+            },
+        },
+    ]
+
+    for evt in events:
+        await write_audit_event(session, **evt)
 
 
 async def seed_demo_data(
@@ -339,6 +445,11 @@ async def seed_demo_data(
         user_role="system",
         event_data=summary,
     )
+
+    # 7. Synthetic audit events simulating recent user activity.
+    # Written last so they get the highest IDs and appear as "most recent"
+    # in the CEO dashboard audit events card.
+    await _seed_recent_audit_events(session, active_apps, ACTIVE_APPLICATIONS)
 
     # Collect timestamp overrides before commit (ORM objects expire after commit)
     all_defs = ACTIVE_APPLICATIONS + HISTORICAL_LOANS

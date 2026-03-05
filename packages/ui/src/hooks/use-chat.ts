@@ -4,6 +4,16 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiGet, apiDelete } from '@/lib/api-client';
 import { connectChat, type WsMessage, type ChatWs, type ConnectChatOptions } from '@/lib/ws';
 
+/** crypto.randomUUID() requires a secure context (HTTPS). Fall back for plain HTTP. */
+function uuid(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) =>
+        (+c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))).toString(16),
+    );
+}
+
 export interface ChatMessage {
     id: string;
     role: 'user' | 'assistant';
@@ -47,7 +57,7 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
             if (data.data.length > 0) {
                 setMessages(
                     data.data.map((m) => ({
-                        id: crypto.randomUUID(),
+                        id: uuid(),
                         role: m.role as 'user' | 'assistant',
                         content: m.content,
                         timestamp: new Date(),
@@ -100,7 +110,7 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                             return [
                                 ...prev,
                                 {
-                                    id: crypto.randomUUID(),
+                                    id: uuid(),
                                     role: 'assistant',
                                     content: streamBufferRef.current,
                                     timestamp: new Date(),
@@ -159,7 +169,7 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                             return [
                                 ...prev,
                                 {
-                                    id: crypto.randomUUID(),
+                                    id: uuid(),
                                     role: 'assistant',
                                     content: msg.content ?? '',
                                     timestamp: new Date(),
@@ -175,7 +185,7 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                             setMessages((prev) => [
                                 ...prev,
                                 {
-                                    id: crypto.randomUUID(),
+                                    id: uuid(),
                                     role: 'assistant',
                                     content: msg.content ?? 'An error occurred.',
                                     timestamp: new Date(),
@@ -241,7 +251,7 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
             setMessages((prev) => [
                 ...prev,
                 {
-                    id: crypto.randomUUID(),
+                    id: uuid(),
                     role: 'user',
                     content: displayContent ?? content,
                     timestamp: new Date(),

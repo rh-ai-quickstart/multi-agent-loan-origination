@@ -6,6 +6,7 @@ The ``get_model_monitoring_summary`` function orchestrates fetch + aggregate.
 """
 
 import logging
+import random
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -273,6 +274,108 @@ def compute_routing_distribution(
 
 
 # ---------------------------------------------------------------------------
+# Demo synthetic data (used when LangFuse is not configured)
+# ---------------------------------------------------------------------------
+
+_DEMO_MODELS = [
+    ("llama-3.1-8b", 0.65),  # 65% -- fast model for simple queries
+    ("llama-3.1-70b", 0.35),  # 35% -- capable model for complex reasoning
+]
+
+# Latency profiles per model (base_ms, jitter_ms) -- excellent conditions
+_DEMO_LATENCY = {
+    "llama-3.1-8b": (85, 30),  # Fast: P50 ~85ms
+    "llama-3.1-70b": (210, 60),  # Capable: P50 ~210ms
+}
+
+# Token profiles per model (mean_input, mean_output, jitter)
+_DEMO_TOKENS = {
+    "llama-3.1-8b": (380, 250, 120),
+    "llama-3.1-70b": (450, 380, 140),
+}
+
+
+def _generate_demo_observations(hours: int) -> list[dict[str, Any]]:
+    """Generate synthetic LangFuse-shaped observations for demo display.
+
+    Produces observations that match the exact dict structure returned by
+    ``fetch_observations``, so they flow through the same aggregation pipeline.
+    Uses a fixed seed for deterministic output across refreshes.
+    """
+    rng = random.Random(42)
+    now = datetime.now(UTC)
+    start = now - timedelta(hours=hours)
+
+    # Scale calls and bucket count for readable trend charts.
+    # For short ranges (<=48h): ~15 calls/hr, one bucket per hour.
+    # For long ranges: pick ~30 representative daily slots, ~20 calls each.
+    if hours <= 48:
+        total_calls = 15 * hours
+        # Timestamps spread uniformly across the range
+        offsets_s = [rng.random() * (hours * 3600) for _ in range(total_calls)]
+    else:
+        num_days = hours // 24
+        slots = min(num_days, 30)
+        calls_per_slot = 20
+        total_calls = slots * calls_per_slot
+        # Pick one hour per slot-day, cluster calls within that hour
+        day_step = num_days / slots
+        offsets_s = []
+        for s in range(slots):
+            day_offset_h = int(s * day_step) * 24 + rng.randint(8, 18)
+            for _ in range(calls_per_slot):
+                offsets_s.append(day_offset_h * 3600 + rng.random() * 3600)
+
+    observations: list[dict[str, Any]] = []
+
+    for idx in range(total_calls):
+        # Pick model based on routing weights
+        roll = rng.random()
+        cumulative = 0.0
+        model = _DEMO_MODELS[0][0]
+        for m, weight in _DEMO_MODELS:
+            cumulative += weight
+            if roll <= cumulative:
+                model = m
+                break
+
+        obs_start = start + timedelta(seconds=offsets_s[idx])
+
+        # Latency
+        base_ms, jitter_ms = _DEMO_LATENCY[model]
+        latency_ms = max(50, base_ms + rng.gauss(0, jitter_ms))
+        obs_end = obs_start + timedelta(milliseconds=latency_ms)
+
+        # Tokens
+        mean_in, mean_out, tok_jitter = _DEMO_TOKENS[model]
+        input_tokens = max(10, int(mean_in + rng.gauss(0, tok_jitter)))
+        output_tokens = max(10, int(mean_out + rng.gauss(0, tok_jitter)))
+
+        # ~0.8% error rate (excellent conditions)
+        is_error = rng.random() < 0.008
+        level = "ERROR" if is_error else "DEFAULT"
+        status_msg = (
+            rng.choice(["timeout", "rate_limit_exceeded", "context_length"]) if is_error else ""
+        )
+
+        observations.append(
+            {
+                "startTime": obs_start.isoformat(),
+                "endTime": obs_end.isoformat(),
+                "model": model,
+                "usage": {
+                    "input": input_tokens,
+                    "output": output_tokens,
+                },
+                "level": level,
+                "statusMessage": status_msg,
+            }
+        )
+
+    return observations
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
 
@@ -304,8 +407,16 @@ async def get_model_monitoring_summary(
         raise
 
     if observations is None:
+        # Generate demo data so the dashboard card renders with realistic metrics
+        # even when LangFuse is not deployed. The synthetic observations flow
+        # through the same aggregation pipeline as real data.
+        observations = _generate_demo_observations(hours)
         return ModelMonitoringSummary(
             langfuse_available=False,
+            latency=compute_latency_metrics(observations),
+            token_usage=compute_token_usage(observations),
+            errors=compute_error_metrics(observations),
+            routing=compute_routing_distribution(observations),
             time_range_hours=hours,
             computed_at=now,
         )

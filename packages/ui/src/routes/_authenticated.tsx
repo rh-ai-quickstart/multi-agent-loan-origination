@@ -20,6 +20,7 @@ function isRouteAllowed(pathname: string, role: UserRole): boolean {
     if (pathname.startsWith('/loan-officer')) return role === 'loan_officer';
     if (pathname.startsWith('/underwriter')) return role === 'underwriter';
     if (pathname.startsWith('/executive')) return role === 'ceo';
+    if (pathname.startsWith('/ceo')) return role === 'ceo';
     return true; // root or unknown routes
 }
 

@@ -81,7 +81,7 @@ async def _get_ai_recommendation(
         select(AuditEvent)
         .where(
             AuditEvent.application_id == application_id,
-            AuditEvent.event_type == "tool_call",
+            AuditEvent.event_type == "agent_tool_called",
         )
         .order_by(AuditEvent.timestamp.desc())
         .limit(20)

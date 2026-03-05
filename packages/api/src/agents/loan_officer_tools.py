@@ -18,12 +18,13 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated
 
-from db import CreditReport, PrequalificationDecision
+from db import Application, ApplicationBorrower, CreditReport, PrequalificationDecision
 from db.database import SessionLocal
 from db.enums import ApplicationStage, DocumentStatus
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from ..services.application import (
     InvalidTransitionError,
@@ -77,6 +78,63 @@ _COMM_TYPE_LABELS: dict[str, str] = {
 
 def _user_context_from_state(state: dict):
     return user_context_from_state(state, default_role="loan_officer")
+
+
+@tool
+async def lo_pipeline_summary(
+    state: Annotated[dict, InjectedState],
+) -> str:
+    """Get a summary of all applications in the loan officer's pipeline, grouped by stage.
+
+    Returns counts per stage and a brief listing of each application.
+    """
+    user = _user_context_from_state(state)
+    async with SessionLocal() as session:
+        from ..services.scope import apply_data_scope
+
+        stmt = (
+            select(Application)
+            .options(
+                selectinload(Application.application_borrowers).joinedload(
+                    ApplicationBorrower.borrower
+                ),
+            )
+            .order_by(Application.updated_at.desc())
+        )
+        stmt = apply_data_scope(stmt, user.data_scope, user)
+        result = await session.execute(stmt)
+        apps = result.unique().scalars().all()
+
+    if not apps:
+        return "You have no applications in your pipeline."
+
+    # Group by stage
+    by_stage: dict[str, list] = {}
+    for app in apps:
+        stage_label = format_enum_label(app.stage.value) if app.stage else "Unknown"
+        by_stage.setdefault(stage_label, []).append(app)
+
+    lines = [f"Pipeline Summary: {len(apps)} total application(s)", ""]
+    for stage_label, stage_apps in by_stage.items():
+        lines.append(f"{stage_label} ({len(stage_apps)}):")
+        for app in stage_apps:
+            borrower_name = ""
+            for ab in app.application_borrowers or []:
+                if ab.is_primary and ab.borrower:
+                    borrower_name = f"{ab.borrower.first_name} {ab.borrower.last_name}"
+                    break
+            amount_str = f"${app.loan_amount:,.0f}" if app.loan_amount else "TBD"
+            loan_label = _LOAN_TYPE_LABELS.get(app.loan_type.value if app.loan_type else "", "")
+            parts = [f"  #{app.id}"]
+            if borrower_name:
+                parts.append(borrower_name)
+            if loan_label:
+                parts.append(loan_label)
+            parts.append(amount_str)
+            lines.append(" - ".join(parts))
+        lines.append("")
+
+    return "\n".join(lines)
 
 
 @tool

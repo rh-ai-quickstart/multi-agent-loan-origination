@@ -18,6 +18,7 @@ import { Route as AuthenticatedCeoIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedBorrowerIndexRouteImport } from './routes/_authenticated/borrower/index'
 import { Route as AuthenticatedUnderwriterApplicationIdRouteImport } from './routes/_authenticated/underwriter/$applicationId'
 import { Route as AuthenticatedLoanOfficerApplicationIdRouteImport } from './routes/_authenticated/loan-officer/$applicationId'
+import { Route as AuthenticatedCeoAuditRouteImport } from './routes/_authenticated/ceo/audit'
 
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
@@ -68,10 +69,16 @@ const AuthenticatedLoanOfficerApplicationIdRoute =
     path: '/loan-officer/$applicationId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedCeoAuditRoute = AuthenticatedCeoAuditRouteImport.update({
+  id: '/ceo/audit',
+  path: '/ceo/audit',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/ceo/audit': typeof AuthenticatedCeoAuditRoute
   '/loan-officer/$applicationId': typeof AuthenticatedLoanOfficerApplicationIdRoute
   '/underwriter/$applicationId': typeof AuthenticatedUnderwriterApplicationIdRoute
   '/borrower/': typeof AuthenticatedBorrowerIndexRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
+  '/ceo/audit': typeof AuthenticatedCeoAuditRoute
   '/loan-officer/$applicationId': typeof AuthenticatedLoanOfficerApplicationIdRoute
   '/underwriter/$applicationId': typeof AuthenticatedUnderwriterApplicationIdRoute
   '/borrower': typeof AuthenticatedBorrowerIndexRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/_authenticated/ceo/audit': typeof AuthenticatedCeoAuditRoute
   '/_authenticated/loan-officer/$applicationId': typeof AuthenticatedLoanOfficerApplicationIdRoute
   '/_authenticated/underwriter/$applicationId': typeof AuthenticatedUnderwriterApplicationIdRoute
   '/_authenticated/borrower/': typeof AuthenticatedBorrowerIndexRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/sign-in'
+    | '/ceo/audit'
     | '/loan-officer/$applicationId'
     | '/underwriter/$applicationId'
     | '/borrower/'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/sign-in'
+    | '/ceo/audit'
     | '/loan-officer/$applicationId'
     | '/underwriter/$applicationId'
     | '/borrower'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/sign-in'
+    | '/_authenticated/ceo/audit'
     | '/_authenticated/loan-officer/$applicationId'
     | '/_authenticated/underwriter/$applicationId'
     | '/_authenticated/borrower/'
@@ -206,10 +218,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLoanOfficerApplicationIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/ceo/audit': {
+      id: '/_authenticated/ceo/audit'
+      path: '/ceo/audit'
+      fullPath: '/ceo/audit'
+      preLoaderRoute: typeof AuthenticatedCeoAuditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedCeoAuditRoute: typeof AuthenticatedCeoAuditRoute
   AuthenticatedLoanOfficerApplicationIdRoute: typeof AuthenticatedLoanOfficerApplicationIdRoute
   AuthenticatedUnderwriterApplicationIdRoute: typeof AuthenticatedUnderwriterApplicationIdRoute
   AuthenticatedBorrowerIndexRoute: typeof AuthenticatedBorrowerIndexRoute
@@ -219,6 +239,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedCeoAuditRoute: AuthenticatedCeoAuditRoute,
   AuthenticatedLoanOfficerApplicationIdRoute:
     AuthenticatedLoanOfficerApplicationIdRoute,
   AuthenticatedUnderwriterApplicationIdRoute:

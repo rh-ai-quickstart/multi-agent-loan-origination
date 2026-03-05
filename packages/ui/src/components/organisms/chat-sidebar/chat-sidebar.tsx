@@ -14,6 +14,27 @@ function useCurrentAppId(): string | undefined {
     return match?.[1];
 }
 
+const ROLE_WELCOME: Record<string, { heading: string; subtext: string }> = {
+    borrower: {
+        heading: 'How can I help?',
+        subtext: 'Ask about your application, documents, or next steps.',
+    },
+    loan_officer: {
+        heading: 'How can I help?',
+        subtext: 'Ask about your pipeline, borrower status, or compliance questions.',
+    },
+    underwriter: {
+        heading: 'How can I help?',
+        subtext: 'Ask about risk assessment, conditions, or compliance checks.',
+    },
+    ceo: {
+        heading: 'How can I help?',
+        subtext: 'Ask about portfolio health, denial trends, or operational metrics.',
+    },
+};
+
+const DEFAULT_WELCOME = { heading: 'How can I help?', subtext: 'Ask me anything.' };
+
 export function ChatSidebar() {
     const { chatPath, historyPath, user, token } = useAuth();
     const appId = useCurrentAppId();
@@ -136,17 +157,18 @@ export function ChatSidebar() {
                     </div>
                 )}
 
-                {messages.length === 0 && !isStreaming && !connectionError && (
-                    <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1e3a5f]/10">
-                            <MessageSquare className="h-6 w-6 text-[#1e3a5f]" aria-hidden="true" />
+                {messages.length === 0 && !isStreaming && !connectionError && (() => {
+                    const welcome = (user?.role && ROLE_WELCOME[user.role]) || DEFAULT_WELCOME;
+                    return (
+                        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1e3a5f]/10">
+                                <MessageSquare className="h-6 w-6 text-[#1e3a5f]" aria-hidden="true" />
+                            </div>
+                            <p className="text-sm font-medium text-foreground">{welcome.heading}</p>
+                            <p className="text-xs text-muted-foreground">{welcome.subtext}</p>
                         </div>
-                        <p className="text-sm font-medium text-foreground">How can I help?</p>
-                        <p className="text-xs text-muted-foreground">
-                            Ask about your application, documents, or next steps.
-                        </p>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {messages.map((msg) => (
                     <ChatBubble key={msg.id} message={msg} />
