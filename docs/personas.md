@@ -492,5 +492,3 @@ After exploring the persona experiences:
 
 - Review the [Architecture](architecture.md) document for system design details
 - See the [API Reference](api-reference.md) for endpoint documentation
-- Check the [Deployment Guide](deployment.md) for OpenShift installation
-- Read the [Getting Started](getting-started.md) guide for local setup

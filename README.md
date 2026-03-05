@@ -1,8 +1,12 @@
+<!-- This project was developed with assistance from AI tools. -->
+
 # Summit Cap Financial -- Multi-Agent Loan Origination
 
 A Red Hat AI Quickstart demonstrating agentic AI applied to the mortgage lending lifecycle. Built for [Red Hat Summit](https://www.redhat.com/en/summit), this reference application showcases multi-agent AI systems on Red Hat AI / OpenShift AI using a realistic, regulated-industry business use case.
 
 Summit Cap Financial is a fictional mortgage lender headquartered in Denver, Colorado. The application covers the process from prospect inquiry through pre-qualification, application, underwriting, and approval -- with five distinct persona experiences sharing a common backend.
+
+**[Documentation Site](https://jeremyary.github.io/multi-agent-loan-origination/)** | [API Docs](http://localhost:8000/docs) (when running)
 
 > **Regulatory disclaimer:** All compliance content (HMDA, ECOA, TRID, ATR/QM, FCRA) is simulated for demonstration purposes and does not constitute legal or regulatory advice.
 
@@ -22,7 +26,7 @@ Summit Cap Financial is a fictional mortgage lender headquartered in Denver, Col
 make setup
 
 # 2. Start database + supporting services
-make containers-up
+make run
 
 # 3. Run database migrations
 make db-upgrade
@@ -38,8 +42,7 @@ make dev
 
 | Service | URL |
 |---------|-----|
-| Frontend (Vite) | http://localhost:5173 |
-| Storybook | http://localhost:6006 |
+| Frontend (Vite) | http://localhost:3000 |
 | API Server | http://localhost:8000 |
 | API Docs (Swagger) | http://localhost:8000/docs |
 | Database | postgresql://localhost:5433 |
@@ -100,7 +103,7 @@ summit-cap/
 # Development
 make setup              # Install all dependencies
 make dev                # Start dev servers (frontend + API)
-make containers-up      # Start database + services
+make run                # Start all services with compose
 make db-upgrade         # Run migrations
 
 # Testing
@@ -113,7 +116,11 @@ cd packages/api && uv run ruff check src/  # Python lint
 
 # Containers
 make containers-build   # Build all container images
-make containers-up      # Start all services
+make run                # Start minimal stack (db + minio + api + ui)
+make run-auth           # Add Keycloak
+make run-ai             # Add LlamaStack
+make run-obs            # Add observability (LangFuse)
+podman-compose --profile full up -d  # Start all services
 make containers-down    # Stop all services
 make containers-logs    # View container logs
 
@@ -139,25 +146,37 @@ LLM_API_KEY=lm-studio
 # API
 DEBUG=true
 AUTH_DISABLED=true
-ALLOWED_HOSTS=["http://localhost:5173","http://localhost:3000"]
-
-# UI
-VITE_API_BASE_URL=http://localhost:8000
+ALLOWED_HOSTS=["http://localhost:3000"]
 ```
 
 ## Container Deployment
 
+The `compose.yml` supports multiple profiles for different deployment scenarios:
+
 ```bash
-# Build and start all services (API, UI, DB, MinIO, Keycloak, LangFuse)
-make containers-build && make containers-up
+# Build images
+make containers-build
+
+# Start minimal stack (db + minio + api + ui)
+make run  # or: podman-compose up -d
+
+# Add authentication (+ Keycloak)
+make run-auth  # or: podman-compose --profile auth up -d
+
+# Add AI services (+ LlamaStack)
+make run-ai  # or: podman-compose --profile ai up -d
+
+# Add observability (+ Redis + ClickHouse + LangFuse)
+make run-obs  # or: podman-compose --profile observability up -d
+
+# Start everything
+podman-compose --profile full up -d
 
 # Check service status
 podman-compose ps
 ```
 
 ## OpenShift / Kubernetes Deployment
-
-See [deploy/helm/summit-cap/README.md](deploy/helm/summit-cap/README.md) for Helm chart documentation.
 
 ```bash
 # Deploy to OpenShift
@@ -167,22 +186,15 @@ make deploy
 make deploy-dev
 ```
 
+See the [documentation site](https://jeremyary.github.io/multi-agent-loan-origination/) for deployment details.
+
 ## Package Documentation
 
 | Package | README | Key Topics |
 |---------|--------|------------|
 | API | [packages/api/README.md](packages/api/README.md) | Routes, agents, schemas, WebSocket protocol, testing |
-| UI | [packages/ui/README.md](packages/ui/README.md) | Components, routing, state management, Storybook |
+| UI | [packages/ui/README.md](packages/ui/README.md) | Components, routing, state management |
 | DB | [packages/db/README.md](packages/db/README.md) | Models, migrations, connection management |
-
-## Additional Documentation
-
-| Document | Description |
-|----------|-------------|
-| [WebSocket Protocol](docs/websocket-protocol.md) | Chat endpoint paths, authentication, message types |
-| [Response Patterns](docs/response-patterns.md) | API response envelope conventions |
-| [Architecture](plans/architecture.md) | System architecture and design decisions |
-| [Demo Walkthrough](plans/demo-walkthrough.md) | Guided demo script for all five personas |
 
 ## Testing
 
@@ -191,7 +203,7 @@ make deploy-dev
 make test
 
 # Package-specific
-cd packages/api && uv run pytest -v          # 991 tests
+cd packages/api && uv run pytest -v          # 1083 tests
 cd packages/ui && pnpm test:run              # UI tests
 ```
 

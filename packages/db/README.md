@@ -1,448 +1,230 @@
-# summit-cap Database
+# This project was developed with assistance from AI tools.
+# Summit Cap Financial - Database Package
 
-PostgreSQL database setup with Podman Compose and Alembic migrations.
+PostgreSQL database layer for Summit Cap Financial, a multi-agent mortgage lending demo application. Part of the Red Hat AI Quickstart catalog.
 
-PostgreSQL database architecture and development guide.
+## Technology Stack
 
-> **Setup & Installation**: See the [root README](../../README.md) for installation and quick start instructions.
+- **PostgreSQL 16** with pgvector extension for compliance KB embeddings
+- **SQLAlchemy 2.0** async ORM with asyncpg driver
+- **Alembic** for schema migrations
+- **pydantic-settings** for type-safe configuration
+- **pgvector** (768-dimensional vectors) with HNSW indexing
 
-## Features
+## Schema Overview
 
-- **PostgreSQL 16**: Latest PostgreSQL database with async support
-- **Podman Compose**: Container orchestration for local development
-- **Alembic**: Database migration management
-- **Async SQLAlchemy**: Non-blocking database operations
-- **Connection Pooling**: Efficient connection reuse
-- **Health Checks**: Built-in database health monitoring
+The database models the complete mortgage lending lifecycle across 20+ tables:
 
-## Quick Start
+| Model | Purpose |
+|-------|---------|
+| **Borrower** | Borrower profile linked to Keycloak identity |
+| **Application** | Mortgage application with lifecycle stage tracking |
+| **ApplicationBorrower** | Junction table supporting co-borrowers (many-to-many) |
+| **ApplicationFinancials** | Financial data per application, optionally per borrower |
+| **RateLock** | Interest rate lock with expiration tracking |
+| **Condition** | Underwriting conditions with severity and status lifecycle |
+| **Decision** | Underwriting decisions (approval, conditional, denied) |
+| **Document** | Uploaded documents (W2, pay stubs, appraisals, etc.) |
+| **DocumentExtraction** | Extracted fields from document processing |
+| **AuditEvent** | Append-only audit trail with hash chaining |
+| **AuditViolation** | Trigger violations (attempted UPDATE/DELETE on audit_events) |
+| **KBDocument** | Compliance knowledge base documents (3-tier: federal, agency, internal) |
+| **KBChunk** | Embedded text chunks with Vector(768) embeddings for semantic search |
+| **CreditReport** | Credit bureau pull records with hard/soft inquiry tracking |
+| **PrequalificationDecision** | Pre-qualification decisions with denial reason tracking |
+| **RiskAssessmentRecord** | AI risk assessment outputs with model metadata |
+| **ComplianceResult** | Compliance check results (ECOA, ATR/QM, TRID) |
+| **HmdaDemographic** | HMDA demographic data (isolated schema, restricted access) |
+| **HmdaLoanData** | HMDA-reportable loan characteristics |
+| **DemoDataManifest** | Tracks synthetic demo data for bulk deletion |
 
-Commands below assume you're in the `packages/db` directory. From the project root, prefix with `db:` (e.g., `pnpm db:migrate`).
+## Key Architectural Patterns
+
+### HMDA Data Isolation
+
+HMDA demographic data lives in a separate `hmda` schema with restricted access enforced at the database role level:
+
+- **lending_app** role: Normal application access (public schema only)
+- **compliance_app** role: HMDA schema access for analytics and reporting
+
+Dual connection strings:
+
+```python
+DATABASE_URL = "postgresql+asyncpg://lending_app:lending_pass@localhost:5433/summit-cap"
+COMPLIANCE_DATABASE_URL = "postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/summit-cap"
+```
+
+Code uses `get_db()` for normal operations and `get_compliance_db()` for HMDA access.
+
+### Audit Event Hash Chains
+
+Every audit event includes `prev_hash` (SHA-256 hash of the previous event), forming an append-only chain:
+
+```
+Event 1 [hash=abc123] → Event 2 [prev_hash=abc123, hash=def456] → Event 3 [prev_hash=def456, hash=...]
+```
+
+A trigger blocks UPDATE/DELETE operations on `audit_events` and logs violations to `audit_violations`.
+
+### Vector Embeddings for Compliance KB
+
+Compliance knowledge base chunks use pgvector for semantic search:
+
+```sql
+-- KBChunk.embedding is a Vector(768) column
+CREATE INDEX kb_chunks_embedding_idx ON kb_chunks USING hnsw (embedding vector_cosine_ops);
+```
+
+Application code performs cosine similarity search to retrieve relevant regulatory guidance during agent interactions.
+
+## Database Container
+
+The PostgreSQL container runs on **port 5433** (not the default 5432):
 
 ```bash
-# Start the database container
-pnpm db:start
-
-# Apply migrations
-pnpm migrate
-
-# View database logs
-pnpm db:logs
+# From project root
+make db-start       # Start container
+make db-stop        # Stop container
+make db-upgrade     # Run migrations
 ```
 
-## Architecture Overview
+Container configuration in `compose.yml`:
 
-This database package provides async SQLAlchemy integration with Alembic migrations:
-
-```
-Application → DatabaseService → AsyncSession → PostgreSQL
-                ↓
-         Connection Pooling
-                ↓
-         Health Checks
-```
-
-### Key Architectural Patterns
-
-- **Async SQLAlchemy**: Non-blocking database operations using `asyncpg` driver
-- **Connection Pooling**: Managed by SQLAlchemy engine for efficient connection reuse
-- **Dependency Injection**: `DatabaseService` and session management via FastAPI dependencies
-- **Migration Management**: Alembic for version-controlled schema changes
-- **Service Pattern**: `DatabaseService` class provides health checks and session management
-
-## Project Structure
-
-```
-src/
-└── db/
-    ├── __init__.py          # Package exports (DatabaseService, get_db_service)
-    └── database.py          # Database engine, session factory, DatabaseService class
-
-alembic/
-├── versions/                 # Migration files (auto-generated)
-├── env.py                   # Alembic environment configuration
-└── script.py.mako          # Migration template
-
-tests/
-└── test_database.py         # Database connection and health check tests
-
-alembic.ini                  # Alembic configuration
-pyproject.toml               # Python dependencies
-
-# Note: compose.yml is at project root, not in this package
+```yaml
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "5433:5432"  # Host 5433 → Container 5432
+    environment:
+      POSTGRES_DB: summit-cap
 ```
 
-### Directory Purposes
+Initialization script (`config/postgres/init-databases.sh`) creates:
 
-- **`src/db/database.py`**: Core database module containing:
-  - `engine`: SQLAlchemy async engine with connection pooling
-  - `SessionLocal`: Session factory for creating database sessions
-  - `Base`: Declarative base for SQLAlchemy models
-  - `DatabaseService`: Service class for health checks and session management
-  - `get_db_service()`: FastAPI dependency function for dependency injection
+- `langfuse` database (for LLM observability)
+- `lending_app` and `compliance_app` roles
+- HMDA schema (created via Alembic migration)
 
-- **`alembic/`**: Alembic migration system:
-  - `versions/`: Migration files (one per schema change)
-  - `env.py`: Alembic environment configuration (connects to database, loads models)
-  - `script.py.mako`: Template for new migration files
+## Configuration
 
-- **`tests/`**: Database tests. Use transaction rollback for test isolation.
-
-## Database Service Architecture
-
-### DatabaseService Class
-
-The `DatabaseService` provides a clean interface for database operations:
-
-```python
-from db import DatabaseService, get_db_service
-
-# In FastAPI routes (via dependency injection)
-@router.get("/users")
-async def get_users(db_service: DatabaseService = Depends(get_db_service)):
-    # Use db_service for database operations
-    session = await db_service.get_session()
-    # ... use session
-```
-
-### Connection Pooling
-
-The SQLAlchemy engine manages a connection pool automatically:
-
-```python
-# src/db/database.py
-engine = create_async_engine(DATABASE_URL, echo=True)
-```
-
-**Key settings:**
-- `echo=True`: Logs SQL queries (set to `False` in production)
-- Connection pool size managed automatically
-- Connections are reused efficiently
-
-### Session Management
-
-Sessions are created via the `SessionLocal` factory:
-
-```python
-async with SessionLocal() as session:
-    # Use session for queries
-    result = await session.execute(select(User))
-```
-
-**Best practices:**
-- Always use `async with` for proper cleanup
-- Sessions are not thread-safe (use one per request)
-- Use dependency injection in FastAPI routes
-
-## Adding New Models
-
-Follow these steps to add a new database model:
-
-### 1. Define SQLAlchemy Model
-
-Create a model file (typically in `src/db/models.py` or similar):
-
-```python
-# src/db/models.py
-from sqlalchemy import Column, Integer, String, DateTime, func
-from sqlalchemy.orm import declarative_base
-from db.database import Base
-
-class User(Base):
-    __tablename__ = "user"
-    
-    id = Column(Integer, primary_key=True)
-    email = Column(String(255), unique=True, nullable=False)
-    name = Column(String(255), nullable=False)
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-```
-
-### 2. Import Models in Alembic
-
-Ensure Alembic can discover your models. Update `alembic/env.py` to import your models:
-
-```python
-# alembic/env.py (already configured)
-from db.database import Base
-# Import all models here so Alembic can detect them
-from db import models  # or specific imports
-```
-
-### 3. Generate Migration
-
-Auto-generate a migration based on model changes:
+Configuration uses pydantic-settings for type safety. Set environment variables in `.env` at project root:
 
 ```bash
-pnpm migrate:new -m "add user table"
+DATABASE_URL=postgresql+asyncpg://lending_app:lending_pass@localhost:5433/summit-cap
+COMPLIANCE_DATABASE_URL=postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/summit-cap
+SQL_ECHO=false  # Set to true for SQL query logging
 ```
 
-This creates a new file in `alembic/versions/` with the migration SQL.
+## Migrations
 
-### 4. Review Migration
+Alembic manages schema versioning. Migrations live in `alembic/versions/` with sequential numbering.
 
-Always review the generated migration file:
-
-```python
-# alembic/versions/xxxx_add_user_table.py
-def upgrade():
-    op.create_table(
-        'user',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('email', sa.String(length=255), nullable=False),
-        sa.Column('name', sa.String(length=255), nullable=False),
-        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('email')
-    )
-
-def downgrade():
-    op.drop_table('user')
-```
-
-### 5. Apply Migration
-
-Apply the migration to your database:
+### Common Commands
 
 ```bash
-pnpm migrate
+# From packages/db directory
+pnpm migrate                  # Apply pending migrations
+pnpm migrate:down             # Rollback last migration
+pnpm migrate:new -m "message" # Generate new migration
+pnpm migrate:history          # Show migration history
+
+# Direct Alembic commands
+uv run alembic upgrade head   # Apply all pending
+uv run alembic downgrade -1   # Rollback one
+uv run alembic current        # Show current revision
 ```
 
-### Model Best Practices
+### Creating Migrations
 
-- **Table Names**: Use singular nouns (`user`, not `users`)
-- **Column Names**: Use snake_case (`created_at`, not `createdAt`)
-- **Primary Keys**: Always use `id` as the primary key column name
-- **Foreign Keys**: Use `table_id` format (e.g., `user_id`)
-- **Timestamps**: Include `created_at` and `updated_at` on all tables
-- **Indexes**: Add indexes for frequently queried columns
-- **Constraints**: Use database-level constraints (unique, foreign keys, check)
-
-## Database Schema
-
-The database schema is managed through SQLAlchemy models and Alembic migrations. Models define the structure of your database tables, and migrations track changes over time.
-
-### Best Practices
-
-- **Version Control**: Always commit migration files to version control
-- **Review Migrations**: Review auto-generated migrations before applying them
-- **Test Migrations**: Test migrations in development before applying to production
-- **Backup Before Migration**: Always backup your database before running migrations in production
-- **Rollback Plan**: Have a rollback plan for every migration
-- **Naming Conventions**: Follow consistent naming conventions for tables, columns, and indexes
-- **Documentation**: Document complex migrations and schema changes
-
-## Migration Workflow
-
-### Schema Changes (Auto-Generated)
-
-For most schema changes, use auto-generation:
+Auto-generate from model changes:
 
 ```bash
-# 1. Modify your SQLAlchemy models
+# 1. Update models in src/db/models.py
 # 2. Generate migration
-pnpm migrate:new -m "add user table"
+pnpm migrate:new -m "add prequalification decision table"
 
-# 3. Review the generated migration file
+# 3. Review generated file in alembic/versions/
 # 4. Apply migration
 pnpm migrate
 ```
 
-### Data Migrations (Manual)
+### Migration Best Practices
 
-For data transformations, create manual migrations:
-
-```bash
-# 1. Create empty migration
-alembic revision -m "migrate user emails to lowercase"
-
-# 2. Edit the migration file
-```
-
-```python
-# alembic/versions/xxxx_migrate_user_emails.py
-def upgrade():
-    # Data migration logic
-    connection = op.get_bind()
-    connection.execute(
-        sa.text("UPDATE user SET email = LOWER(email)")
-    )
-
-def downgrade():
-    # Rollback logic if needed
-    pass
-```
-
-```bash
-# 3. Apply migration
-pnpm migrate
-```
-
-### Migration Commands
-
-Run these from the `packages/db` directory, or use root commands (e.g., `pnpm db:migrate`).
-
-```bash
-# Apply migrations
-pnpm migrate                    # Apply all pending migrations (or pnpm db:migrate from root)
-uv run alembic upgrade head     # Direct alembic command
-uv run alembic upgrade +2       # Apply next 2 migrations
-uv run alembic upgrade ae1027a  # Apply to specific revision
-
-# Rollback migrations
-pnpm migrate:down               # Rollback last migration (or pnpm db:migrate:down from root)
-uv run alembic downgrade -1     # Direct alembic command
-uv run alembic downgrade base   # Rollback all migrations
-
-# Information
-pnpm migrate:history            # Show migration history (or pnpm db:migrate:history from root)
-uv run alembic current          # Show current revision
-uv run alembic show ae1027a     # Show specific migration
-```
-
-### Rollback Strategies
-
-**Development:**
-- Rollback is safe and common
-- Use `pnpm migrate:down` to undo last migration
-
-**Production:**
-- Always test migrations in staging first
-- Have a rollback plan before applying
-- Consider zero-downtime migration strategies
+- Always review auto-generated migrations before applying
+- Test migrations in development before production
+- Commit migration files to version control
 - Never rollback migrations that have been applied to production for more than a few hours
+- For data transformations, create manual migrations using `alembic revision`
 
-## Using Models in API Package
+## Usage in API Package
 
-When the API package is enabled, use models via dependency injection:
+The API package imports models and session dependencies from the DB package:
 
 ```python
-# In API package: src/routes/users.py
-from fastapi import APIRouter, Depends
-from db import DatabaseService, get_db_service
+from db.database import get_db, get_compliance_db
+from db.models import Application, Borrower, AuditEvent, HmdaDemographic
 from sqlalchemy import select
-from db.models import User
+from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter()
-
-@router.get("/users/{user_id}")
-async def get_user(
-    user_id: int,
-    db_service: DatabaseService = Depends(get_db_service)
+# In a FastAPI route
+@router.get("/applications/{app_id}")
+async def get_application(
+    app_id: int,
+    session: AsyncSession = Depends(get_db),
 ):
-    session = await db_service.get_session()
-    async with session:
-        result = await session.execute(
-            select(User).where(User.id == user_id)
-        )
-        user = result.scalar_one_or_none()
-        return user
+    result = await session.execute(
+        select(Application).where(Application.id == app_id)
+    )
+    return result.scalar_one_or_none()
 ```
 
-See the [API package README](../../api/README.md) for more details on using database models in routes.
-
-## Testing Database Code
-
-### Test Structure
-
-Tests use `pytest` with `pytest-asyncio` for async support:
+For HMDA data access:
 
 ```python
-# tests/test_database.py
-import pytest
-from db import DatabaseService
-
-@pytest.mark.asyncio
-async def test_database_health_check():
-    service = DatabaseService()
-    health = await service.health_check()
-    assert health["status"] == "healthy"
+@router.get("/analytics/demographics")
+async def get_demographics(
+    session: AsyncSession = Depends(get_compliance_db),  # compliance_app role
+):
+    result = await session.execute(select(HmdaDemographic))
+    return result.scalars().all()
 ```
 
-### Transaction Rollback Pattern
+## Testing
 
-For tests that modify the database, use transaction rollback:
-
-```python
-@pytest.mark.asyncio
-async def test_create_user(db_session):
-    # db_session is automatically rolled back after test
-    from db.models import User
-    
-    user = User(email="test@example.com", name="Test User")
-    db_session.add(user)
-    await db_session.commit()
-    
-    # Test assertions
-    assert user.id is not None
-```
-
-### Running Tests
+Tests use pytest with pytest-asyncio:
 
 ```bash
-# Start test database
+# Start database
 pnpm db:start
 
 # Run migrations
 pnpm migrate
 
 # Run tests
-python -m pytest tests/
+cd packages/db
+uv run pytest -v
 ```
 
-## Configuration
+Test isolation via transaction rollback (fixture in `tests/conftest.py`).
 
-### Environment Variables
-
-Database configuration is managed via environment variables:
-
-```env
-# Database connection (project root .env file)
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5433/summit-cap
-DB_ECHO=false  # Set to true for SQL query logging
-```
-
-### Connection String Format
+## Package Structure
 
 ```
-postgresql+asyncpg://[user[:password]@][host[:port]][/database]
+packages/db/
+├── src/db/
+│   ├── __init__.py       # Package exports
+│   ├── config.py         # pydantic-settings config
+│   ├── database.py       # Engine, session factories, DatabaseService
+│   ├── enums.py          # Domain enums (ApplicationStage, DocumentType, etc.)
+│   └── models.py         # SQLAlchemy models (20+ tables)
+├── alembic/
+│   ├── versions/         # Migration files
+│   ├── env.py            # Alembic environment
+│   └── script.py.mako    # Migration template
+├── tests/
+│   ├── conftest.py       # Test fixtures
+│   └── test_*.py         # Test modules
+├── alembic.ini           # Alembic configuration
+└── pyproject.toml        # Dependencies and build config
 ```
-
-**Components:**
-- `postgresql+asyncpg`: Driver specification (required for async)
-- `user:password`: Database credentials
-- `host:port`: Database server (default: localhost:5433 via compose)
-- `database`: Database name
-
-### Database Container
-
-The database runs in a Podman container managed from the project root:
-
-- **Service Name**: summit-cap-db
-- **Host**: localhost
-- **Port**: 5433 (host) / 5432 (container)
-- **Database**: summit-cap
-- **Username**: user
-- **Password**: password
-
-**Note**: The `compose.yml` file is at the project root, not in this package.
-
-## Available Scripts
-
-```bash
-# Database Management
-pnpm db:start       # Start PostgreSQL container
-pnpm db:stop        # Stop container
-pnpm db:logs        # View logs
-
-# Migration Management
-pnpm migrate        # Apply all pending migrations
-pnpm migrate:down      # Rollback last migration
-pnpm migrate:new -m "message"  # Create new migration
-pnpm migrate:history        # Show migration history
-```
-
----
-
-Generated with [AI QuickStart CLI](https://github.com/TheiaSurette/quickstart-cli)

@@ -66,10 +66,8 @@ This Quickstart demonstrates production-ready AI patterns for regulated industri
 
 ## What's Next
 
-- **[Getting Started](getting-started.md)** -- Quick start guide to run the application locally
 - **[Architecture](architecture.md)** -- System design, component boundaries, and data flow
 - **[Personas](personas.md)** -- Detailed persona workflows and capabilities
-- **[Deployment](deployment.md)** -- OpenShift / Kubernetes deployment guide
 - **[API Reference](api-reference.md)** -- REST and WebSocket API documentation
 
 ## Project Goals
@@ -95,8 +93,4 @@ This is a reference application, not a production system. It does not include:
 
 ## Source Code
 
-The source code is available at [github.com/rh-ai-quickstart/mortgage-ai](https://github.com/rh-ai-quickstart/mortgage-ai) under the [LICENSE](https://github.com/rh-ai-quickstart/mortgage-ai/blob/main/LICENSE).
-
-## Contributing
-
-Contributions are welcome. See [CONTRIBUTING.md](https://github.com/rh-ai-quickstart/mortgage-ai/blob/main/CONTRIBUTING.md) for guidelines.
+The source code is available at [github.com/rh-ai-quickstart/mortgage-ai](https://github.com/rh-ai-quickstart/mortgage-ai).

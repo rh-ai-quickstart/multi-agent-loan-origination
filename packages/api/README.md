@@ -1,259 +1,284 @@
-# summit-cap API
+# This project was developed with assistance from AI tools.
 
-FastAPI backend for Summit Cap Financial mortgage loan origination.
+# Summit Cap Financial API
 
-> **Setup & Installation**: See the [root README](../../README.md) for installation and quick start instructions.
+FastAPI backend for a multi-agent mortgage loan origination system. This is the core backend for the Summit Cap Financial demo application (Red Hat AI Quickstart).
+
+## Overview
+
+Multi-persona chat application with role-scoped agents, compliance checks, audit trails, and analytics. Five LangGraph agents (public, borrower, loan officer, underwriter, CEO) powered by LangFuse observability and rule-based model routing (fast/capable tiers).
+
+**Key capabilities:**
+- Role-scoped agents with 60+ tools across 5 personas
+- WebSocket chat with streaming responses
+- HMDA data isolation (separate schema + DB role)
+- Compliance knowledge base (pgvector + 8 regulatory documents)
+- Audit hash chains with tamper detection
+- PII masking for CEO role
+- Rule-based model routing with confidence escalation
+- 1083 tests (unit, functional, integration)
 
 ## Directory Structure
 
 ```
 src/
-  main.py              # FastAPI app, middleware, router registration
-  core/config.py       # Pydantic Settings (env-driven config)
+  main.py              # FastAPI app entry point
+  core/
+    config.py          # Pydantic Settings (env-driven)
   middleware/
-    auth.py            # JWT validation, RBAC, UserContext
-    pii.py             # PII masking middleware (CEO role)
-  routes/
-    health.py          # GET /health/
+    auth.py            # Keycloak JWT validation + RBAC
+    pii.py             # PII masking for CEO responses
+  routes/              # API route handlers
+    health.py          # Health checks
     public.py          # Public endpoints (products, affordability)
-    applications.py    # Application CRUD + status + conditions
-    decisions.py       # Decision list + detail (read-only)
-    documents.py       # Document upload, list, completeness
-    chat.py            # Public WebSocket chat (unauthenticated)
-    borrower_chat.py   # Borrower WebSocket chat (authenticated) + history
-    loan_officer_chat.py  # Loan officer WebSocket chat + history
-    underwriter_chat.py   # Underwriter WebSocket chat + history
-    ceo_chat.py        # CEO WebSocket chat + history
-    admin.py           # Admin endpoints (seed, audit, verification)
-    hmda.py            # HMDA demographics collection (isolated schema)
-    analytics.py       # Pipeline, denial trends, LO performance analytics
-    model_monitoring.py   # Model latency, tokens, errors, routing metrics
+    applications.py    # Application CRUD + status
+    decisions.py       # Decision history (read-only)
+    documents.py       # Document upload + MinIO storage
+    hmda.py            # HMDA demographics (isolated schema)
+    analytics.py       # Pipeline + denial + LO performance
+    model_monitoring.py # LangFuse model metrics
+    audit.py           # Audit trail + hash verification
+    admin.py           # Seed data + admin tools
+    chat.py            # Public WebSocket (unauthenticated)
+    borrower_chat.py   # Borrower WebSocket + history
+    loan_officer_chat.py  # LO WebSocket + history
+    underwriter_chat.py   # UW WebSocket + history
+    ceo_chat.py        # CEO WebSocket + history
     _chat_handler.py   # Shared WebSocket streaming logic
-  schemas/             # Pydantic request/response models
-  services/            # Business logic layer
-    compliance/        # HMDA, compliance checks, knowledge base
-    seed/              # Demo data seeding
-  agents/              # LangGraph agent definitions + tool modules
-    base.py            # Base agent graph (input/output shields, RBAC, routing)
-    registry.py        # Agent config loading from config/agents/*.yaml
-    public_tools.py    # Public assistant tools (products, affordability)
-    borrower_tools.py  # Borrower tools (intake, docs, disclosures, status)
-    loan_officer_tools.py  # LO tools (pipeline, workflow, communication)
-    underwriter_tools.py   # UW tools (queue, risk, conditions, application detail)
-    decision_tools.py  # Decision tools (propose, confirm, LE/CD, adverse action)
-    compliance_check_tool.py  # Compliance check tool (ECOA, ATR/QM, TRID)
-    ceo_tools.py       # CEO tools (pipeline summary, analytics, model monitoring)
-  inference/           # LLM client, model routing, safety shields
+    underwriting.py    # Underwriter-specific endpoints
+  schemas/             # Pydantic models (request/response)
+  services/            # Business logic
+    compliance/        # Compliance checks + KB
+    seed/              # Demo data generation
+  agents/              # LangGraph agents + tools
+    base.py            # Base graph (shields, routing, RBAC)
+    registry.py        # Config loading (config/agents/*.yaml)
+    public_assistant.py
+    borrower_assistant.py
+    loan_officer_assistant.py
+    underwriter_assistant.py
+    ceo_assistant.py
+    *_tools.py         # Tool modules per agent
+  inference/           # LLM client + safety shields
+  admin.py             # SQLAdmin dashboard
 tests/
   test_*.py            # Unit tests
-  functional/          # Persona-based functional tests
-  integration/         # DB-backed integration tests
+  functional/          # Persona functional tests
+  integration/         # DB + MinIO integration tests
 ```
 
-## REST API Routes
+## Agents
 
-### Health
-- `GET /health/` - Service health check (includes DB, S3, LLM status)
+Five LangGraph agents, each with role-scoped tools and configuration in `config/agents/*.yaml`:
 
-### Public (no authentication)
-- `GET /api/public/products` - List mortgage product catalog
-- `POST /api/public/calculate-affordability` - Calculate affordability based on income and debts
+| Agent | Tools | WebSocket Endpoint |
+|-------|-------|-------------------|
+| **Public Assistant** | 2 tools (products, affordability) | `ws://host/api/chat` |
+| **Borrower Assistant** | 15 tools (intake, docs, status, disclosures, conditions) | `ws://host/api/borrower/chat?token=<jwt>` |
+| **Loan Officer Assistant** | 12 tools (pipeline, workflow, communication, KB search) | `ws://host/api/loan-officer/chat?token=<jwt>` |
+| **Underwriter Assistant** | 19 tools (queue, risk, conditions, decisions, compliance) | `ws://host/api/underwriter/chat?token=<jwt>` |
+| **CEO Assistant** | 12 tools (analytics, audit, model monitoring, product info) | `ws://host/api/ceo/chat?token=<jwt>` |
 
-### Applications (authenticated)
+All agents share a common base graph (`agents/base.py`) with:
+- **Input/output safety shields** (Llama Guard, optional)
+- **Rule-based model routing** (fast tier for simple queries, capable tier for complex/tools)
+- **Confidence escalation** (fast model responses with low confidence auto-escalate to capable model)
+- **Tool-level RBAC** (tools check user role before execution)
+
+### Agent Architecture
+
+```
+user input -> input_shield -> classify (rule-based) -> agent_fast / agent_capable
+                   |                                          |
+                   +-(blocked)-> END              tools <-> agent_capable -> output_shield -> END
+```
+
+**Rule-based routing:**
+- Keyword/pattern matching (no LLM call) classifies queries as SIMPLE or COMPLEX
+- COMPLEX queries route directly to capable model with tools
+- SIMPLE queries route to fast model (text-only, no tools)
+- Fast model responses with low confidence (logprobs or hedging phrases) auto-escalate to capable model
+
+## REST API
+
+Full REST API for application management, document handling, analytics, and audit trails. Authentication via Keycloak JWT (or `AUTH_DISABLED=true` for dev).
+
+**Key routes:**
+- `GET /health/` - Service health (DB + S3 + LLM status)
+- `GET /api/public/products` - Mortgage product catalog (unauthenticated)
+- `POST /api/public/calculate-affordability` - Affordability calculator (unauthenticated)
 - `GET /api/applications/` - List applications (paginated, role-scoped, sortable by urgency)
-- `POST /api/applications/` - Create new application (borrower, admin)
-- `GET /api/applications/{id}` - Get single application
-- `PATCH /api/applications/{id}` - Update application (loan officer, underwriter, admin)
-- `GET /api/applications/{id}/status` - Get aggregated application status summary
-- `GET /api/applications/{id}/rate-lock` - Get rate lock status
-- `GET /api/applications/{id}/conditions` - List conditions (filterable by `open_only`)
-- `POST /api/applications/{id}/conditions/{cid}/respond` - Respond to a condition (borrower)
-- `POST /api/applications/{id}/borrowers` - Add borrower to application
-- `DELETE /api/applications/{id}/borrowers/{bid}` - Remove borrower from application
-
-### Decisions (authenticated, read-only)
-- `GET /api/applications/{id}/decisions` - List all decisions for an application
-- `GET /api/applications/{id}/decisions/{did}` - Get single decision detail
-
-### Documents (authenticated)
-- `POST /api/applications/{id}/documents` - Upload document (multipart form)
-- `GET /api/applications/{id}/documents` - List application documents
-- `GET /api/applications/{id}/documents/{did}` - Get document detail (CEO: file_path redacted)
-- `GET /api/applications/{id}/documents/{did}/content` - Get document file path (CEO blocked)
+- `POST /api/applications/` - Create application (borrower, admin)
+- `PATCH /api/applications/{id}` - Update application (LO, UW, admin)
+- `POST /api/applications/{id}/documents` - Upload document (MinIO storage)
 - `GET /api/applications/{id}/completeness` - Check document completeness
-
-### HMDA (authenticated)
-- `POST /api/hmda/collect` - Collect borrower demographics (isolated compliance schema)
-
-### Admin (admin role only)
-- `POST /api/admin/seed` - Seed demo data
-- `GET /api/admin/seed/status` - Check seed status
-
-### Audit (admin + CEO)
-- `GET /api/audit/session?session_id=` - Query audit events by session ID
-- `GET /api/audit/application/{id}` - Audit events for a specific application
-- `GET /api/audit/decision/{id}` - Audit events for a decision
-- `GET /api/audit/decision/{id}/trace` - Backward trace from decision to contributing events
-- `GET /api/audit/search?days=&event_type=` - Search audit events by time range/type
+- `POST /api/hmda/collect` - Collect demographics (isolated schema)
+- `GET /api/analytics/pipeline` - Pipeline summary (admin + CEO)
+- `GET /api/analytics/denial-trends` - Denial trends by product/time (admin + CEO)
+- `GET /api/analytics/lo-performance` - LO performance metrics (admin + CEO)
+- `GET /api/analytics/model-monitoring/latency` - Model latency breakdown (admin + CEO)
+- `GET /api/audit/application/{id}` - Audit trail for application (admin + CEO)
 - `GET /api/audit/verify` - Verify hash chain integrity (admin only)
-- `GET /api/audit/export?fmt=json|csv` - Export audit trail (admin + CEO + underwriter)
 
-### Analytics (admin + CEO)
-- `GET /api/analytics/pipeline?days=` - Pipeline summary metrics (application counts by status, stage distribution, urgency breakdown)
-- `GET /api/analytics/denial-trends?days=&product=` - Denial reason trends over time (filterable by product)
-- `GET /api/analytics/lo-performance?days=&product=` - Loan officer performance metrics (volume, cycle time, approval rates)
+See [OpenAPI docs](http://localhost:8000/docs) for the full API specification.
 
-### Model Monitoring (admin + CEO)
-- `GET /api/analytics/model-monitoring?hours=&model=` - Aggregated model metrics (filterable by time window and model name)
-- `GET /api/analytics/model-monitoring/latency` - Model response latency breakdown
-- `GET /api/analytics/model-monitoring/tokens` - Token usage by model and request type
-- `GET /api/analytics/model-monitoring/errors` - Model error rates and failure categories
-- `GET /api/analytics/model-monitoring/routing` - Model routing decisions and tier distribution
+## WebSocket Chat Protocol
 
-### Conversation History (authenticated)
-- `GET /api/borrower/conversations/history` - Borrower conversation history
-- `GET /api/loan-officer/conversations/history` - Loan officer conversation history
-- `GET /api/underwriter/conversations/history` - Underwriter conversation history
-- `GET /api/ceo/conversations/history` - CEO conversation history
+All agent chat endpoints use WebSocket with streaming token delivery. Authenticated endpoints pass JWT via query parameter.
 
-## WebSocket Protocol
-
-### Endpoints
-
-**Public Chat (unauthenticated):**
-```
-ws://host/api/chat
-```
-No authentication required. Session ID is ephemeral (UUID). Conversations do not persist.
-
-**Borrower Chat (authenticated):**
-```
-ws://host/api/borrower/chat?token=<jwt>
-```
-
-**Loan Officer Chat (authenticated):**
-```
-ws://host/api/loan-officer/chat?token=<jwt>
-```
-
-**Underwriter Chat (authenticated):**
-```
-ws://host/api/underwriter/chat?token=<jwt>
-```
-
-**CEO Chat (authenticated):**
-```
-ws://host/api/ceo/chat?token=<jwt>
-```
-Requires `ceo` role. All responses apply PII masking.
-
-JWT passed via query parameter for all authenticated endpoints. Thread ID is deterministic (`user:{userId}:agent:{agent-name}`). Conversations persist via PostgreSQL checkpoint.
-
-When `AUTH_DISABLED=true`, returns a development user.
-
-### Message Protocol
-
-**Client sends:**
+**Message format (client -> server):**
 ```json
 {"type": "message", "content": "user text here"}
 ```
 
-**Server sends (streaming):**
+**Message formats (server -> client):**
 ```json
-{"type": "token", "content": "partial"}
+{"type": "token", "content": "partial text"}
 {"type": "tool_start", "content": "tool_name"}
 {"type": "tool_end", "content": "tool result summary"}
-{"type": "safety_override", "content": "reason for safety intervention"}
+{"type": "safety_override", "content": "refusal reason"}
 {"type": "done"}
 {"type": "error", "content": "error message"}
 ```
 
-Tokens stream incrementally as the LLM generates responses. `done` signals end of response. `safety_override` indicates the safety shield triggered and overrode the LLM output. `tool_start`/`tool_end` bracket agent tool invocations.
+**Conversation persistence:**
+- Public chat: ephemeral (UUID session, no persistence)
+- Authenticated chats: persistent via PostgreSQL checkpoint (LangGraph)
+- Thread ID format: `user:{userId}:agent:{agent-name}`
+- History retrieval: `GET /api/{persona}/conversations/history`
 
-## Agents
+**Development mode:**
+When `AUTH_DISABLED=true`, all authenticated endpoints return a development user without requiring a JWT.
 
-Five LangGraph agents, each with role-scoped tools and YAML config (`config/agents/`):
+## Compliance Features
 
-| Agent | Role | Tools |
-|-------|------|-------|
-| `public-assistant` | (none) | Products, affordability calculator |
-| `borrower-assistant` | borrower | Application intake, doc upload, status, disclosures |
-| `loan-officer-assistant` | loan_officer | Pipeline, workflow actions, communication drafting |
-| `underwriter-assistant` | underwriter | Queue, risk assessment, conditions, decisions, compliance checks |
-| `ceo-assistant` | ceo | Pipeline summary, denial trends, LO performance, application lookup, audit trail, decision trace, audit search, model latency, model token usage, model errors, model routing, product info |
+**HMDA Data Isolation:**
+- Demographic data stored in separate `compliance` schema
+- Accessed via dedicated DB role with limited grants
+- Separate connection string (`COMPLIANCE_DATABASE_URL`)
+- Enforced at database level, not application level
 
-All agents share a common base graph (`agents/base.py`) with input/output safety shields, rule-based model routing (fast/capable tiers), and tool-level RBAC enforcement.
+**Compliance Knowledge Base:**
+- 8 regulatory documents across 3 tiers (federal > agency > internal)
+- Vector search via pgvector (768-dim embeddings, HNSW index, cosine similarity)
+- Tier-based boosting (federal 1.5x, agency 1.2x, internal 1.0x)
+- Conflict detection (numeric thresholds, contradictory directives, same-tier conflicts)
+- Documents: TRID, ECOA, ATR/QM, HMDA, FCRA, Fannie Mae, FHA, Summit Cap policies
 
-## Authentication & RBAC
+**Compliance Checks:**
+- Pure-function rule implementations (ECOA, ATR/QM, TRID)
+- Combined runner returns all violations
+- Underwriter agent tool (`uw_run_compliance_checks`)
+- Compliance guard blocks decisions with open violations
 
-Authentication via Keycloak JWT. Five roles supported:
-- `admin` - Full system access
-- `borrower` - Own application access
-- `loan_officer` - Assigned applications access
-- `underwriter` - Applications in review
-- `ceo` - Read-only access with PII masking
+**Audit Trail:**
+- Hash chain across all audit events (tamper detection)
+- Session-scoped, application-scoped, decision-scoped queries
+- Backward trace from decision to contributing events
+- Hash verification endpoint (admin only)
+- CSV/JSON export (admin + CEO + underwriter)
 
-Set `AUTH_DISABLED=true` for local development to bypass authentication.
+## Authentication & Authorization
 
-## Error Format
+**Keycloak OIDC:**
+- JWT validation via `Authorization: Bearer <token>` header or `?token=<jwt>` query param (WebSocket)
+- Five roles: `admin`, `borrower`, `loan_officer`, `underwriter`, `ceo`
+- Data scoping: borrower sees own applications, LO sees assigned, UW sees in-review, CEO sees all
+- Tool-level RBAC: tools validate role before execution
+- Development bypass: `AUTH_DISABLED=true` returns a dev user
 
-Errors follow RFC 7807 Problem Details:
-```json
-{
-  "type": "about:blank",
-  "title": "Not Found",
-  "status": 404,
-  "detail": "Application not found",
-  "request_id": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
+**PII Masking:**
+- CEO role triggers PII masking middleware
+- Masks SSN, account numbers, precise addresses
+- Applied to JSON response bodies after serialization
 
-## Pagination
+## Model Routing & Observability
 
-List endpoints return paginated responses:
-```json
-{
-  "data": [...],
-  "pagination": {
-    "total": 100,
-    "offset": 0,
-    "limit": 20,
-    "has_more": true
-  }
-}
-```
+**LangFuse Integration:**
+- All agent interactions traced to LangFuse (if configured)
+- Metrics: latency, token usage, error rates, model routing decisions
+- Analytics endpoints expose LangFuse-backed metrics
+
+**Model Tiers:**
+- Fast tier: text-only responses for simple queries (no tools)
+- Capable tier: tool-calling for complex queries
+- Confidence escalation: fast responses with low confidence auto-escalate to capable
+- Configurable via `LLM_MODEL_FAST` and `LLM_MODEL_CAPABLE` env vars
+
+**Safety Shields:**
+- Optional Llama Guard integration (input/output)
+- Fail-open on safety model errors
+- Configurable via `SAFETY_MODEL` and `SAFETY_ENDPOINT`
 
 ## Configuration
 
-Environment variables loaded via Pydantic Settings (`src/core/config.py`):
-- `DATABASE_URL` - PostgreSQL connection string (host port 5433 for local dev)
-- `COMPLIANCE_DATABASE_URL` - Separate connection for HMDA isolated schema
-- `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID` - Keycloak OIDC configuration
-- `AUTH_DISABLED` - Bypass authentication for local dev
-- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` - MinIO/S3 object storage
-- `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_FAST`, `LLM_MODEL_CAPABLE` - LLM provider
-- `SAFETY_MODEL`, `SAFETY_ENDPOINT` - Llama Guard safety shields (optional)
-- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` - LangFuse observability (optional)
-- `SQLADMIN_USER`, `SQLADMIN_PASSWORD`, `SQLADMIN_SECRET_KEY` - Admin panel credentials
-- `ALLOWED_HOSTS` - CORS allowed origins
+Environment variables loaded via Pydantic Settings (`src/core/config.py`). See `.env.example` in the root for a complete list.
 
-## Running Locally
+**Database:**
+- `DATABASE_URL` - PostgreSQL connection string (default: `postgresql+asyncpg://summit_cap:password@localhost:5433/summit_cap`)
+- `COMPLIANCE_DATABASE_URL` - HMDA schema connection (same host, separate role)
 
+**Authentication:**
+- `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID` - Keycloak OIDC config
+- `AUTH_DISABLED` - Bypass auth for local dev (default: false)
+
+**Storage:**
+- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` - MinIO/S3 config
+
+**LLM:**
+- `LLM_BASE_URL`, `LLM_API_KEY` - OpenAI-compatible endpoint
+- `LLM_MODEL_FAST`, `LLM_MODEL_CAPABLE` - Model names for routing
+- `SAFETY_MODEL`, `SAFETY_ENDPOINT` - Llama Guard (optional)
+
+**Observability:**
+- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` - LangFuse (optional)
+
+**Admin:**
+- `SQLADMIN_USER`, `SQLADMIN_PASSWORD`, `SQLADMIN_SECRET_KEY` - SQLAdmin dashboard at `/admin`
+- `ALLOWED_HOSTS` - CORS allowed origins (comma-separated)
+
+## Development
+
+**Start dev server:**
 ```bash
-# Start dev server
-uv run uvicorn src.main:app --reload
+cd packages/api
+uv run uvicorn src.main:app --reload --port 8000
 
-# Run tests
-AUTH_DISABLED=true uv run pytest -v
-
-# Run tests with coverage
-AUTH_DISABLED=true uv run pytest --cov=src
-
-# Linting and formatting
-uv run ruff check src/
-uv run ruff format src/
+# Or from root
+pnpm --filter api dev
 ```
 
-Database is available at `localhost:5433` when using `podman-compose` (maps host 5433 to container 5432).
+**Run tests:**
+```bash
+# All tests (1083 tests)
+AUTH_DISABLED=true uv run pytest -v
 
-For database setup and migrations, see the [DB package README](../db/README.md).
+# Specific test types
+AUTH_DISABLED=true uv run pytest -m functional  # Functional tests
+AUTH_DISABLED=true uv run pytest -m integration # Integration tests (requires containers)
+AUTH_DISABLED=true uv run pytest -k "test_health" # Pattern match
+
+# Coverage
+AUTH_DISABLED=true uv run pytest --cov=src --cov-report=term-missing
+```
+
+**Linting and formatting:**
+```bash
+uv run ruff check src/          # Check
+uv run ruff check src/ --fix    # Auto-fix
+uv run ruff format src/         # Format
+```
+
+**Database setup:**
+```bash
+make db-start      # Start PostgreSQL container (port 5433)
+make db-upgrade    # Run Alembic migrations
+```
+
+**Access points:**
+- API: http://localhost:8000
+- OpenAPI docs: http://localhost:8000/docs
+- SQLAdmin dashboard: http://localhost:8000/admin
+- Database: `postgresql://localhost:5433/summit_cap`
+
+See the [DB package README](../db/README.md) for migration and schema details.

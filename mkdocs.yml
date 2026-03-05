@@ -63,8 +63,6 @@ plugins:
 # Add new pages here as they are created.
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
   - Architecture: architecture.md
   - Personas & Workflows: personas.md
-  - Deployment: deployment.md
   - API Reference: api-reference.md

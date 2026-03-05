@@ -585,51 +585,6 @@ Configuration follows the **12-factor app** pattern:
 | Storage | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | `http://localhost:9090`, `minio`, `miniosecret`, `documents` |
 | Observability | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` | (unset — tracing disabled) |
 
-## Design Decisions
-
-### Why LangGraph Over LangChain LCEL?
-
-**LangGraph** provides:
-
-- **Explicit control flow:** Graph nodes and edges are visible, debuggable, testable.
-- **State persistence:** Built-in checkpointer for conversation history.
-- **Tool authorization:** Pre-tool and post-tool hooks for RBAC enforcement.
-- **Cyclic workflows:** Agent → tools → agent loops (not expressible in LCEL chains).
-
-**Trade-off:** More boilerplate than LCEL chains. Justified for a system where auditability and control flow transparency matter.
-
-### Why Rule-Based Routing Over LLM Classifier?
-
-**Benefits:**
-
-- **Cost:** No LLM inference for every message routing decision.
-- **Latency:** Sub-millisecond classification vs 100-500ms for LLM call.
-- **Predictability:** Classification logic is explicit and reviewable.
-- **Debuggability:** When routing is wrong, the fix is a keyword rule change, not retraining.
-
-**Trade-off:** Rules require maintenance as the tool set evolves. Acceptable for an MVP where tool churn is high and classification logic is simple.
-
-### Why Dual PostgreSQL Roles for HMDA?
-
-**Regulatory context:** Fair lending laws (ECOA) prohibit using demographic data (race, ethnicity, sex) in underwriting decisions. HMDA reporting requires collecting this data. The system must prove it enforces this separation.
-
-**Alternative approaches considered:**
-
-1. **Application-level access control:** Check role before querying demographics table.
-   - **Rejected:** Enforced in code, not the database. Code bugs or ORM misuse could leak data.
-2. **Separate database instance:** Run two PostgreSQL servers.
-   - **Rejected:** Infrastructure overhead. Connection pooling complexity.
-3. **PostgreSQL row-level security (RLS):** Policies on demographics table.
-   - **Rejected:** Policies are per-table, not per-schema. Migration complexity.
-
-**Chosen approach:** Separate PostgreSQL roles with schema-level GRANTs. Simple, enforceable at DB level, auditable via Postgres logs.
-
-### Why Snake_Case JSON Fields?
-
-**Rationale:** Pydantic defaults to snake_case. Aliasing 50+ fields to camelCase adds boilerplate with no functional benefit. TypeScript codegen (`quicktype` or similar) can map `snake_case` to `camelCase` if needed.
-
-**Trade-off:** Breaks JavaScript convention. Justified by reducing API backend complexity.
-
 ## Extension Points
 
 Developers adapting this Quickstart to their domain should consider:
@@ -665,16 +620,6 @@ Replace the mock LlamaStack / LMStudio setup:
 2. Set `LLM_API_KEY` to your API key.
 3. Set `LLM_MODEL_FAST` and `LLM_MODEL_CAPABLE` to model names from your provider.
 4. (Optional) Configure LlamaStack's `run.yaml` to route to multiple providers (OpenAI for fast, Groq for capable, etc.).
-
-### Hardening for Production
-
-See the root `CLAUDE.md` maturity expectations table. Key areas:
-
-- **Testing:** Increase coverage to 90%+, add chaos testing, load testing.
-- **Security:** Enable Keycloak auth, audit RBAC rules, penetration testing.
-- **Observability:** Add Prometheus metrics, Grafana dashboards, alerting.
-- **Performance:** Add Redis caching, CDN for UI, DB read replicas.
-- **Compliance:** Real HMDA reporting, TRID deadline enforcement, BSA/AML integration.
 
 ## Summary
 
