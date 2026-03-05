@@ -83,8 +83,6 @@ helm upgrade --install "$PROJECT_NAME" "./deploy/helm/$PROJECT_NAME" \
     --set secrets.SQLADMIN_USER="${SQLADMIN_USER:-}" \
     --set secrets.SQLADMIN_PASSWORD="${SQLADMIN_PASSWORD:-}" \
     --set secrets.SQLADMIN_SECRET_KEY="${SQLADMIN_SECRET_KEY:-}" \
-    --set secrets.VITE_API_BASE_URL="${VITE_API_BASE_URL:-}" \
-    --set secrets.VITE_ENVIRONMENT="${VITE_ENVIRONMENT:-}" \
     --set secrets.KC_BOOTSTRAP_ADMIN_USERNAME="${KC_BOOTSTRAP_ADMIN_USERNAME:-}" \
     --set secrets.KC_BOOTSTRAP_ADMIN_PASSWORD="${KC_BOOTSTRAP_ADMIN_PASSWORD:-}" \
     --set secrets.MINIO_ROOT_USER="${MINIO_ROOT_USER:-}" \

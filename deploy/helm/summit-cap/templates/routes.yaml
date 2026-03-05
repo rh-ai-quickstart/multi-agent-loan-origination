@@ -103,5 +103,75 @@ spec:
     {{- end }}
   {{- end }}
   wildcardPolicy: None
+---
+# Docs Route - serve OpenAPI docs
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.api.name }}-docs-route
+  labels:
+    {{- include "summit-cap.api.labels" . | nindent 4 }}
+  {{- with .Values.routes.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.routes.sharedHost }}
+  host: {{ .Values.routes.sharedHost }}
+  {{- else if .Values.routes.api.host }}
+  host: {{ .Values.routes.api.host }}
+  {{- else if .Values.routes.ui.host }}
+  host: {{ .Values.routes.ui.host }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ .Values.api.name }}
+    weight: 100
+  port:
+    targetPort: http
+  path: /docs
+  {{- if .Values.routes.api.tls.enabled }}
+  tls:
+    termination: {{ .Values.routes.api.tls.termination | default "edge" }}
+    {{- if .Values.routes.api.tls.insecureEdgeTerminationPolicy }}
+    insecureEdgeTerminationPolicy: {{ .Values.routes.api.tls.insecureEdgeTerminationPolicy }}
+    {{- end }}
+  {{- end }}
+  wildcardPolicy: None
+---
+# Admin Route - serve SQLAdmin panel
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Values.api.name }}-admin-route
+  labels:
+    {{- include "summit-cap.api.labels" . | nindent 4 }}
+  {{- with .Values.routes.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.routes.sharedHost }}
+  host: {{ .Values.routes.sharedHost }}
+  {{- else if .Values.routes.api.host }}
+  host: {{ .Values.routes.api.host }}
+  {{- else if .Values.routes.ui.host }}
+  host: {{ .Values.routes.ui.host }}
+  {{- end }}
+  to:
+    kind: Service
+    name: {{ .Values.api.name }}
+    weight: 100
+  port:
+    targetPort: http
+  path: /admin
+  {{- if .Values.routes.api.tls.enabled }}
+  tls:
+    termination: {{ .Values.routes.api.tls.termination | default "edge" }}
+    {{- if .Values.routes.api.tls.insecureEdgeTerminationPolicy }}
+    insecureEdgeTerminationPolicy: {{ .Values.routes.api.tls.insecureEdgeTerminationPolicy }}
+    {{- end }}
+  {{- end }}
+  wildcardPolicy: None
 {{- end }}
 {{- end }}

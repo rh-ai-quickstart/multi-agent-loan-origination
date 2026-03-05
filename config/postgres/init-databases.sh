@@ -1,8 +1,12 @@
 #!/bin/bash
 # This project was developed with assistance from AI tools.
-# Creates additional databases needed by services sharing the postgres container.
+# Creates additional databases and roles needed by services sharing the postgres container.
 set -e
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    -- Enable pgvector extension (required by KB and embedding features)
+    CREATE EXTENSION IF NOT EXISTS vector;
+
+    -- Create langfuse database for observability stack
     CREATE DATABASE langfuse;
 
     -- HMDA isolation: dual PostgreSQL roles

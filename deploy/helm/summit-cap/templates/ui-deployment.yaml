@@ -29,16 +29,8 @@ spec:
               containerPort: 8080
               protocol: TCP
           env:
-            - name: VITE_API_BASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
-                  key: VITE_API_BASE_URL
-            - name: VITE_ENVIRONMENT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
-                  key: VITE_ENVIRONMENT
+            - name: API_UPSTREAM
+              value: "{{ .Values.api.name }}:{{ .Values.api.service.port }}"
           {{- if .Values.ui.healthCheck.enabled }}
           livenessProbe:
             httpGet:

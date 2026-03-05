@@ -22,7 +22,7 @@ spec:
       serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
       containers:
         - name: redis
-          image: redis:7-alpine
+          image: docker.io/redis:7-alpine
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           command:
             - redis-server

@@ -1,0 +1,88 @@
+{{- if .Values.seed.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "summit-cap.fullname" . }}-seed
+  labels:
+    {{- include "summit-cap.api.labels" . | nindent 4 }}
+    app.kubernetes.io/component: seed
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        {{- include "summit-cap.api.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: seed
+    spec:
+      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-api
+          image: docker.io/curlimages/curl:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for API to be ready..."
+              until curl -sf http://{{ .Values.api.name }}:{{ .Values.api.service.port }}/health/; do
+                echo "API not ready, waiting..."
+                sleep 5
+              done
+              echo "API is ready!"
+      containers:
+        - name: seed
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "summit-cap.image" (dict "name" .Values.api.image.repository "tag" .Values.api.image.tag "Values" .Values) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command:
+            - python
+            - -m
+            - src.seed
+            - --force
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: DATABASE_URL
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: S3_ENDPOINT
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: S3_ACCESS_KEY
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: S3_SECRET_KEY
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: S3_BUCKET
+            - name: S3_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "summit-cap.fullname" . }}-secret
+                  key: S3_REGION
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+{{- end }}

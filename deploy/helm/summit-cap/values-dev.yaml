@@ -54,6 +54,10 @@ langfuse:
 llamastack:
   enabled: false
 
+# Seed demo data automatically
+seed:
+  enabled: true
+
 # Disable OpenShift routes (not available on local clusters)
 routes:
   enabled: false

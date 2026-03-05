@@ -1,0 +1,74 @@
+# This project was developed with assistance from AI tools.
+#
+# Nginx config for the Summit Cap UI container.
+#
+# Serves the React SPA and reverse-proxies /api, /health, /docs, /redoc,
+# and /admin requests to the API backend. WebSocket upgrade is supported
+# for the chat endpoints under /api/chat/*.
+#
+# The API_UPSTREAM variable is substituted at container start via envsubst.
+# Default: summit-cap-api:8000  (compose service name)
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # --- API reverse proxy (REST + WebSocket) ---
+    location /api/ {
+        proxy_pass http://${API_UPSTREAM}/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    # --- Health endpoint proxy ---
+    location /health/ {
+        proxy_pass http://${API_UPSTREAM}/health/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # --- OpenAPI docs proxy ---
+    location /docs {
+        proxy_pass http://${API_UPSTREAM}/docs;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /redoc {
+        proxy_pass http://${API_UPSTREAM}/redoc;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /openapi.json {
+        proxy_pass http://${API_UPSTREAM}/openapi.json;
+        proxy_set_header Host $host;
+    }
+
+    # --- Admin panel proxy ---
+    location /admin/ {
+        proxy_pass http://${API_UPSTREAM}/admin/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # --- SPA client-side routing ---
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # --- Static asset caching ---
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+}

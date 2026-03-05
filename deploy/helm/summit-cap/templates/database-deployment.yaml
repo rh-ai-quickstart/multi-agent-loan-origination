@@ -23,7 +23,7 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: postgres
-          image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
+          image: "docker.io/{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - name: postgres

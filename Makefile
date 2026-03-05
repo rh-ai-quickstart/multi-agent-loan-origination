@@ -276,9 +276,7 @@ helm-template: helm-dep-update
 		--set secrets.POSTGRES_PASSWORD="$${POSTGRES_PASSWORD:-}" \
 		--set secrets.DATABASE_URL="$${DATABASE_URL:-}" \
 		--set secrets.DEBUG="$${DEBUG:-}" \
-		--set secrets.ALLOWED_HOSTS="$${ALLOWED_HOSTS:-}" \
-		--set secrets.VITE_API_BASE_URL="$${VITE_API_BASE_URL:-}" \
-		--set secrets.VITE_ENVIRONMENT="$${VITE_ENVIRONMENT:-}"
+		--set secrets.ALLOWED_HOSTS="$${ALLOWED_HOSTS:-}"
 
 .PHONY: help run run-minimal run-auth run-ai run-obs stop \
         setup dev build test test-e2e test-e2e-setup lint lint-hmda clean \

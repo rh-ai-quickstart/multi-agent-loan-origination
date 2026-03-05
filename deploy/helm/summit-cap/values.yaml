@@ -64,10 +64,6 @@ secrets:
   SQLADMIN_PASSWORD: "admin"
   SQLADMIN_SECRET_KEY: "change-me-in-production"
 
-  # UI secrets
-  VITE_API_BASE_URL: "http://localhost:8000"
-  VITE_ENVIRONMENT: "production"
-
   # Keycloak admin
   KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
   KC_BOOTSTRAP_ADMIN_PASSWORD: "admin"
@@ -256,6 +252,10 @@ llamastack:
     limits:
       memory: "512Mi"
       cpu: "500m"
+
+# Seed data (demo data for demos / dev environments)
+seed:
+  enabled: false
 
 # ServiceAccount
 serviceAccount:
