@@ -82,6 +82,17 @@ export default defineConfig({
             },
         },
 
+        // Underwriter tests -- use saved UW auth
+        {
+            name: "underwriter",
+            testMatch: "underwriter/**/*.spec.ts",
+            dependencies: ["auth-setup"],
+            use: {
+                ...devices["Desktop Chrome"],
+                storageState: ".auth/uw.json",
+            },
+        },
+
         // Placeholder tests -- sign in as UW/CEO directly (no stored auth)
         {
             name: "placeholders",

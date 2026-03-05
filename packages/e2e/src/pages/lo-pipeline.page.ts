@@ -18,8 +18,8 @@ export class LOPipelinePage {
     readonly searchInput: Locator;
     readonly stageFilter: Locator;
     readonly urgencyFilter: Locator;
-    readonly sortSelect: Locator;
     readonly stalledCheckbox: Locator;
+    readonly columnHeaders: Locator;
 
     // Pipeline table
     readonly tableRows: Locator;
@@ -39,8 +39,8 @@ export class LOPipelinePage {
         // Identify each select by its unique first/default option text
         this.stageFilter = page.locator("select").filter({ has: page.locator("option", { hasText: "All Stages" }) });
         this.urgencyFilter = page.locator("select").filter({ has: page.locator("option", { hasText: "All Urgency" }) });
-        this.sortSelect = page.locator("select").filter({ has: page.locator("option", { hasText: "Urgency" }) }).filter({ hasNot: page.locator("option", { hasText: "All Urgency" }) });
         this.stalledCheckbox = page.getByLabel("Stalled only");
+        this.columnHeaders = page.locator("thead th");
 
         this.tableRows = page.locator("tbody tr");
         this.emptyState = page.getByText("No applications match your filters");

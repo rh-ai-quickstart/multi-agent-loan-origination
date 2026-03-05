@@ -96,14 +96,12 @@ test.describe("Loan Officer Pipeline", () => {
         expect(countAfter).toBeLessThanOrEqual(countBefore);
     });
 
-    test("should sort table by sort dropdown", async ({ page }) => {
+    test("should sort table by clicking column header", async ({ page }) => {
         await expect(pipeline.tableRows.first()).toBeVisible({ timeout: 10_000 });
 
-        // Switch sort to Loan Amount
-        await pipeline.sortSelect.selectOption({ label: "Loan Amount" });
-
-        // W-1: Replace waitForTimeout with a condition-based wait for the table to re-render.
-        await expect(pipeline.tableRows.first().or(pipeline.emptyState)).toBeVisible();
+        // Click the "Loan Amount" column header to sort
+        const loanAmountHeader = pipeline.columnHeaders.filter({ hasText: "Loan Amount" });
+        await loanAmountHeader.click();
 
         // Table should still have rows after sorting
         await expect(pipeline.tableRows.first()).toBeVisible();

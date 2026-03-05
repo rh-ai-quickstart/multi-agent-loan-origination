@@ -46,3 +46,7 @@ setup("sign in as borrower", async ({ page }) => {
 setup("sign in as loan officer", async ({ page }) => {
     await signInAndSave(page, PERSONAS.loan_officer, ".auth/lo.json");
 });
+
+setup("sign in as underwriter", async ({ page }) => {
+    await signInAndSave(page, PERSONAS.underwriter, ".auth/uw.json");
+});
