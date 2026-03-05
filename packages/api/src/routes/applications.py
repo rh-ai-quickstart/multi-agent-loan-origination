@@ -92,7 +92,7 @@ def _build_app_response(app: Application) -> ApplicationResponse:
     )
 
 
-_URGENCY_ROLES = {UserRole.LOAN_OFFICER, UserRole.ADMIN}
+_URGENCY_ROLES = {UserRole.LOAN_OFFICER, UserRole.UNDERWRITER, UserRole.ADMIN}
 
 _URGENCY_ORDER = {
     UrgencyLevel.CRITICAL: 0,

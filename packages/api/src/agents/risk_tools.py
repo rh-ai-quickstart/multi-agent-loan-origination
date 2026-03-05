@@ -23,6 +23,15 @@ class RiskAssessment:
     warnings: list[str]
 
 
+@dataclass
+class Recommendation:
+    """Preliminary underwriting recommendation derived from risk factors."""
+
+    recommendation: str
+    rationale: list[str]
+    conditions: list[str]
+
+
 _RISK_LOW = "Low"
 _RISK_MEDIUM = "Medium"
 _RISK_HIGH = "High"
@@ -175,3 +184,87 @@ def extract_borrower_info(app) -> list[dict]:
                 }
             )
     return borrowers
+
+
+def compute_recommendation(
+    risk: RiskAssessment,
+    borrowers: list[dict],
+    has_financials: bool,
+    doc_total: int,
+) -> Recommendation:
+    """Derive a preliminary recommendation from risk factors.
+
+    Pure function -- no DB access.  Decision tree:
+      1. Deny triggers (hard limits)
+      2. Suspend triggers (missing data)
+      3. Conditions triggers (soft limits)
+      4. Approve (no issues)
+    """
+    recommendation = "Approve"
+    rationale: list[str] = []
+    conditions_list: list[str] = []
+
+    dti_val = risk.dti.get("value")
+    ltv_val = risk.ltv.get("value")
+    credit_val = risk.credit.get("value")
+
+    # --- Deny triggers ---
+    deny_reasons: list[str] = []
+    if dti_val is not None and dti_val > 55:
+        deny_reasons.append(f"DTI ratio ({dti_val}%) exceeds maximum threshold of 55%")
+    if credit_val is not None and credit_val < 580:
+        deny_reasons.append(f"Credit score ({credit_val}) below minimum threshold of 580")
+    if ltv_val is not None and ltv_val > 97:
+        deny_reasons.append(f"LTV ratio ({ltv_val}%) exceeds maximum threshold of 97%")
+
+    emp_statuses = [b.get("employment_status") for b in borrowers if b.get("employment_status")]
+    has_employed = any(
+        e in (EmploymentStatus.W2_EMPLOYEE.value, EmploymentStatus.SELF_EMPLOYED.value)
+        for e in emp_statuses
+    )
+    if EmploymentStatus.UNEMPLOYED.value in emp_statuses and not has_employed:
+        deny_reasons.append("Primary borrower unemployed with no employed co-borrower")
+
+    if deny_reasons:
+        recommendation = "Deny"
+        rationale = deny_reasons
+
+    # --- Suspend triggers (only if not denied) ---
+    elif not has_financials:
+        recommendation = "Suspend"
+        rationale = ["Missing financial data -- cannot complete risk assessment"]
+    elif credit_val is None:
+        recommendation = "Suspend"
+        rationale = ["No credit score on file -- credit pull required"]
+    elif doc_total == 0:
+        recommendation = "Suspend"
+        rationale = ["No documents on file -- cannot verify borrower information"]
+
+    # --- Conditions triggers (only if not denied/suspended) ---
+    else:
+        if dti_val is not None and 43 < dti_val <= 55:
+            conditions_list.append(
+                f"DTI ({dti_val}%) exceeds QM safe harbor -- "
+                "document compensating factors or request exception"
+            )
+        if ltv_val is not None and ltv_val > 80:
+            conditions_list.append(f"LTV ({ltv_val}%) exceeds 80% -- PMI required")
+        if credit_val is not None and 580 <= credit_val < 620:
+            conditions_list.append(
+                f"Credit score ({credit_val}) below 620 -- "
+                "additional documentation of creditworthiness required"
+            )
+        if EmploymentStatus.SELF_EMPLOYED.value in emp_statuses:
+            conditions_list.append(
+                "Self-employed borrower -- verify 2 years tax returns and business financials"
+            )
+
+        if conditions_list:
+            recommendation = "Approve with Conditions"
+            rationale = [f"{len(conditions_list)} condition(s) must be satisfied"]
+
+    return Recommendation(
+        recommendation=recommendation,
+        rationale=rationale,
+        conditions=conditions_list,
+    )

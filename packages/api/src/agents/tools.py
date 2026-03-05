@@ -5,11 +5,19 @@ These wrap existing business logic so the agent can call them
 as tool invocations during a conversation.
 """
 
+from datetime import date
+
 from langchain_core.tools import tool
 
 from ..schemas.calculator import AffordabilityRequest
 from ..services.calculator import calculate_affordability
 from ..services.products import PRODUCTS
+
+
+@tool
+def current_date() -> str:
+    """Return today's date. Use this when you need the current date for due dates, timelines, or any date calculations."""
+    return date.today().isoformat()
 
 
 @tool

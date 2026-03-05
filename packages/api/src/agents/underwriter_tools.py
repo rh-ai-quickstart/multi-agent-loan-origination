@@ -18,7 +18,7 @@ from typing import Annotated
 
 from db import CreditReport
 from db.database import SessionLocal
-from db.enums import ApplicationStage, EmploymentStatus
+from db.enums import ApplicationStage
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 from sqlalchemy import select
@@ -29,11 +29,13 @@ from ..services.audit import write_audit_event
 from ..services.condition import get_conditions
 from ..services.document import list_documents
 from ..services.rate_lock import get_rate_lock_status
+from ..services.risk_assessment import create_risk_assessment, update_recommendation
 from ..services.urgency import compute_urgency
 from .risk_tools import (
     _RISK_HIGH,
     _RISK_LOW,
     _RISK_MEDIUM,
+    compute_recommendation,
     compute_risk_factors,
     extract_borrower_info,
 )
@@ -302,10 +304,11 @@ async def uw_risk_assessment(
     application_id: int,
     state: Annotated[dict, InjectedState],
 ) -> str:
-    """Perform a risk assessment on a loan application in underwriting.
+    """Perform a full risk assessment with preliminary recommendation.
 
     Computes DTI ratio, LTV ratio, credit risk, income stability, and
-    asset sufficiency. Identifies compensating factors. This is an advisory
+    asset sufficiency. Then derives a preliminary recommendation (Approve,
+    Approve with Conditions, Suspend, or Deny). This is an advisory
     assessment only -- final decisions require human judgment.
 
     Args:
@@ -354,10 +357,57 @@ async def uw_risk_assessment(
         if hard_pull:
             bureau_score = hard_pull.credit_score
 
+        documents, doc_total = await list_documents(session, user, application_id, limit=50)
         borrowers = extract_borrower_info(app)
         risk = compute_risk_factors(app, financials, borrowers, bureau_credit_score=bureau_score)
+        rec = compute_recommendation(
+            risk,
+            borrowers,
+            has_financials=bool(financials),
+            doc_total=doc_total,
+        )
 
         credit_source = "bureau_hard_pull" if bureau_score else "self_reported"
+
+        # Compute overall risk
+        ratings = [
+            risk.dti.get("rating"),
+            risk.ltv.get("rating"),
+            risk.credit.get("rating"),
+            risk.income_stability.get("rating"),
+            risk.asset_sufficiency.get("rating"),
+        ]
+        valid_ratings = [r for r in ratings if r is not None]
+        if valid_ratings:
+            risk_order = {_RISK_LOW: 0, _RISK_MEDIUM: 1, _RISK_HIGH: 2}
+            overall_risk = max(valid_ratings, key=lambda r: risk_order.get(r, 1))
+        else:
+            overall_risk = None
+
+        # Persist risk assessment with recommendation
+        await create_risk_assessment(
+            session,
+            application_id=application_id,
+            dti_value=risk.dti.get("value"),
+            dti_rating=risk.dti.get("rating"),
+            ltv_value=risk.ltv.get("value"),
+            ltv_rating=risk.ltv.get("rating"),
+            credit_value=risk.credit.get("value"),
+            credit_rating=risk.credit.get("rating"),
+            credit_source=credit_source,
+            income_stability_value=risk.income_stability.get("value"),
+            income_stability_rating=risk.income_stability.get("rating"),
+            asset_sufficiency_value=risk.asset_sufficiency.get("value"),
+            asset_sufficiency_rating=risk.asset_sufficiency.get("rating"),
+            compensating_factors=risk.compensating_factors or None,
+            warnings=risk.warnings or None,
+            overall_risk=overall_risk,
+            assessed_by=user.user_id,
+            recommendation=rec.recommendation,
+            recommendation_rationale=rec.rationale or None,
+            recommendation_conditions=rec.conditions or None,
+        )
+
         await write_audit_event(
             session,
             event_type="tool_call",
@@ -370,6 +420,7 @@ async def uw_risk_assessment(
                 "ltv": risk.ltv.get("value"),
                 "credit": risk.credit.get("value"),
                 "credit_source": credit_source,
+                "recommendation": rec.recommendation,
             },
         )
         await session.commit()
@@ -443,20 +494,21 @@ async def uw_risk_assessment(
 
     # Overall risk
     lines.append("")
-    ratings = [
-        risk.dti.get("rating"),
-        risk.ltv.get("rating"),
-        risk.credit.get("rating"),
-        risk.income_stability.get("rating"),
-        risk.asset_sufficiency.get("rating"),
-    ]
-    valid_ratings = [r for r in ratings if r is not None]
-    if valid_ratings:
-        risk_order = {_RISK_LOW: 0, _RISK_MEDIUM: 1, _RISK_HIGH: 2}
-        overall = max(valid_ratings, key=lambda r: risk_order.get(r, 1))
-        lines.append(f"OVERALL RISK: {overall}")
+    if overall_risk:
+        lines.append(f"OVERALL RISK: {overall_risk}")
     else:
         lines.append("OVERALL RISK: Insufficient data for assessment")
+
+    # Recommendation
+    lines.append("")
+    lines.append(f"RECOMMENDATION: {rec.recommendation}")
+    if rec.rationale:
+        for r in rec.rationale:
+            lines.append(f"  - {r}")
+    if rec.conditions:
+        lines.append("CONDITIONS:")
+        for i, c in enumerate(rec.conditions, 1):
+            lines.append(f"  {i}. {c}")
 
     lines.append("")
     lines.append(
@@ -472,11 +524,11 @@ async def uw_preliminary_recommendation(
     application_id: int,
     state: Annotated[dict, InjectedState],
 ) -> str:
-    """Generate a preliminary underwriting recommendation for an application.
+    """Re-evaluate the preliminary recommendation for an application.
 
-    Based on risk factors, produces one of: Approve, Approve with Conditions,
-    Suspend, or Deny. This is advisory only -- it does NOT create a decision
-    record. Final decisions require human underwriter judgment.
+    Re-computes the recommendation based on current risk factors and
+    documents. Useful after conditions have been addressed or new data
+    is available. For a full assessment, use uw_risk_assessment instead.
 
     Args:
         application_id: The loan application ID to evaluate.
@@ -527,71 +579,22 @@ async def uw_preliminary_recommendation(
         documents, doc_total = await list_documents(session, user, application_id, limit=50)
         borrowers = extract_borrower_info(app)
         risk = compute_risk_factors(app, financials, borrowers, bureau_credit_score=bureau_score)
-
-        # Decision tree
-        recommendation = "Approve"
-        rationale: list[str] = []
-        conditions_list: list[str] = []
-
-        dti_val = risk.dti.get("value")
-        ltv_val = risk.ltv.get("value")
-        credit_val = risk.credit.get("value")
-
-        # --- Deny triggers ---
-        deny_reasons: list[str] = []
-        if dti_val is not None and dti_val > 55:
-            deny_reasons.append(f"DTI ratio ({dti_val}%) exceeds maximum threshold of 55%")
-        if credit_val is not None and credit_val < 580:
-            deny_reasons.append(f"Credit score ({credit_val}) below minimum threshold of 580")
-        if ltv_val is not None and ltv_val > 97:
-            deny_reasons.append(f"LTV ratio ({ltv_val}%) exceeds maximum threshold of 97%")
-
-        # Unemployed with no employed co-borrower
-        emp_statuses = [b.get("employment_status") for b in borrowers if b.get("employment_status")]
-        has_employed = any(
-            e in (EmploymentStatus.W2_EMPLOYEE.value, EmploymentStatus.SELF_EMPLOYED.value)
-            for e in emp_statuses
+        rec = compute_recommendation(
+            risk,
+            borrowers,
+            has_financials=bool(financials),
+            doc_total=doc_total,
         )
-        if EmploymentStatus.UNEMPLOYED.value in emp_statuses and not has_employed:
-            deny_reasons.append("Primary borrower unemployed with no employed co-borrower")
 
-        if deny_reasons:
-            recommendation = "Deny"
-            rationale = deny_reasons
-
-        # --- Suspend triggers (only if not denied) ---
-        elif not financials:
-            recommendation = "Suspend"
-            rationale = ["Missing financial data -- cannot complete risk assessment"]
-        elif credit_val is None:
-            recommendation = "Suspend"
-            rationale = ["No credit score on file -- credit pull required"]
-        elif doc_total == 0:
-            recommendation = "Suspend"
-            rationale = ["No documents on file -- cannot verify borrower information"]
-
-        # --- Conditions triggers (only if not denied/suspended) ---
-        else:
-            if dti_val is not None and 43 < dti_val <= 55:
-                conditions_list.append(
-                    f"DTI ({dti_val}%) exceeds QM safe harbor -- "
-                    "document compensating factors or request exception"
-                )
-            if ltv_val is not None and ltv_val > 80:
-                conditions_list.append(f"LTV ({ltv_val}%) exceeds 80% -- PMI required")
-            if credit_val is not None and 580 <= credit_val < 620:
-                conditions_list.append(
-                    f"Credit score ({credit_val}) below 620 -- "
-                    "additional documentation of creditworthiness required"
-                )
-            if EmploymentStatus.SELF_EMPLOYED.value in emp_statuses:
-                conditions_list.append(
-                    "Self-employed borrower -- verify 2 years tax returns and business financials"
-                )
-
-            if conditions_list:
-                recommendation = "Approve with Conditions"
-                rationale = [f"{len(conditions_list)} condition(s) must be satisfied"]
+        # Persist recommendation on the latest risk assessment
+        await update_recommendation(
+            session,
+            application_id,
+            recommendation=rec.recommendation,
+            rationale=rec.rationale or None,
+            conditions=rec.conditions or None,
+            assessed_by=user.user_id,
+        )
 
         # Audit
         await write_audit_event(
@@ -602,7 +605,7 @@ async def uw_preliminary_recommendation(
             application_id=application_id,
             event_data={
                 "tool": "uw_preliminary_recommendation",
-                "recommendation": recommendation,
+                "recommendation": rec.recommendation,
             },
         )
         await session.commit()
@@ -611,19 +614,19 @@ async def uw_preliminary_recommendation(
     lines = [
         f"Preliminary Recommendation -- Application #{application_id}",
         "",
-        f"RECOMMENDATION: {recommendation}",
+        f"RECOMMENDATION: {rec.recommendation}",
         "",
     ]
 
-    if rationale:
+    if rec.rationale:
         lines.append("RATIONALE:")
-        for r in rationale:
+        for r in rec.rationale:
             lines.append(f"  - {r}")
         lines.append("")
 
-    if conditions_list:
+    if rec.conditions:
         lines.append("CONDITIONS:")
-        for i, c in enumerate(conditions_list, 1):
+        for i, c in enumerate(rec.conditions, 1):
             lines.append(f"  {i}. {c}")
         lines.append("")
 

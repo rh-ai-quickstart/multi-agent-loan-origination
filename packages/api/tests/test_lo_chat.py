@@ -82,3 +82,39 @@ class TestLoConversationHistory:
         data = resp.json()
         assert "data" in data
         assert isinstance(data["data"], list)
+
+
+class TestLoClearConversation:
+    """Tests for DELETE /api/loan-officer/conversations/history."""
+
+    def test_delete_requires_lo_role(self):
+        """Borrower hitting DELETE on LO history gets 403."""
+        borrower = _make_user(UserRole.BORROWER, "borrower-1")
+
+        async def fake_user(request: Request):
+            request.state.pii_mask = False
+            return borrower
+
+        app.dependency_overrides[get_current_user] = fake_user
+        client = TestClient(app)
+
+        resp = client.delete("/api/loan-officer/conversations/history")
+        assert resp.status_code == 403
+
+    @patch("src.services.conversation.get_conversation_service")
+    def test_delete_returns_204(self, mock_get_svc):
+        """LO can clear their conversation history."""
+        lo = _make_user(UserRole.LOAN_OFFICER, "lo-james")
+
+        async def fake_user(request: Request):
+            request.state.pii_mask = False
+            return lo
+
+        app.dependency_overrides[get_current_user] = fake_user
+
+        mock_svc = mock_get_svc.return_value
+        mock_svc.clear_conversation = AsyncMock(return_value=True)
+
+        client = TestClient(app)
+        resp = client.delete("/api/loan-officer/conversations/history")
+        assert resp.status_code == 204

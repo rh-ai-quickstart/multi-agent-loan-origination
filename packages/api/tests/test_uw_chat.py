@@ -102,3 +102,53 @@ class TestUwConversationHistory:
         client = TestClient(app)
         resp = client.get("/api/underwriter/conversations/history")
         assert resp.status_code == 200
+
+
+class TestUwClearConversation:
+    """Tests for DELETE /api/underwriter/conversations/history."""
+
+    def test_delete_requires_uw_role(self):
+        """Borrower hitting DELETE on UW history gets 403."""
+        borrower = _make_user(UserRole.BORROWER, "borrower-1")
+
+        async def fake_user(request: Request):
+            request.state.pii_mask = False
+            return borrower
+
+        app.dependency_overrides[get_current_user] = fake_user
+        client = TestClient(app)
+
+        resp = client.delete("/api/underwriter/conversations/history")
+        assert resp.status_code == 403
+
+    @patch("src.services.conversation.get_conversation_service")
+    def test_delete_returns_204(self, mock_get_svc):
+        """Underwriter can clear their conversation history."""
+        uw = _make_user(UserRole.UNDERWRITER, "uw-maria")
+
+        async def fake_user(request: Request):
+            request.state.pii_mask = False
+            return uw
+
+        app.dependency_overrides[get_current_user] = fake_user
+
+        mock_svc = mock_get_svc.return_value
+        mock_svc.clear_conversation = AsyncMock(return_value=True)
+
+        client = TestClient(app)
+        resp = client.delete("/api/underwriter/conversations/history")
+        assert resp.status_code == 204
+
+    def test_lo_cannot_delete_uw_history(self):
+        """Loan officer hitting DELETE on UW history gets 403."""
+        lo = _make_user(UserRole.LOAN_OFFICER, "lo-james")
+
+        async def fake_user(request: Request):
+            request.state.pii_mask = False
+            return lo
+
+        app.dependency_overrides[get_current_user] = fake_user
+        client = TestClient(app)
+
+        resp = client.delete("/api/underwriter/conversations/history")
+        assert resp.status_code == 403

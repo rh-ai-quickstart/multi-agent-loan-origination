@@ -1,7 +1,7 @@
 // This project was developed with assistance from AI tools.
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { apiGet } from '@/lib/api-client';
+import { apiGet, apiDelete } from '@/lib/api-client';
 import { connectChat, type WsMessage, type ChatWs, type ConnectChatOptions } from '@/lib/ws';
 
 export interface ChatMessage {
@@ -144,6 +144,7 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                         streamBufferRef.current = '';
                         currentToolCallsRef.current = [];
                         setIsStreaming(false);
+                        window.dispatchEvent(new Event('chat-done'));
                         break;
 
                     case 'safety_override':
@@ -253,6 +254,17 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
         [connect],
     );
 
+    const clearHistory = useCallback(async () => {
+        if (!historyPath) return;
+        try {
+            const qs = wsOptions?.appId ? `?app_id=${wsOptions.appId}` : '';
+            await apiDelete(`${historyPath}${qs}`);
+        } catch {
+            // Best-effort -- clear local state regardless
+        }
+        setMessages([]);
+    }, [historyPath, wsOptions?.appId]);
+
     useEffect(() => {
         mountedRef.current = true;
         return () => {
@@ -274,6 +286,7 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
         sendMessage,
         connect,
         disconnect,
+        clearHistory,
     };
 }
 

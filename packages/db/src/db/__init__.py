@@ -27,6 +27,7 @@ from .models import (
     AuditEvent,
     AuditViolation,
     Borrower,
+    ComplianceResult,
     Condition,
     CreditReport,
     Decision,
@@ -39,6 +40,7 @@ from .models import (
     KBDocument,
     PrequalificationDecision,
     RateLock,
+    RiskAssessmentRecord,
 )
 
 __all__ = [
@@ -66,6 +68,7 @@ __all__ = [
     "AuditEvent",
     "AuditViolation",
     "Borrower",
+    "ComplianceResult",
     "Condition",
     "CreditReport",
     "Decision",
@@ -78,4 +81,5 @@ __all__ = [
     "KBDocument",
     "PrequalificationDecision",
     "RateLock",
+    "RiskAssessmentRecord",
 ]

@@ -151,3 +151,56 @@ class TestShutdown:
         service = ConversationService()
         await service.shutdown()
         assert service.is_initialized is False
+
+
+class TestClearConversation:
+    """Tests for ConversationService.clear_conversation()."""
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_not_initialized(self):
+        """should return False when service is not initialized."""
+        service = ConversationService()
+        result = await service.clear_conversation("any-thread")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_deletes_from_all_three_tables(self):
+        """should delete from checkpoint_writes, checkpoint_blobs, and checkpoints."""
+        from contextlib import asynccontextmanager
+
+        service = ConversationService()
+        mock_conn = AsyncMock()
+
+        @asynccontextmanager
+        async def fake_connection():
+            yield mock_conn
+
+        mock_pool = MagicMock()
+        mock_pool.connection = fake_connection
+        service._pool = mock_pool
+        service._initialized = True
+
+        result = await service.clear_conversation("user:test:agent:uw")
+
+        assert result is True
+        assert mock_conn.execute.await_count == 3
+        calls = [c.args for c in mock_conn.execute.await_args_list]
+        tables = [c[0] for c in calls]
+        assert "DELETE FROM checkpoint_writes WHERE thread_id = %s" in tables
+        assert "DELETE FROM checkpoint_blobs WHERE thread_id = %s" in tables
+        assert "DELETE FROM checkpoints WHERE thread_id = %s" in tables
+        # All three calls pass the same thread_id
+        for call_args in calls:
+            assert call_args[1] == ("user:test:agent:uw",)
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_exception(self):
+        """should return False and not raise when database errors occur."""
+        service = ConversationService()
+        mock_pool = AsyncMock()
+        mock_pool.connection.side_effect = RuntimeError("db down")
+        service._pool = mock_pool
+        service._initialized = True
+
+        result = await service.clear_conversation("user:test:agent:uw")
+        assert result is False

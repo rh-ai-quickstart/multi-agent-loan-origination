@@ -148,6 +148,34 @@ class ConversationService:
         if not thread_id.startswith(expected_prefix):
             raise PermissionError(f"Thread {thread_id!r} does not belong to user {user_id!r}")
 
+    async def clear_conversation(self, thread_id: str) -> bool:
+        """Delete all checkpoint data for *thread_id*.
+
+        Removes rows from checkpoints, checkpoint_blobs, and checkpoint_writes
+        so the next session starts fresh.
+
+        Args:
+            thread_id: The thread ID to clear.
+
+        Returns:
+            True if rows were deleted, False if nothing existed or service is
+            not initialized.
+        """
+        if not self._initialized or self._pool is None:
+            return False
+
+        try:
+            async with self._pool.connection() as conn:
+                for table in ("checkpoint_writes", "checkpoint_blobs", "checkpoints"):
+                    await conn.execute(
+                        f"DELETE FROM {table} WHERE thread_id = %s",  # noqa: S608
+                        (thread_id,),
+                    )
+            return True
+        except Exception:
+            logger.warning("Failed to clear conversation for %s", thread_id, exc_info=True)
+            return False
+
     async def get_conversation_history(self, thread_id: str) -> list[dict]:
         """Load conversation messages from the checkpoint for *thread_id*.
 
@@ -173,7 +201,13 @@ class ConversationService:
             messages = checkpoint.get("channel_values", {}).get("messages", [])
             result = []
             for msg in messages:
-                role = "assistant" if getattr(msg, "type", "") == "ai" else "user"
+                msg_type = getattr(msg, "type", "")
+                if msg_type == "ai":
+                    role = "assistant"
+                elif msg_type == "human":
+                    role = "user"
+                else:
+                    continue  # skip tool, system, and function messages
                 content = getattr(msg, "content", str(msg))
                 if content:
                     result.append({"role": role, "content": content})

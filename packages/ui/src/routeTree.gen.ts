@@ -16,6 +16,7 @@ import { Route as AuthenticatedUnderwriterIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedLoanOfficerIndexRouteImport } from './routes/_authenticated/loan-officer/index'
 import { Route as AuthenticatedCeoIndexRouteImport } from './routes/_authenticated/ceo/index'
 import { Route as AuthenticatedBorrowerIndexRouteImport } from './routes/_authenticated/borrower/index'
+import { Route as AuthenticatedUnderwriterApplicationIdRouteImport } from './routes/_authenticated/underwriter/$applicationId'
 import { Route as AuthenticatedLoanOfficerApplicationIdRouteImport } from './routes/_authenticated/loan-officer/$applicationId'
 
 const SignInRoute = SignInRouteImport.update({
@@ -55,6 +56,12 @@ const AuthenticatedBorrowerIndexRoute =
     path: '/borrower/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedUnderwriterApplicationIdRoute =
+  AuthenticatedUnderwriterApplicationIdRouteImport.update({
+    id: '/underwriter/$applicationId',
+    path: '/underwriter/$applicationId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedLoanOfficerApplicationIdRoute =
   AuthenticatedLoanOfficerApplicationIdRouteImport.update({
     id: '/loan-officer/$applicationId',
@@ -66,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/loan-officer/$applicationId': typeof AuthenticatedLoanOfficerApplicationIdRoute
+  '/underwriter/$applicationId': typeof AuthenticatedUnderwriterApplicationIdRoute
   '/borrower/': typeof AuthenticatedBorrowerIndexRoute
   '/ceo/': typeof AuthenticatedCeoIndexRoute
   '/loan-officer/': typeof AuthenticatedLoanOfficerIndexRoute
@@ -75,6 +83,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/loan-officer/$applicationId': typeof AuthenticatedLoanOfficerApplicationIdRoute
+  '/underwriter/$applicationId': typeof AuthenticatedUnderwriterApplicationIdRoute
   '/borrower': typeof AuthenticatedBorrowerIndexRoute
   '/ceo': typeof AuthenticatedCeoIndexRoute
   '/loan-officer': typeof AuthenticatedLoanOfficerIndexRoute
@@ -86,6 +95,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/_authenticated/loan-officer/$applicationId': typeof AuthenticatedLoanOfficerApplicationIdRoute
+  '/_authenticated/underwriter/$applicationId': typeof AuthenticatedUnderwriterApplicationIdRoute
   '/_authenticated/borrower/': typeof AuthenticatedBorrowerIndexRoute
   '/_authenticated/ceo/': typeof AuthenticatedCeoIndexRoute
   '/_authenticated/loan-officer/': typeof AuthenticatedLoanOfficerIndexRoute
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/loan-officer/$applicationId'
+    | '/underwriter/$applicationId'
     | '/borrower/'
     | '/ceo/'
     | '/loan-officer/'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/loan-officer/$applicationId'
+    | '/underwriter/$applicationId'
     | '/borrower'
     | '/ceo'
     | '/loan-officer'
@@ -116,6 +128,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/sign-in'
     | '/_authenticated/loan-officer/$applicationId'
+    | '/_authenticated/underwriter/$applicationId'
     | '/_authenticated/borrower/'
     | '/_authenticated/ceo/'
     | '/_authenticated/loan-officer/'
@@ -179,6 +192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBorrowerIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/underwriter/$applicationId': {
+      id: '/_authenticated/underwriter/$applicationId'
+      path: '/underwriter/$applicationId'
+      fullPath: '/underwriter/$applicationId'
+      preLoaderRoute: typeof AuthenticatedUnderwriterApplicationIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/loan-officer/$applicationId': {
       id: '/_authenticated/loan-officer/$applicationId'
       path: '/loan-officer/$applicationId'
@@ -191,6 +211,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedLoanOfficerApplicationIdRoute: typeof AuthenticatedLoanOfficerApplicationIdRoute
+  AuthenticatedUnderwriterApplicationIdRoute: typeof AuthenticatedUnderwriterApplicationIdRoute
   AuthenticatedBorrowerIndexRoute: typeof AuthenticatedBorrowerIndexRoute
   AuthenticatedCeoIndexRoute: typeof AuthenticatedCeoIndexRoute
   AuthenticatedLoanOfficerIndexRoute: typeof AuthenticatedLoanOfficerIndexRoute
@@ -200,6 +221,8 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedLoanOfficerApplicationIdRoute:
     AuthenticatedLoanOfficerApplicationIdRoute,
+  AuthenticatedUnderwriterApplicationIdRoute:
+    AuthenticatedUnderwriterApplicationIdRoute,
   AuthenticatedBorrowerIndexRoute: AuthenticatedBorrowerIndexRoute,
   AuthenticatedCeoIndexRoute: AuthenticatedCeoIndexRoute,
   AuthenticatedLoanOfficerIndexRoute: AuthenticatedLoanOfficerIndexRoute,

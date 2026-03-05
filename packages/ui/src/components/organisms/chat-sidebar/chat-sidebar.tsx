@@ -1,8 +1,8 @@
 // This project was developed with assistance from AI tools.
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useLocation } from '@tanstack/react-router';
-import { MessageSquare, Send, Loader2, X } from 'lucide-react';
+import { MessageSquare, Send, Loader2, X, Trash2 } from 'lucide-react';
 import { useChat } from '@/hooks/use-chat';
 import { useAuth } from '@/contexts/auth-context';
 import { ChatBubble, TypingIndicator } from '@/components/atoms/chat-bubble/chat-bubble';
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 
 function useCurrentAppId(): string | undefined {
     const location = useLocation();
-    const match = location.pathname.match(/\/loan-officer\/(\d+)/);
+    const match = location.pathname.match(/\/(?:loan-officer|underwriter)\/(\d+)/);
     return match?.[1];
 }
 
@@ -21,20 +21,27 @@ export function ChatSidebar() {
         () => user ? { token: token ?? undefined, devUserId: user.user_id, devEmail: user.email, devName: user.name, appId } : undefined,
         [user, token, appId],
     );
-    const { messages, isStreaming, isConnected, connectionError, sendMessage, connect } = useChat({ path: chatPath, historyPath: historyPath ?? undefined, wsOptions });
+    const { messages, isStreaming, isConnected, connectionError, sendMessage, connect, clearHistory } = useChat({ path: chatPath, historyPath: historyPath ?? undefined, wsOptions });
     const [input, setInput] = useState('');
     const [isMobileOpen, setIsMobileOpen] = useState(false);
-    const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
         connect();
     }, [connect]);
 
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
+    useLayoutEffect(() => {
+        // Query all chat-messages containers and scroll each visible one
+        const els = document.querySelectorAll<HTMLDivElement>('[data-chat-messages]');
+        els.forEach((el) => {
+            if (el.offsetParent !== null) el.scrollTop = el.scrollHeight;
+        });
+        const id = requestAnimationFrame(() => {
+            els.forEach((el) => {
+                if (el.offsetParent !== null) el.scrollTop = el.scrollHeight;
+            });
+        });
+        return () => cancelAnimationFrame(id);
     }, [messages, isStreaming]);
 
     useEffect(() => {
@@ -55,7 +62,7 @@ export function ChatSidebar() {
     }, [isStreaming, sendMessage]);
 
     const addAppContext = (msg: string): string => {
-        const match = window.location.pathname.match(/\/loan-officer\/(\d+)/);
+        const match = window.location.pathname.match(/\/(?:loan-officer|underwriter)\/(\d+)/);
         if (!match) return msg;
         const appId = match[1];
         if (msg.includes(`#${appId}`) || msg.includes(`application ${appId}`)) return msg;
@@ -67,6 +74,7 @@ export function ChatSidebar() {
         const display = input;
         sendMessage(addAppContext(input), display);
         setInput('');
+        requestAnimationFrame(() => inputRef.current?.focus());
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -99,17 +107,29 @@ export function ChatSidebar() {
                         </div>
                     </div>
                 </div>
-                <button
-                    onClick={() => setIsMobileOpen(false)}
-                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800 lg:hidden"
-                    aria-label="Close chat"
-                >
-                    <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-1">
+                    {messages.length > 0 && (
+                        <button
+                            onClick={clearHistory}
+                            disabled={isStreaming}
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground disabled:opacity-40 dark:hover:bg-slate-800"
+                            aria-label="Clear chat history"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setIsMobileOpen(false)}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800 lg:hidden"
+                        aria-label="Close chat"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
             </div>
 
             {/* Messages */}
-            <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+            <div data-chat-messages className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
                 {connectionError && !isConnected && (
                     <div className="rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                         Unable to connect. Retrying...
@@ -139,7 +159,10 @@ export function ChatSidebar() {
 
             {/* Input */}
             <div className="border-t border-border p-3">
-                <div className="flex items-end gap-2 rounded-xl border border-border bg-slate-50 px-3 py-2 focus-within:border-[#1e3a5f] focus-within:ring-1 focus-within:ring-[#1e3a5f] dark:bg-slate-800">
+                <div
+                    className="flex cursor-text items-end gap-2 rounded-xl border border-border bg-slate-50 px-3 py-2 focus-within:border-[#1e3a5f] focus-within:ring-1 focus-within:ring-[#1e3a5f] dark:bg-slate-800"
+                    onClick={() => inputRef.current?.focus()}
+                >
                     <textarea
                         ref={inputRef}
                         value={input}

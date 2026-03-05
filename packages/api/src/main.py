@@ -32,6 +32,7 @@ from .routes import (
     model_monitoring,
     public,
     underwriter_chat,
+    underwriting,
 )
 from .schemas.error import ErrorResponse
 
@@ -147,6 +148,7 @@ app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(model_monitoring.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
+app.include_router(underwriting.router, prefix="/api/applications", tags=["underwriting"])
 
 # Setup SQLAdmin dashboard at /admin
 setup_admin(app)

@@ -1,6 +1,6 @@
 // This project was developed with assistance from AI tools.
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { useChat } from '@/hooks/use-chat';
 import { useChatContext } from '@/contexts/chat-context';
@@ -13,7 +13,7 @@ export function ChatPanel() {
         path: '/api/chat',
     });
     const [input, setInput] = useState('');
-    const scrollRef = useRef<HTMLDivElement>(null);
+    const messagesRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const initialMessageSentRef = useRef(false);
 
@@ -42,10 +42,12 @@ export function ChatPanel() {
     }, [initialMessage]);
 
     // Auto-scroll to bottom on new messages
-    useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
+    useLayoutEffect(() => {
+        const el = messagesRef.current;
+        if (!el) return;
+        el.scrollTop = el.scrollHeight;
+        const id = requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+        return () => cancelAnimationFrame(id);
     }, [messages, isStreaming]);
 
     const handleSend = () => {
@@ -95,7 +97,7 @@ export function ChatPanel() {
             </div>
 
             {/* Messages */}
-            <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
+            <div ref={messagesRef} className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
                 {messages.length === 0 && !isStreaming && (
                     <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1e3a5f]/10">

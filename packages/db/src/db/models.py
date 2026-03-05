@@ -120,6 +120,12 @@ class Application(Base):
         "PrequalificationDecision", back_populates="application", uselist=False,
         cascade="all, delete-orphan",
     )
+    risk_assessments = relationship(
+        "RiskAssessmentRecord", back_populates="application", cascade="all, delete-orphan",
+    )
+    compliance_results = relationship(
+        "ComplianceResult", back_populates="application", cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<Application(id={self.id}, stage='{self.stage}')>"
@@ -488,6 +494,70 @@ class PrequalificationDecision(Base):
             f"<PrequalificationDecision(id={self.id}, app_id={self.application_id}, "
             f"product='{self.product_id}')>"
         )
+
+
+class RiskAssessmentRecord(Base):
+    """Persisted risk assessment result from underwriter tool."""
+
+    __tablename__ = "risk_assessments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    application_id = Column(
+        Integer, ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    dti_value = Column(Float, nullable=True)
+    dti_rating = Column(String(20), nullable=True)
+    ltv_value = Column(Float, nullable=True)
+    ltv_rating = Column(String(20), nullable=True)
+    credit_value = Column(Integer, nullable=True)
+    credit_rating = Column(String(20), nullable=True)
+    credit_source = Column(String(50), nullable=True)
+    income_stability_value = Column(String(255), nullable=True)
+    income_stability_rating = Column(String(20), nullable=True)
+    asset_sufficiency_value = Column(Float, nullable=True)
+    asset_sufficiency_rating = Column(String(20), nullable=True)
+    compensating_factors = Column(JSONB, nullable=True)
+    warnings = Column(JSONB, nullable=True)
+    overall_risk = Column(String(20), nullable=True)
+    recommendation = Column(String(50), nullable=True)
+    recommendation_rationale = Column(JSONB, nullable=True)
+    recommendation_conditions = Column(JSONB, nullable=True)
+    assessed_by = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    application = relationship("Application", back_populates="risk_assessments")
+
+    def __repr__(self):
+        return f"<RiskAssessmentRecord(id={self.id}, app_id={self.application_id}, overall={self.overall_risk})>"
+
+
+class ComplianceResult(Base):
+    """Persisted compliance check result from underwriter tool."""
+
+    __tablename__ = "compliance_results"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    application_id = Column(
+        Integer, ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    ecoa_status = Column(String(30), nullable=True)
+    ecoa_rationale = Column(Text, nullable=True)
+    ecoa_details = Column(JSONB, nullable=True)
+    atr_qm_status = Column(String(30), nullable=True)
+    atr_qm_rationale = Column(Text, nullable=True)
+    atr_qm_details = Column(JSONB, nullable=True)
+    trid_status = Column(String(30), nullable=True)
+    trid_rationale = Column(Text, nullable=True)
+    trid_details = Column(JSONB, nullable=True)
+    overall_status = Column(String(30), nullable=True)
+    can_proceed = Column(Boolean, nullable=True)
+    checked_by = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    application = relationship("Application", back_populates="compliance_results")
+
+    def __repr__(self):
+        return f"<ComplianceResult(id={self.id}, app_id={self.application_id}, overall={self.overall_status})>"
 
 
 class HmdaDemographic(Base):

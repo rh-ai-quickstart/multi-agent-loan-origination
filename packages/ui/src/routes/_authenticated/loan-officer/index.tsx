@@ -9,6 +9,9 @@ import {
     AlertTriangle,
     TrendingUp,
     ChevronRight,
+    ChevronUp,
+    ChevronDown,
+    ChevronsUpDown,
     Lock,
 } from 'lucide-react';
 import { usePipelineApplications } from '@/hooks/use-applications';
@@ -139,11 +142,44 @@ const FILTER_STAGES: { value: ApplicationStage | ''; label: string }[] = [
     { value: 'closed', label: 'Closed' },
 ];
 
-const SORT_OPTIONS: { value: ApplicationsQueryParams['sort_by'] | ''; label: string }[] = [
-    { value: 'urgency', label: 'Urgency' },
-    { value: 'updated_at', label: 'Last Updated' },
-    { value: 'loan_amount', label: 'Loan Amount' },
-];
+// -- Sortable columns ---------------------------------------------------------
+
+type SortKey = 'borrower' | 'loan_amount' | 'stage' | 'days_in_stage' | 'last_activity';
+type SortDir = 'asc' | 'desc';
+
+const STAGE_ORDER: Record<string, number> = {
+    inquiry: 0, prequalification: 1, application: 2, processing: 3,
+    underwriting: 4, conditional_approval: 5, clear_to_close: 6, closed: 7, denied: 8,
+};
+
+function comparePipelineApps(a: ApplicationResponse, b: ApplicationResponse, key: SortKey, dir: SortDir): number {
+    let cmp = 0;
+    switch (key) {
+        case 'borrower':
+            cmp = borrowerName(a).localeCompare(borrowerName(b));
+            break;
+        case 'loan_amount':
+            cmp = (a.loan_amount ?? 0) - (b.loan_amount ?? 0);
+            break;
+        case 'stage':
+            cmp = (STAGE_ORDER[a.stage] ?? 99) - (STAGE_ORDER[b.stage] ?? 99);
+            break;
+        case 'days_in_stage':
+            cmp = (a.urgency?.days_in_stage ?? 0) - (b.urgency?.days_in_stage ?? 0);
+            break;
+        case 'last_activity':
+            cmp = (a.updated_at ?? '').localeCompare(b.updated_at ?? '');
+            break;
+    }
+    return dir === 'asc' ? cmp : -cmp;
+}
+
+function SortIcon({ sortKey, activeKey, dir }: { sortKey: SortKey; activeKey: SortKey; dir: SortDir }) {
+    if (sortKey !== activeKey) return <ChevronsUpDown className="ml-1 inline h-3.5 w-3.5 opacity-40" />;
+    return dir === 'asc'
+        ? <ChevronUp className="ml-1 inline h-3.5 w-3.5" />
+        : <ChevronDown className="ml-1 inline h-3.5 w-3.5" />;
+}
 
 const URGENCY_FILTER: { value: UrgencyLevel | ''; label: string }[] = [
     { value: '', label: 'All Urgency' },
@@ -159,14 +195,23 @@ function LoanOfficerPipeline() {
     // Server-side params
     const [filterStage, setFilterStage] = useState<ApplicationStage | ''>('');
     const [filterStalled, setFilterStalled] = useState(false);
-    const [sortBy, setSortBy] = useState<ApplicationsQueryParams['sort_by']>('urgency');
 
-    // Client-side filters
+    // Client-side filters + sort
     const [searchQuery, setSearchQuery] = useState('');
     const [filterUrgency, setFilterUrgency] = useState<UrgencyLevel | ''>('');
+    const [sortKey, setSortKey] = useState<SortKey>('days_in_stage');
+    const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+    const toggleSort = (key: SortKey) => {
+        if (key === sortKey) {
+            setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        } else {
+            setSortKey(key);
+            setSortDir(key === 'borrower' ? 'asc' : 'desc');
+        }
+    };
 
     const params: ApplicationsQueryParams = {
-        sort_by: sortBy || undefined,
         filter_stage: filterStage || undefined,
         filter_stalled: filterStalled || undefined,
         limit: 100,
@@ -175,7 +220,7 @@ function LoanOfficerPipeline() {
     const { data, isLoading } = usePipelineApplications(params);
     const applications = useMemo(() => data?.data ?? [], [data]);
 
-    // Client-side filtering (search + urgency)
+    // Client-side filtering (search + urgency) + sort
     const filtered = useMemo(() => {
         let result = applications;
         if (searchQuery) {
@@ -189,8 +234,8 @@ function LoanOfficerPipeline() {
         if (filterUrgency) {
             result = result.filter((app) => app.urgency?.level === filterUrgency);
         }
-        return result;
-    }, [applications, searchQuery, filterUrgency]);
+        return [...result].sort((a, b) => comparePipelineApps(a, b, sortKey, sortDir));
+    }, [applications, searchQuery, filterUrgency, sortKey, sortDir]);
 
     return (
         <div className="mx-auto max-w-[1280px] p-6 md:p-8">
@@ -254,15 +299,6 @@ function LoanOfficerPipeline() {
                         />
                         Stalled only
                     </label>
-                    <select
-                        value={sortBy ?? ''}
-                        onChange={(e) => setSortBy((e.target.value || undefined) as ApplicationsQueryParams['sort_by'])}
-                        className="rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30"
-                    >
-                        {SORT_OPTIONS.map((s) => (
-                            <option key={s.value} value={s.value ?? ''}>{s.label}</option>
-                        ))}
-                    </select>
                 </div>
             </CardShell>
 
@@ -273,12 +309,22 @@ function LoanOfficerPipeline() {
                         <thead>
                             <tr className="border-b border-border bg-slate-50 dark:bg-slate-800/50">
                                 <th className="px-4 py-3 text-left font-medium text-muted-foreground w-8"></th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Borrower</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Loan Amount</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Stage</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Days in Stage</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('borrower')}>
+                                    Borrower<SortIcon sortKey="borrower" activeKey={sortKey} dir={sortDir} />
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('loan_amount')}>
+                                    Loan Amount<SortIcon sortKey="loan_amount" activeKey={sortKey} dir={sortDir} />
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('stage')}>
+                                    Stage<SortIcon sortKey="stage" activeKey={sortKey} dir={sortDir} />
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground whitespace-nowrap cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('days_in_stage')}>
+                                    Days in Stage<SortIcon sortKey="days_in_stage" activeKey={sortKey} dir={sortDir} />
+                                </th>
                                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Rate Lock</th>
-                                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Last Activity</th>
+                                <th className="px-4 py-3 text-left font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground" onClick={() => toggleSort('last_activity')}>
+                                    Last Activity<SortIcon sortKey="last_activity" activeKey={sortKey} dir={sortDir} />
+                                </th>
                                 <th className="px-4 py-3 w-8"></th>
                             </tr>
                         </thead>

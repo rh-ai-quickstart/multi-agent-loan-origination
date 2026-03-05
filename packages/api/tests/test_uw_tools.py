@@ -113,6 +113,14 @@ class TestUwQueueView:
                 return_value=urgency_map,
             ),
             patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "src.agents.underwriter_tools.write_audit_event",
                 new_callable=AsyncMock,
             ),
@@ -142,6 +150,14 @@ class TestUwQueueView:
                 "src.agents.underwriter_tools.list_applications",
                 new_callable=AsyncMock,
                 return_value=([], 0),
+            ),
+            patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
             ),
             patch(
                 "src.agents.underwriter_tools.write_audit_event",
@@ -266,6 +282,14 @@ class TestUwApplicationDetail:
                 "src.agents.underwriter_tools.get_rate_lock_status",
                 new_callable=AsyncMock,
                 return_value=mock_rate_lock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
             ),
             patch(
                 "src.agents.underwriter_tools.write_audit_event",
@@ -624,6 +648,19 @@ class TestUwRiskAssessment:
                 return_value=mock_app,
             ),
             patch(
+                "src.agents.underwriter_tools.list_documents",
+                new_callable=AsyncMock,
+                return_value=([], 0),
+            ),
+            patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "src.agents.underwriter_tools.write_audit_event",
                 new_callable=AsyncMock,
             ),
@@ -656,6 +693,7 @@ class TestUwRiskAssessment:
         mock_app.property_value = 450000
         mock_app.application_borrowers = [mock_ab]
 
+        mock_doc = MagicMock()
         state = {"user_id": "uw-maria", "user_role": "underwriter"}
 
         with (
@@ -663,6 +701,19 @@ class TestUwRiskAssessment:
                 "src.agents.underwriter_tools.get_application",
                 new_callable=AsyncMock,
                 return_value=mock_app,
+            ),
+            patch(
+                "src.agents.underwriter_tools.list_documents",
+                new_callable=AsyncMock,
+                return_value=([mock_doc], 1),
+            ),
+            patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
             ),
             patch(
                 "src.agents.underwriter_tools.write_audit_event",
@@ -723,6 +774,14 @@ class TestUwPreliminaryRecommendation:
                 return_value=([mock_doc], 1),
             ),
             patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "src.agents.underwriter_tools.write_audit_event",
                 new_callable=AsyncMock,
             ),
@@ -773,6 +832,14 @@ class TestUwPreliminaryRecommendation:
                 "src.agents.underwriter_tools.list_documents",
                 new_callable=AsyncMock,
                 return_value=([mock_doc], 1),
+            ),
+            patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
             ),
             patch(
                 "src.agents.underwriter_tools.write_audit_event",
@@ -826,6 +893,14 @@ class TestUwPreliminaryRecommendation:
                 return_value=([mock_doc], 1),
             ),
             patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "src.agents.underwriter_tools.write_audit_event",
                 new_callable=AsyncMock,
             ),
@@ -875,6 +950,14 @@ class TestUwPreliminaryRecommendation:
                 "src.agents.underwriter_tools.list_documents",
                 new_callable=AsyncMock,
                 return_value=([mock_doc], 1),
+            ),
+            patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
             ),
             patch(
                 "src.agents.underwriter_tools.write_audit_event",
@@ -929,6 +1012,14 @@ class TestUwPreliminaryRecommendation:
                 return_value=([mock_doc], 1),
             ),
             patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "src.agents.underwriter_tools.write_audit_event",
                 new_callable=AsyncMock,
             ),
@@ -978,6 +1069,14 @@ class TestUwPreliminaryRecommendation:
                 "src.agents.underwriter_tools.list_documents",
                 new_callable=AsyncMock,
                 return_value=([mock_doc], 1),
+            ),
+            patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
             ),
             patch(
                 "src.agents.underwriter_tools.write_audit_event",
@@ -1032,6 +1131,14 @@ class TestUwPreliminaryRecommendation:
                 return_value=([mock_doc], 1),
             ),
             patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "src.agents.underwriter_tools.write_audit_event",
                 new_callable=AsyncMock,
             ),
@@ -1080,6 +1187,14 @@ class TestUwPreliminaryRecommendation:
                 "src.agents.underwriter_tools.list_documents",
                 new_callable=AsyncMock,
                 return_value=([], 0),  # No documents
+            ),
+            patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
             ),
             patch(
                 "src.agents.underwriter_tools.write_audit_event",
@@ -1133,6 +1248,14 @@ class TestUwPreliminaryRecommendation:
                 return_value=([mock_doc], 1),
             ),
             patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "src.agents.underwriter_tools.write_audit_event",
                 new_callable=AsyncMock,
             ),
@@ -1180,6 +1303,14 @@ class TestUwPreliminaryRecommendation:
                 "src.agents.underwriter_tools.list_documents",
                 new_callable=AsyncMock,
                 return_value=([mock_doc], 1),
+            ),
+            patch(
+                "src.agents.underwriter_tools.update_recommendation",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.agents.underwriter_tools.create_risk_assessment",
+                new_callable=AsyncMock,
             ),
             patch(
                 "src.agents.underwriter_tools.write_audit_event",

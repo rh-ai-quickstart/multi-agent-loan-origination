@@ -475,4 +475,23 @@ def create_authenticated_chat_router(
         messages = await service.get_conversation_history(thread_id)
         return ConversationHistoryResponse(data=messages)
 
+    @router.delete(
+        history_path,
+        status_code=204,
+        dependencies=[Depends(require_roles(role, UserRole.ADMIN))],
+    )
+    async def clear_conversation_history_endpoint(
+        user: CurrentUser,
+        app_id: int | None = Query(default=None),
+    ) -> None:
+        """Clear conversation history for the authenticated user.
+
+        Deletes checkpoint data so the next session starts fresh.
+        Pass app_id for per-application conversation threads (LO/UW).
+        """
+        service = get_conversation_service()
+        thread_id = ConversationService.get_thread_id(user.user_id, agent_name, app_id)
+        ConversationService.verify_thread_ownership(thread_id, user.user_id)
+        await service.clear_conversation(thread_id)
+
     return router

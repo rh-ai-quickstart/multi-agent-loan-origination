@@ -202,3 +202,47 @@ class TestGetConversationHistory:
         service = ConversationService()
         history = await service.get_conversation_history("any-thread")
         assert history == []
+
+    @pytest.mark.asyncio
+    async def test_excludes_tool_messages(self):
+        """should exclude tool/function messages from history, keeping only human and ai."""
+        from langchain_core.messages import ToolMessage
+
+        saver = MemorySaver()
+        # Build a graph that produces a tool message followed by an AI response
+        graph = _build_echo_graph(checkpointer=saver)
+        thread_id = "tool-filter-test"
+        config = {"configurable": {"thread_id": thread_id}}
+
+        # Invoke to create checkpoint state
+        graph.invoke(
+            {
+                "messages": [HumanMessage(content="Hello")],
+                "user_role": "underwriter",
+                "user_id": "uw-1",
+            },
+            config=config,
+        )
+
+        # Manually inject a tool message into the checkpoint to simulate agent tool calls
+        state = graph.get_state(config)
+        messages = list(state.values["messages"])
+        messages.insert(
+            1,
+            ToolMessage(content="tool result data", tool_call_id="tc-1"),
+        )
+        graph.update_state(config, {"messages": messages})
+
+        service = ConversationService()
+        service._checkpointer = saver
+        service._initialized = True
+
+        history = await service.get_conversation_history(thread_id)
+
+        # Should only have human + ai, no tool messages
+        roles = [m["role"] for m in history]
+        assert "user" in roles
+        assert "assistant" in roles
+        assert all(r in ("user", "assistant") for r in roles)
+        # Tool content should not appear
+        assert not any("tool result data" in m["content"] for m in history)

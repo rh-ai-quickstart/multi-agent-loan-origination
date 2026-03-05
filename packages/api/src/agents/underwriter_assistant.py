@@ -28,7 +28,7 @@ from .decision_tools import (
     uw_generate_le,
     uw_render_decision,
 )
-from .tools import affordability_calc, product_info
+from .tools import affordability_calc, current_date, product_info
 from .underwriter_tools import (
     uw_application_detail,
     uw_preliminary_recommendation,
@@ -42,6 +42,7 @@ def build_graph(config: dict[str, Any], checkpointer=None):
     return build_agent_graph(
         config,
         [
+            current_date,
             product_info,
             affordability_calc,
             uw_queue_view,

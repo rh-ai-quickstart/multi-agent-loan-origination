@@ -26,6 +26,7 @@ from ..services.compliance.checks import (
     check_trid,
     run_all_checks,
 )
+from ..services.compliance_result import create_compliance_result
 from ..services.document import list_documents
 from .shared import format_enum_label, user_context_from_state
 
@@ -157,6 +158,27 @@ async def compliance_check(
         combined = None
         if regulation_type == "ALL" and len(results) == 3:
             combined = run_all_checks(results["ECOA"], results["ATR_QM"], results["TRID"])
+
+        # Persist compliance result
+        ecoa = results.get("ECOA")
+        atr_qm = results.get("ATR_QM")
+        trid = results.get("TRID")
+        await create_compliance_result(
+            session,
+            application_id=application_id,
+            ecoa_status=ecoa.status.value if ecoa else None,
+            ecoa_rationale=ecoa.rationale if ecoa else None,
+            ecoa_details=ecoa.details if ecoa else None,
+            atr_qm_status=atr_qm.status.value if atr_qm else None,
+            atr_qm_rationale=atr_qm.rationale if atr_qm else None,
+            atr_qm_details=atr_qm.details if atr_qm else None,
+            trid_status=trid.status.value if trid else None,
+            trid_rationale=trid.rationale if trid else None,
+            trid_details=trid.details if trid else None,
+            overall_status=combined["overall_status"].value if combined else None,
+            can_proceed=combined["can_proceed"] if combined else None,
+            checked_by=user.user_id,
+        )
 
         # Audit
         audit_data = {
