@@ -40,6 +40,7 @@ routing:
           - "interest"
           - "expire"
           - "deadline"
+          - "acknowledge"
           - "disclosure"
           - "missing"
           - "upload"

@@ -573,11 +573,13 @@ function DisclosuresCard({
                     item={reviewingItem}
                     onClose={() => setReviewingItem(null)}
                     onAcknowledge={() => {
+                        const item = reviewingItem;
                         setReviewingItem(null);
                         window.dispatchEvent(
                             new CustomEvent('chat-prefill', {
                                 detail: {
-                                    message: `I have reviewed and acknowledge the ${reviewingItem.label}`,
+                                    message: `I have reviewed and acknowledge the ${item.label} [disclosure_id=${item.id}]`,
+                                    displayMessage: `I have reviewed and acknowledge the ${item.label}`,
                                     autoSend: true,
                                 },
                             }),

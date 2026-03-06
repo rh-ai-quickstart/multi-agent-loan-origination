@@ -67,13 +67,13 @@ export function ChatSidebar() {
 
     useEffect(() => {
         const handler = (e: Event) => {
-            const detail = (e as CustomEvent<{ message: string; autoSend?: boolean }>).detail;
+            const detail = (e as CustomEvent<{ message: string; displayMessage?: string; autoSend?: boolean }>).detail;
             if (detail.message) {
                 setIsMobileOpen(true);
                 if (detail.autoSend && !isStreaming) {
-                    sendMessage(addAppContext(detail.message), detail.message);
+                    sendMessage(addAppContext(detail.message), detail.displayMessage ?? detail.message);
                 } else {
-                    setInput(detail.message);
+                    setInput(detail.displayMessage ?? detail.message);
                     inputRef.current?.focus();
                 }
             }
