@@ -1,7 +1,7 @@
 // This project was developed with assistance from AI tools.
 
 import { createFileRoute } from '@tanstack/react-router';
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
     Root as DialogRoot,
     Portal as DialogPortal,
@@ -27,7 +27,6 @@ import {
     X,
     Award,
 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useApplications } from '@/hooks/use-applications';
 import { useApplicationStatus } from '@/hooks/use-status';
 import { useDocuments, useCompleteness, useUploadDocument } from '@/hooks/use-documents';
@@ -838,7 +837,6 @@ function PrequalificationCard({
 }
 
 function BorrowerDashboard() {
-    const queryClient = useQueryClient();
     const applicationsQuery = useApplications();
     const application = applicationsQuery.data?.data?.[0];
     const appId = application?.id;
@@ -849,19 +847,6 @@ function BorrowerDashboard() {
     const conditionsQuery = useConditions(appId);
     const disclosuresQuery = useDisclosures(appId);
     const rateLockQuery = useRateLock(appId);
-
-    useEffect(() => {
-        if (appId == null) return;
-        const handler = () => {
-            queryClient.invalidateQueries({ queryKey: ['applications', appId, 'disclosures'] });
-            queryClient.invalidateQueries({ queryKey: ['applications', appId, 'documents'] });
-            queryClient.invalidateQueries({ queryKey: ['applications', appId, 'documents', 'completeness'] });
-            queryClient.invalidateQueries({ queryKey: ['applications', appId, 'conditions'] });
-            queryClient.invalidateQueries({ queryKey: ['applications', appId, 'status'] });
-        };
-        window.addEventListener('chat-done', handler);
-        return () => window.removeEventListener('chat-done', handler);
-    }, [appId, queryClient]);
 
     const isInitialLoading = applicationsQuery.isLoading;
 

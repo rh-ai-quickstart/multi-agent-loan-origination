@@ -1,6 +1,6 @@
 // This project was developed with assistance from AI tools.
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import {
     ChevronRight,
@@ -17,7 +17,6 @@ import {
     CheckCircle2,
     ClipboardList,
 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useApplication } from '@/hooks/use-applications';
 import { useDocuments, useCompleteness, useExtractions, useUploadDocument } from '@/hooks/use-documents';
 import { useConditions } from '@/hooks/use-conditions';
@@ -644,21 +643,12 @@ function ConditionsTab({ appId }: { appId: number }) {
 // -- Main component -----------------------------------------------------------
 
 function LoanDetail() {
-    const queryClient = useQueryClient();
     const { applicationId } = Route.useParams();
     const appId = Number(applicationId);
     const [activeTab, setActiveTab] = useState<Tab>('profile');
 
     const { data: app, isLoading: appLoading } = useApplication(appId);
     const { data: rateLock } = useRateLock(appId);
-
-    useEffect(() => {
-        const handler = () => {
-            queryClient.invalidateQueries({ queryKey: ['applications', appId] });
-        };
-        window.addEventListener('chat-done', handler);
-        return () => window.removeEventListener('chat-done', handler);
-    }, [appId, queryClient]);
 
     if (appLoading) {
         return (

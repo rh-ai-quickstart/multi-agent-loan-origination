@@ -1,6 +1,6 @@
 // This project was developed with assistance from AI tools.
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { staffName } from '@/lib/staff-names';
 import {
@@ -13,7 +13,6 @@ import {
     Gavel,
     Plus,
 } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useApplication } from '@/hooks/use-applications';
 import { useConditions } from '@/hooks/use-conditions';
 import { useDecisions } from '@/hooks/use-decisions';
@@ -602,19 +601,10 @@ function PastDecisions({ appId }: { appId: number }) {
 // -- Main component -----------------------------------------------------------
 
 function UnderwriterDetail() {
-    const queryClient = useQueryClient();
     const { applicationId } = Route.useParams();
     const appId = Number(applicationId);
 
     const { data: app, isLoading: appLoading } = useApplication(appId);
-
-    useEffect(() => {
-        const handler = () => {
-            queryClient.invalidateQueries({ queryKey: ['applications', appId] });
-        };
-        window.addEventListener('chat-done', handler);
-        return () => window.removeEventListener('chat-done', handler);
-    }, [appId, queryClient]);
 
     if (appLoading) {
         return (
