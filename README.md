@@ -30,7 +30,7 @@ This Red Hat AI reference application showcases multi-agent AI systems on Red Ha
 
 The application covers the complete mortgage lending lifecycle with five distinct persona experiences: prospect inquiry, borrower application intake, loan officer pipeline management, underwriter compliance checks and risk assessment, and executive analytics. Each persona interacts with a specialized LangGraph agent backed by role-scoped tools, compliance knowledge retrieval, and comprehensive audit trails.
 
-This quickstart demonstrates production-ready AI patterns including RBAC-scoped agent routing, pgvector-based compliance knowledge base with regulatory source tiering, HMDA demographic data isolation, fair lending guardrails, PII masking, model complexity routing, and hash-chained audit events. The architecture is designed for OpenShift AI deployment but runs locally for development and exploration.
+This quickstart demonstrates production-ready AI patterns including role-based access control (RBAC) scoped agent routing, pgvector-based compliance knowledge base with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, personally identifiable information (PII) masking, model complexity routing, and hash-chained audit events. The architecture deploys to OpenShift AI but also runs locally for development and exploration.
 
 > **Regulatory disclaimer:** All compliance content (HMDA, ECOA, TRID, ATR/QM, FCRA) is simulated for demonstration purposes and does not constitute legal or regulatory advice.
 
@@ -54,7 +54,7 @@ Demo video inclusion/timeline TBD.
 
 **For local development:**
 
-- 16GB RAM minimum (32GB recommended for running all services + LLM locally)
+- 16GB RAM minimum (32GB recommended for running all services + large language model (LLM) locally)
 - 20GB available disk space for container images and model files
 - Multi-core CPU (4+ cores recommended)
 
@@ -75,7 +75,7 @@ Demo video inclusion/timeline TBD.
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 - Podman 4+ and podman-compose
 - PostgreSQL 16 (provided via compose for local development)
-- An OpenAI-compatible LLM endpoint (LM Studio, vLLM, OpenAI API, or similar)
+- An OpenAI-compatible LLM endpoint (LM Studio, virtual large language model (vLLM), OpenAI API, or similar)
 
 ## Deploy
 
@@ -173,7 +173,7 @@ The application implements five distinct persona experiences, each with a specia
 |---------|------|-------|-----------------|
 | Prospect | Unauthenticated | Public Assistant | Product info, affordability estimates |
 | Borrower | `borrower` | Borrower Assistant | Application intake, document upload, status tracking, condition response |
-| Loan Officer | `loan_officer` | LO Assistant | Pipeline management, application review, communication drafting, KB search |
+| Loan Officer | `loan_officer` | LO Assistant | Pipeline management, application review, communication drafting, knowledge base search |
 | Underwriter | `underwriter` | Underwriter Assistant | Risk assessment, compliance checks, condition management, decisions |
 | CEO | `ceo` | CEO Assistant | Pipeline analytics, audit trail, decision trace, model monitoring |
 
@@ -182,8 +182,8 @@ The application implements five distinct persona experiences, each with a specia
 This quickstart demonstrates production-ready AI patterns for regulated industries:
 
 - **Multi-agent orchestration** - Five LangGraph agents with role-scoped tools and RBAC enforcement
-- **Compliance knowledge base** - pgvector RAG with tiered boosting (federal regulations > agency guidelines > internal policies)
-- **Fair lending guardrails** - HMDA demographic data isolation in separate database schema with access controls
+- **Compliance knowledge base** - pgvector retrieval-augmented generation (RAG) with tiered boosting (federal regulations > agency guidelines > internal policies)
+- **Fair lending safeguards** - HMDA demographic data isolation in separate database schema with access controls
 - **Model routing** - Complexity-based routing between fast and capable LLM tiers to optimize cost and latency
 - **Comprehensive audit trail** - Hash-chained, append-only audit events with LangFuse trace correlation
 - **PII masking** - Middleware-based masking for executive roles (SSN, DOB, account numbers)
@@ -213,7 +213,7 @@ summit-cap/
 | Frontend | React 19, Vite, TanStack Router/Query, Tailwind CSS, shadcn/ui |
 | Backend | FastAPI, LangGraph, SQLAlchemy 2.0 (async), Pydantic 2.x |
 | Database | PostgreSQL 16 + pgvector |
-| Identity | Keycloak (OIDC) |
+| Identity | Keycloak (OpenID Connect) |
 | Observability | LangFuse (self-hosted) |
 | Object Storage | MinIO (S3-compatible) |
 | Deployment | Helm, OpenShift / Kubernetes |
