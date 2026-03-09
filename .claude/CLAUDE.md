@@ -102,7 +102,6 @@ make containers-logs    # View logs for all containers
 
 # OpenShift deployment
 make deploy             # Deploy application using Helm
-make deploy-dev         # Deploy in development mode
 make undeploy           # Remove application deployment
 make status             # Show deployment status
 make debug              # Show detailed diagnostics for failed deployments

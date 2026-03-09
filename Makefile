@@ -79,7 +79,6 @@ help:
 	@echo ""
 	@echo "  Deployment (OpenShift):"
 	@echo "    deploy           Deploy application using Helm"
-	@echo "    deploy-dev       Deploy in development mode"
 	@echo "    undeploy         Remove application deployment"
 	@echo "    status           Show deployment status"
 	@echo "    debug            Show detailed diagnostics for failed deployments"
@@ -216,10 +215,6 @@ deploy: create-project push-images helm-dep-update
 	@echo "Deploying application using Helm..."
 	@scripts/deploy.sh
 
-deploy-dev: create-project push-images helm-dep-update
-	@echo "Deploying application in development mode..."
-	@scripts/deploy.sh \
-		-f deploy/helm/$(PROJECT_NAME)/values-dev.yaml
 
 undeploy:
 	@echo "Undeploying application..."
@@ -283,5 +278,5 @@ helm-template: helm-dep-update
         db-start db-stop db-logs db-upgrade \
         containers-build containers-up containers-down containers-logs \
         build-images push-images smoke \
-        create-project helm-dep-update deploy deploy-dev undeploy status debug \
+        create-project helm-dep-update deploy undeploy status debug \
         helm-lint helm-template

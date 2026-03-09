@@ -126,7 +126,6 @@ make containers-logs    # View container logs
 
 # OpenShift Deployment
 make deploy             # Deploy via Helm
-make deploy-dev         # Deploy in dev mode
 make undeploy           # Remove deployment
 make status             # Show deployment status
 ```
@@ -181,9 +180,6 @@ podman-compose ps
 ```bash
 # Deploy to OpenShift
 make deploy
-
-# Development mode (single replica, no persistence)
-make deploy-dev
 ```
 
 See the [documentation site](https://jeremyary.github.io/multi-agent-loan-origination/) for deployment details.
