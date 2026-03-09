@@ -55,7 +55,7 @@ def loan_officer() -> UserContext:
     return UserContext(
         user_id=LO_USER_ID,
         role=UserRole.LOAN_OFFICER,
-        email="james@summit-cap.com",
+        email="james@example.com",
         name="James Torres",
         data_scope=DataScope(assigned_to=LO_USER_ID),
     )
@@ -65,7 +65,7 @@ def loan_officer_bob() -> UserContext:
     return UserContext(
         user_id=LO_BOB_USER_ID,
         role=UserRole.LOAN_OFFICER,
-        email="bob@summit-cap.com",
+        email="bob@example.com",
         name="Bob Williams",
         data_scope=DataScope(assigned_to=LO_BOB_USER_ID),
     )
@@ -75,7 +75,7 @@ def underwriter() -> UserContext:
     return UserContext(
         user_id=UW_USER_ID,
         role=UserRole.UNDERWRITER,
-        email="emily@summit-cap.com",
+        email="emily@example.com",
         name="Emily Park",
         data_scope=DataScope(full_pipeline=True),
     )
@@ -85,7 +85,7 @@ def ceo() -> UserContext:
     return UserContext(
         user_id=CEO_USER_ID,
         role=UserRole.CEO,
-        email="ceo@summit-cap.com",
+        email="ceo@example.com",
         name="CEO Dashboard",
         data_scope=DataScope(
             pii_mask=True,
@@ -99,7 +99,7 @@ def admin() -> UserContext:
     return UserContext(
         user_id=ADMIN_USER_ID,
         role=UserRole.ADMIN,
-        email="admin@summit-cap.com",
+        email="admin@example.com",
         name="Admin User",
         data_scope=DataScope(full_pipeline=True),
     )

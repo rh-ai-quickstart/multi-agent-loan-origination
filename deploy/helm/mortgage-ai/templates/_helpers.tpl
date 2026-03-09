@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "summit-cap.name" -}}
+{{- define "mortgage-ai.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "summit-cap.fullname" -}}
+{{- define "mortgage-ai.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,37 +24,37 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "summit-cap.chart" -}}
+{{- define "mortgage-ai.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "summit-cap.labels" -}}
-helm.sh/chart: {{ include "summit-cap.chart" . }}
-{{ include "summit-cap.selectorLabels" . }}
+{{- define "mortgage-ai.labels" -}}
+helm.sh/chart: {{ include "mortgage-ai.chart" . }}
+{{ include "mortgage-ai.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: summit-cap
+app.kubernetes.io/part-of: mortgage-ai
 {{- end }}
 
 {{/*
 Selector labels
 */}}
-{{- define "summit-cap.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "summit-cap.name" . }}
+{{- define "mortgage-ai.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "mortgage-ai.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "summit-cap.serviceAccountName" -}}
+{{- define "mortgage-ai.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "summit-cap.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "mortgage-ai.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -63,7 +63,7 @@ Create the name of the service account to use
 {{/*
 Image name helper
 */}}
-{{- define "summit-cap.image" -}}
+{{- define "mortgage-ai.image" -}}
 {{- $registry := .Values.global.imageRegistry -}}
 {{- $repository := .Values.global.imageRepository -}}
 {{- $name := .name -}}
@@ -74,96 +74,96 @@ Image name helper
 {{/*
 API labels
 */}}
-{{- define "summit-cap.api.labels" -}}
-{{ include "summit-cap.labels" . }}
+{{- define "mortgage-ai.api.labels" -}}
+{{ include "mortgage-ai.labels" . }}
 app.kubernetes.io/component: api
 {{- end }}
 
 {{/*
 API selector labels
 */}}
-{{- define "summit-cap.api.selectorLabels" -}}
-{{ include "summit-cap.selectorLabels" . }}
+{{- define "mortgage-ai.api.selectorLabels" -}}
+{{ include "mortgage-ai.selectorLabels" . }}
 app.kubernetes.io/component: api
 {{- end }}
 
 {{/*
 UI labels
 */}}
-{{- define "summit-cap.ui.labels" -}}
-{{ include "summit-cap.labels" . }}
+{{- define "mortgage-ai.ui.labels" -}}
+{{ include "mortgage-ai.labels" . }}
 app.kubernetes.io/component: ui
 {{- end }}
 
 {{/*
 UI selector labels
 */}}
-{{- define "summit-cap.ui.selectorLabels" -}}
-{{ include "summit-cap.selectorLabels" . }}
+{{- define "mortgage-ai.ui.selectorLabels" -}}
+{{ include "mortgage-ai.selectorLabels" . }}
 app.kubernetes.io/component: ui
 {{- end }}
 
 {{/*
 Database labels
 */}}
-{{- define "summit-cap.database.labels" -}}
-{{ include "summit-cap.labels" . }}
+{{- define "mortgage-ai.database.labels" -}}
+{{ include "mortgage-ai.labels" . }}
 app.kubernetes.io/component: database
 {{- end }}
 
 {{/*
 Database selector labels
 */}}
-{{- define "summit-cap.database.selectorLabels" -}}
-{{ include "summit-cap.selectorLabels" . }}
+{{- define "mortgage-ai.database.selectorLabels" -}}
+{{ include "mortgage-ai.selectorLabels" . }}
 app.kubernetes.io/component: database
 {{- end }}
 
 {{/*
 Keycloak labels
 */}}
-{{- define "summit-cap.keycloak.labels" -}}
-{{ include "summit-cap.labels" . }}
+{{- define "mortgage-ai.keycloak.labels" -}}
+{{ include "mortgage-ai.labels" . }}
 app.kubernetes.io/component: keycloak
 {{- end }}
 
 {{/*
 Keycloak selector labels
 */}}
-{{- define "summit-cap.keycloak.selectorLabels" -}}
-{{ include "summit-cap.selectorLabels" . }}
+{{- define "mortgage-ai.keycloak.selectorLabels" -}}
+{{ include "mortgage-ai.selectorLabels" . }}
 app.kubernetes.io/component: keycloak
 {{- end }}
 
 {{/*
 MinIO labels
 */}}
-{{- define "summit-cap.minio.labels" -}}
-{{ include "summit-cap.labels" . }}
+{{- define "mortgage-ai.minio.labels" -}}
+{{ include "mortgage-ai.labels" . }}
 app.kubernetes.io/component: minio
 {{- end }}
 
 {{/*
 MinIO selector labels
 */}}
-{{- define "summit-cap.minio.selectorLabels" -}}
-{{ include "summit-cap.selectorLabels" . }}
+{{- define "mortgage-ai.minio.selectorLabels" -}}
+{{ include "mortgage-ai.selectorLabels" . }}
 app.kubernetes.io/component: minio
 {{- end }}
 
 {{/*
 LlamaStack labels
 */}}
-{{- define "summit-cap.llamastack.labels" -}}
-{{ include "summit-cap.labels" . }}
+{{- define "mortgage-ai.llamastack.labels" -}}
+{{ include "mortgage-ai.labels" . }}
 app.kubernetes.io/component: llamastack
 {{- end }}
 
 {{/*
 LlamaStack selector labels
 */}}
-{{- define "summit-cap.llamastack.selectorLabels" -}}
-{{ include "summit-cap.selectorLabels" . }}
+{{- define "mortgage-ai.llamastack.selectorLabels" -}}
+{{ include "mortgage-ai.selectorLabels" . }}
 app.kubernetes.io/component: llamastack
 {{- end }}
 

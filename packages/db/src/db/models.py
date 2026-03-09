@@ -1,6 +1,6 @@
 # This project was developed with assistance from AI tools.
 """
-Summit Cap Financial -- domain models
+Mortgage AI -- domain models
 
 Mortgage lending lifecycle models covering applications, borrowers,
 documents, underwriting conditions/decisions, and audit trail.

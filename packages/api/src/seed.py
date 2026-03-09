@@ -29,7 +29,7 @@ async def main(force: bool = False) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Seed Summit Cap demo data")
+    parser = argparse.ArgumentParser(description="Seed demo data")
     parser.add_argument(
         "--force",
         action="store_true",

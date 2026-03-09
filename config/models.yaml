@@ -1,4 +1,4 @@
-# Model routing configuration for Summit Cap Financial.
+# Model routing configuration for Mortgage AI.
 #
 # Both tiers currently point to the same endpoint for local dev.
 # When two models are available, update endpoints/model_names independently.

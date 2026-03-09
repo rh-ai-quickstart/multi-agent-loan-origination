@@ -4,22 +4,22 @@ kind: StatefulSet
 metadata:
   name: clickhouse
   labels:
-    {{- include "summit-cap.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: clickhouse
 spec:
   replicas: 1
   serviceName: clickhouse
   selector:
     matchLabels:
-      {{- include "summit-cap.selectorLabels" . | nindent 6 }}
+      {{- include "mortgage-ai.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: clickhouse
   template:
     metadata:
       labels:
-        {{- include "summit-cap.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: clickhouse
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       containers:
         - name: clickhouse
           image: docker.io/clickhouse/clickhouse-server:24
@@ -46,7 +46,7 @@ spec:
             - name: CLICKHOUSE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: CLICKHOUSE_PASSWORD
           volumeMounts:
             - name: clickhouse-data
@@ -101,7 +101,7 @@ kind: Service
 metadata:
   name: clickhouse
   labels:
-    {{- include "summit-cap.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: clickhouse
 spec:
   type: ClusterIP
@@ -115,6 +115,6 @@ spec:
       protocol: TCP
       name: native
   selector:
-    {{- include "summit-cap.selectorLabels" . | nindent 4 }}
+    {{- include "mortgage-ai.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: clickhouse
 {{- end }}

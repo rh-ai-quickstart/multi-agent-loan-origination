@@ -2,7 +2,7 @@
 
 # Personas and Workflows
 
-Summit Cap Financial demonstrates a complete mortgage lending lifecycle across five distinct personas. Each persona has a role-specific experience with access to different data, functionality, and AI agent capabilities.
+This application demonstrates a complete mortgage lending lifecycle across five distinct personas. Each persona has a role-specific experience with access to different data, functionality, and AI agent capabilities.
 
 ## Overview
 
@@ -16,7 +16,7 @@ The application supports the following personas, listed in the order a loan typi
 
 ## Prospect
 
-Anonymous visitors to Summit Cap Financial's public website.
+Anonymous visitors to the company's public website.
 
 ### Role
 
@@ -60,7 +60,7 @@ Prospect: What's the process for getting pre-qualified?
 Agent: [Walks through steps conversationally]
 
 Prospect: What about your competitor's rates?
-Agent: I can only discuss Summit Cap Financial's products.
+Agent: I can only discuss our company's products.
 ```
 
 ## Borrower

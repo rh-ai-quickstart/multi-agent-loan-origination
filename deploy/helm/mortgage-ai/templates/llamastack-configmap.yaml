@@ -4,7 +4,7 @@ kind: ConfigMap
 metadata:
   name: llamastack-config
   labels:
-    {{- include "summit-cap.llamastack.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.llamastack.labels" . | nindent 4 }}
 data:
   run.yaml: |
     version: 2

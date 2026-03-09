@@ -73,7 +73,7 @@ export class CeoDashboardPage {
         this.auditTableRows = this.auditTable.locator("tbody tr");
         this.viewFullAuditTrail = page.getByText("View Full Audit Trail");
 
-        this.disclaimer = page.getByText("Summit Cap Financial is a fictional company");
+        this.disclaimer = page.getByText("Acme FinTech Company is a fictional company");
     }
 
     async goto(): Promise<void> {

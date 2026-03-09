@@ -1,4 +1,4 @@
-# Default values for summit-cap
+# Default values for mortgage-ai
 #
 # Override patterns:
 #   External DB:        --set database.enabled=false
@@ -9,7 +9,7 @@
 #                       --set secrets.S3_ENDPOINT=https://...
 global:
   imageRegistry: quay.io
-  imageRepository: summit-cap
+  imageRepository: mortgage-ai
   imageTag: latest
   imagePullPolicy: Always
   storageClass: ""
@@ -17,22 +17,23 @@ global:
 # Secrets -- override these for real deployments via --set or external Secret
 secrets:
   # Database secrets
-  POSTGRES_DB: "summit-cap"
+  POSTGRES_DB: "mortgage-ai"
   POSTGRES_USER: "user"
   POSTGRES_PASSWORD: "changeme"
 
   # API secrets
-  DATABASE_URL: "postgresql+asyncpg://user:changeme@summit-cap-db:5432/summit-cap"
-  COMPLIANCE_DATABASE_URL: "postgresql+asyncpg://compliance_app:compliance_pass@summit-cap-db:5432/summit-cap"
+  DATABASE_URL: "postgresql+asyncpg://user:changeme@mortgage-ai-db:5432/mortgage-ai"
+  COMPLIANCE_DATABASE_URL: "postgresql+asyncpg://compliance_app:compliance_pass@mortgage-ai-db:5432/mortgage-ai"
   DEBUG: "false"
   ALLOWED_HOSTS: '["*"]'
+  COMPANY_NAME: "Red Hat AI Quickstart Demo"
 
   # Auth (Keycloak) -- set AUTH_DISABLED=true to bypass for demo
   AUTH_DISABLED: "false"
   KEYCLOAK_URL: "http://keycloak:8080"
   KEYCLOAK_ISSUER: ""
-  KEYCLOAK_REALM: "summit-cap"
-  KEYCLOAK_CLIENT_ID: "summit-cap-ui"
+  KEYCLOAK_REALM: "mortgage-ai"
+  KEYCLOAK_CLIENT_ID: "mortgage-ai-ui"
   JWKS_CACHE_TTL: "300"
 
   # Storage (S3 / MinIO)
@@ -77,13 +78,13 @@ secrets:
   NEXTAUTH_SECRET: "mysecret"
   LANGFUSE_SALT: "mysalt"
   LANGFUSE_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
-  LANGFUSE_INIT_ORG_ID: "summit-cap"
-  LANGFUSE_INIT_ORG_NAME: "Summit Cap Financial"
-  LANGFUSE_INIT_PROJECT_ID: "summit-cap-dev"
-  LANGFUSE_INIT_PROJECT_NAME: "Summit Cap Dev"
+  LANGFUSE_INIT_ORG_ID: "mortgage-ai"
+  LANGFUSE_INIT_ORG_NAME: "Mortgage AI Demo"
+  LANGFUSE_INIT_PROJECT_ID: "mortgage-ai-dev"
+  LANGFUSE_INIT_PROJECT_NAME: "Mortgage AI Dev"
   LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "pk-lf-dev-public"
   LANGFUSE_INIT_PROJECT_SECRET_KEY: "sk-lf-dev-secret"
-  LANGFUSE_INIT_USER_EMAIL: "admin@summitcap.dev"
+  LANGFUSE_INIT_USER_EMAIL: "admin@example.com"
   LANGFUSE_INIT_USER_NAME: "Admin"
   LANGFUSE_INIT_USER_PASSWORD: "password"
   CLICKHOUSE_PASSWORD: "clickhouse"
@@ -109,9 +110,9 @@ routes:
 # API configuration
 api:
   enabled: true
-  name: summit-cap-api
+  name: mortgage-ai-api
   image:
-    repository: summit-cap-api
+    repository: mortgage-ai-api
     tag: latest
   service:
     type: ClusterIP
@@ -132,9 +133,9 @@ api:
 # UI configuration
 ui:
   enabled: true
-  name: summit-cap-ui
+  name: mortgage-ai-ui
   image:
-    repository: summit-cap-ui
+    repository: mortgage-ai-ui
     tag: latest
   service:
     type: ClusterIP
@@ -155,7 +156,7 @@ ui:
 # Database configuration
 database:
   enabled: true
-  name: summit-cap-db
+  name: mortgage-ai-db
   image:
     repository: pgvector/pgvector
     tag: pg16

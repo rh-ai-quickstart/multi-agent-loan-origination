@@ -1,6 +1,6 @@
 ---
-title: "Summit Cap Financial -- Internal Underwriting Policies"
-source_document: "Summit Cap Underwriting Manual, Rev. 2024-Q4"
+title: "Internal Underwriting Policies"
+source_document: "Company Underwriting Manual, Rev. 2024-Q4"
 effective_date: "2024-10-01"
 ---
 
@@ -8,9 +8,9 @@ DISCLAIMER: This content is simulated for demonstration purposes and does not co
 
 ## DTI Limits
 
-Summit Cap Financial sets a maximum back-end DTI ratio of 40% for conventional loans, which is more conservative than the federal QM safe harbor of 43%. This overlay exists to reduce default risk in Summit Cap's portfolio. Exceptions may be granted by the Chief Credit Officer for borrowers with a credit score above 760 and verified liquid reserves exceeding 12 months of housing payments.
+The Company sets a maximum back-end DTI ratio of 40% for conventional loans, which is more conservative than the federal QM safe harbor of 43%. This overlay exists to reduce default risk in the Company's portfolio. Exceptions may be granted by the Chief Credit Officer for borrowers with a credit score above 760 and verified liquid reserves exceeding 12 months of housing payments.
 
-For FHA loans, Summit Cap follows FHA guidelines (31/43) without additional DTI overlays. For VA loans, Summit Cap uses residual income analysis without a hard DTI cap.
+For FHA loans, the Company follows FHA guidelines (31/43) without additional DTI overlays. For VA loans, the Company uses residual income analysis without a hard DTI cap.
 
 ## Jumbo Loan Thresholds
 

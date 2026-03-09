@@ -18,7 +18,7 @@ from src.services.status import STAGE_INFO, get_application_status
 def _make_user(role: UserRole = UserRole.ADMIN) -> UserContext:
     return UserContext(
         user_id="test-user",
-        email="test@summit-cap.com",
+        email="test@example.com",
         name="Test User",
         role=role,
         data_scope=DataScope(full_pipeline=True),

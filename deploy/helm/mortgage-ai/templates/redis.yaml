@@ -4,22 +4,22 @@ kind: StatefulSet
 metadata:
   name: redis
   labels:
-    {{- include "summit-cap.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 spec:
   replicas: 1
   serviceName: redis
   selector:
     matchLabels:
-      {{- include "summit-cap.selectorLabels" . | nindent 6 }}
+      {{- include "mortgage-ai.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: redis
   template:
     metadata:
       labels:
-        {{- include "summit-cap.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: redis
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -42,7 +42,7 @@ spec:
             - name: REDIS_AUTH
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: REDIS_AUTH
           livenessProbe:
             exec:
@@ -75,7 +75,7 @@ kind: Service
 metadata:
   name: redis
   labels:
-    {{- include "summit-cap.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 spec:
   type: ClusterIP
@@ -86,6 +86,6 @@ spec:
       protocol: TCP
       name: redis
   selector:
-    {{- include "summit-cap.selectorLabels" . | nindent 4 }}
+    {{- include "mortgage-ai.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: redis
 {{- end }}

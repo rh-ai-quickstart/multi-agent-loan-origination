@@ -5,6 +5,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Eye, EyeOff, X, Home, Briefcase, ClipboardCheck, BarChart3, Loader2 } from 'lucide-react';
 import { Logo } from '../components/logo/logo';
 import { useAuth, DEV_USERS, type UserRole } from '../contexts/auth-context';
+import { COMPANY_NAME } from '@/lib/company';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const Route = createFileRoute('/sign-in' as any)({
@@ -25,12 +26,12 @@ const PERSONAS: {
     { role: 'ceo', label: 'CEO', icon: BarChart3, bg: 'bg-[#1e3a5f]/10', text: 'text-[#1e3a5f]', hoverBg: 'hover:bg-[#1e3a5f]/20' },
 ];
 
-// Keycloak demo credentials (must match config/keycloak/summit-cap-realm.json)
+// Keycloak demo credentials (must match config/keycloak/mortgage-ai-realm.json)
 const KEYCLOAK_DEMO_USERS: Partial<Record<UserRole, { email: string; password: string }>> = {
     borrower: { email: 'sarah.mitchell@example.com', password: 'demo' }, // #notsecret
-    loan_officer: { email: 'james.torres@summit-cap.com', password: 'demo' }, // #notsecret
-    underwriter: { email: 'maria.chen@summit-cap.com', password: 'demo' }, // #notsecret
-    ceo: { email: 'david.park@summit-cap.com', password: 'demo' }, // #notsecret
+    loan_officer: { email: 'james.torres@example.com', password: 'demo' }, // #notsecret
+    underwriter: { email: 'maria.chen@example.com', password: 'demo' }, // #notsecret
+    ceo: { email: 'david.park@example.com', password: 'demo' }, // #notsecret
 };
 
 const ROLE_REDIRECTS: Record<UserRole, string> = {
@@ -129,7 +130,7 @@ function SignIn() {
                         <div className="flex items-center gap-3">
                             <Logo />
                             <span className="text-xl font-bold tracking-tight text-[#1e3a5f] dark:text-foreground">
-                                Summit Cap Financial
+                                {COMPANY_NAME}
                             </span>
                         </div>
                         <button

@@ -14,13 +14,13 @@ export interface AuthUser {
     email: string;
 }
 
-// Dev user IDs must match config/keycloak/summit-cap-realm.json and seed fixtures
+// Dev user IDs must match config/keycloak/mortgage-ai-realm.json and seed fixtures
 export const DEV_USERS: Record<UserRole, AuthUser> = {
     prospect: {
         role: 'prospect',
         user_id: 'dev-prospect',
         name: 'Guest Visitor',
-        email: 'prospect@dev.summitcap.local',
+        email: 'prospect@example.com',
     },
     borrower: {
         role: 'borrower',
@@ -32,24 +32,24 @@ export const DEV_USERS: Record<UserRole, AuthUser> = {
         role: 'loan_officer',
         user_id: 'd1a2b3c4-e5f6-7890-abcd-ef1234567802',
         name: 'James Torres',
-        email: 'james.torres@summit-cap.com',
+        email: 'james.torres@example.com',
     },
     underwriter: {
         role: 'underwriter',
         user_id: 'd1a2b3c4-e5f6-7890-abcd-ef1234567803',
         name: 'Maria Chen',
-        email: 'maria.chen@summit-cap.com',
+        email: 'maria.chen@example.com',
     },
     ceo: {
         role: 'ceo',
         user_id: 'd1a2b3c4-e5f6-7890-abcd-ef1234567804',
         name: 'David Park',
-        email: 'david.park@summit-cap.com',
+        email: 'david.park@example.com',
     },
 };
 
-const STORAGE_KEY = 'summit-cap-dev-role';
-const KC_AUTH_KEY = 'summit-cap-kc-auth';
+const STORAGE_KEY = 'mortgage-ai-dev-role';
+const KC_AUTH_KEY = 'mortgage-ai-kc-auth';
 
 const ROLE_CHAT_PATHS: Record<UserRole, string> = {
     prospect: '/api/chat',
@@ -72,8 +72,8 @@ const _rtc = (window as unknown as Record<string, unknown>).__RUNTIME_CONFIG__ a
     | { KEYCLOAK_URL?: string; KEYCLOAK_REALM?: string; KEYCLOAK_CLIENT_ID?: string }
     | undefined;
 const KEYCLOAK_URL = _rtc?.KEYCLOAK_URL || (import.meta.env.VITE_KEYCLOAK_URL as string | undefined) || undefined;
-const KEYCLOAK_REALM = _rtc?.KEYCLOAK_REALM || (import.meta.env.VITE_KEYCLOAK_REALM as string) || 'summit-cap';
-const KEYCLOAK_CLIENT_ID = _rtc?.KEYCLOAK_CLIENT_ID || (import.meta.env.VITE_KEYCLOAK_CLIENT_ID as string) || 'summit-cap-ui';
+const KEYCLOAK_REALM = _rtc?.KEYCLOAK_REALM || (import.meta.env.VITE_KEYCLOAK_REALM as string) || 'mortgage-ai';
+const KEYCLOAK_CLIENT_ID = _rtc?.KEYCLOAK_CLIENT_ID || (import.meta.env.VITE_KEYCLOAK_CLIENT_ID as string) || 'mortgage-ai-ui';
 const IS_KEYCLOAK_ENABLED = !!KEYCLOAK_URL;
 
 const KNOWN_ROLES = new Set<string>(['borrower', 'loan_officer', 'underwriter', 'ceo', 'admin']);

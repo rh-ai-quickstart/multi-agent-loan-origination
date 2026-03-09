@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     )
 
     # -- App --
-    APP_NAME: str = "summit-cap"
+    APP_NAME: str = "mortgage-ai"
+    COMPANY_NAME: str = "Acme FinTech Company"
     DEBUG: bool = False
 
     # -- CORS --
@@ -34,11 +35,11 @@ class Settings(BaseSettings):
 
     # -- Database --
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://user:password@localhost:5433/summit-cap",
+        default="postgresql+asyncpg://user:password@localhost:5433/mortgage-ai",
         description="Async SQLAlchemy connection string (asyncpg driver).",
     )
     COMPLIANCE_DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/summit-cap",
+        default="postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/mortgage-ai",
         description="Async connection string for compliance_app role (HMDA schema access).",
     )
 
@@ -52,8 +53,8 @@ class Settings(BaseSettings):
         default="",
         description="JWT issuer URL if different from KEYCLOAK_URL (e.g. external route).",
     )
-    KEYCLOAK_REALM: str = "summit-cap"
-    KEYCLOAK_CLIENT_ID: str = "summit-cap-ui"
+    KEYCLOAK_REALM: str = "mortgage-ai"
+    KEYCLOAK_CLIENT_ID: str = "mortgage-ai-ui"
     JWKS_CACHE_TTL: int = Field(
         default=300,
         description="JWKS cache lifetime in seconds (default 5 minutes).",

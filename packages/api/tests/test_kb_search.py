@@ -33,7 +33,7 @@ class TestSearchKb:
         rows = [
             _make_row(
                 "Internal policy: DTI max 40%",
-                "Summit Cap Policies",
+                "Internal Policies",
                 "DTI Limits",
                 3,
                 None,

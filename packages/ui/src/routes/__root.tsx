@@ -1,4 +1,3 @@
-// Summit Cap Financial - Root Route
 // This project was developed with assistance from AI tools.
 
 import { createRootRoute, Outlet, useMatchRoute } from '@tanstack/react-router';

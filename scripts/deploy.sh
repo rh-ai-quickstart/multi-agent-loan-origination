@@ -6,17 +6,17 @@
 # Usage: scripts/deploy.sh [extra-helm-set-args...]
 #
 # Env vars (set by Makefile exports):
-#   PROJECT_NAME    -- helm release name (default: summit-cap)
-#   NAMESPACE       -- OpenShift namespace (default: summit-cap)
+#   PROJECT_NAME    -- helm release name (default: mortgage-ai)
+#   NAMESPACE       -- OpenShift namespace (default: mortgage-ai)
 #   ENV_FILE        -- env file to source (default: .env)
 #   IMAGE_TAG       -- image tag (default: latest)
 #   REGISTRY        -- registry host (default: quay.io)
-#   REGISTRY_NS     -- registry namespace/org (default: summit-cap)
+#   REGISTRY_NS     -- registry namespace/org (default: mortgage-ai)
 #   HELM_TIMEOUT    -- helm timeout (default: 15m)
 #   HELM_EXTRA_ARGS -- additional helm args (default: empty)
 set -euo pipefail
 
-PROJECT_NAME="${PROJECT_NAME:-summit-cap}"
+PROJECT_NAME="${PROJECT_NAME:-mortgage-ai}"
 NAMESPACE="${NAMESPACE:-$PROJECT_NAME}"
 ENV_FILE="${ENV_FILE:-.env}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"

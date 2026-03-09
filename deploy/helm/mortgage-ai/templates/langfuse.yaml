@@ -1,12 +1,12 @@
 {{- if .Values.langfuse.enabled }}
-{{- $secretName := printf "%s-secret" (include "summit-cap.fullname" .) }}
+{{- $secretName := printf "%s-secret" (include "mortgage-ai.fullname" .) }}
 {{- $dbName := .Values.database.name }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: langfuse-web
   labels:
-    {{- include "summit-cap.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: langfuse-web
   annotations:
     app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"StatefulSet","name":"{{ .Values.database.name }}"},{"apiVersion":"apps/v1","kind":"StatefulSet","name":"clickhouse"},{"apiVersion":"apps/v1","kind":"StatefulSet","name":"redis"}]'
@@ -14,15 +14,15 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "summit-cap.selectorLabels" . | nindent 6 }}
+      {{- include "mortgage-ai.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: langfuse-web
   template:
     metadata:
       labels:
-        {{- include "summit-cap.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: langfuse-web
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
@@ -217,7 +217,7 @@ kind: Deployment
 metadata:
   name: langfuse-worker
   labels:
-    {{- include "summit-cap.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: langfuse-worker
   annotations:
     app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"StatefulSet","name":"{{ .Values.database.name }}"},{"apiVersion":"apps/v1","kind":"StatefulSet","name":"clickhouse"},{"apiVersion":"apps/v1","kind":"StatefulSet","name":"redis"}]'
@@ -225,15 +225,15 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "summit-cap.selectorLabels" . | nindent 6 }}
+      {{- include "mortgage-ai.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: langfuse-worker
   template:
     metadata:
       labels:
-        {{- include "summit-cap.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: langfuse-worker
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -385,7 +385,7 @@ kind: Service
 metadata:
   name: langfuse-web
   labels:
-    {{- include "summit-cap.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: langfuse-web
 spec:
   type: ClusterIP
@@ -395,6 +395,6 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "summit-cap.selectorLabels" . | nindent 4 }}
+    {{- include "mortgage-ai.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: langfuse-web
 {{- end }}

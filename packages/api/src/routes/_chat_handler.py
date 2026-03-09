@@ -96,7 +96,7 @@ async def authenticate_websocket(
         return UserContext(
             user_id=user_id,
             role=role,
-            email=ws.query_params.get("dev_email", "dev@summit-cap.local"),
+            email=ws.query_params.get("dev_email", "dev@example.com"),
             name=ws.query_params.get("dev_name", "Dev User"),
             data_scope=build_data_scope(role, user_id),
         )

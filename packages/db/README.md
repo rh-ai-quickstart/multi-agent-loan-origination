@@ -1,7 +1,7 @@
 # This project was developed with assistance from AI tools.
-# Summit Cap Financial - Database Package
+# Mortgage AI - Database Package
 
-PostgreSQL database layer for Summit Cap Financial, a multi-agent mortgage lending demo application. Part of the Red Hat AI Quickstart catalog.
+PostgreSQL database layer for the Mortgage AI multi-agent mortgage lending demo application. Part of the Red Hat AI Quickstart catalog.
 
 ## Technology Stack
 
@@ -50,8 +50,8 @@ HMDA demographic data lives in a separate `hmda` schema with restricted access e
 Dual connection strings:
 
 ```python
-DATABASE_URL = "postgresql+asyncpg://lending_app:lending_pass@localhost:5433/summit-cap"
-COMPLIANCE_DATABASE_URL = "postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/summit-cap"
+DATABASE_URL = "postgresql+asyncpg://lending_app:lending_pass@localhost:5433/mortgage-ai"
+COMPLIANCE_DATABASE_URL = "postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/mortgage-ai"
 ```
 
 Code uses `get_db()` for normal operations and `get_compliance_db()` for HMDA access.
@@ -97,7 +97,7 @@ services:
     ports:
       - "5433:5432"  # Host 5433 → Container 5432
     environment:
-      POSTGRES_DB: summit-cap
+      POSTGRES_DB: mortgage-ai
 ```
 
 Initialization script (`config/postgres/init-databases.sh`) creates:
@@ -111,8 +111,8 @@ Initialization script (`config/postgres/init-databases.sh`) creates:
 Configuration uses pydantic-settings for type safety. Set environment variables in `.env` at project root:
 
 ```bash
-DATABASE_URL=postgresql+asyncpg://lending_app:lending_pass@localhost:5433/summit-cap
-COMPLIANCE_DATABASE_URL=postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/summit-cap
+DATABASE_URL=postgresql+asyncpg://lending_app:lending_pass@localhost:5433/mortgage-ai
+COMPLIANCE_DATABASE_URL=postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/mortgage-ai
 SQL_ECHO=false  # Set to true for SQL query logging
 ```
 

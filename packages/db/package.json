@@ -1,12 +1,12 @@
 {
-  "name": "@summit-cap/db",
+  "name": "@mortgage-ai/db",
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "CONTAINER_STARTED=0; \\\nif ! podman-compose -f ../../compose.yml ps summit-cap-db 2>/dev/null | grep -q \"Up\"; then \\\n  echo \"Starting database container...\"; \\\n  podman-compose -f ../../compose.yml up -d summit-cap-db; \\\n  CONTAINER_STARTED=1; \\\nelse \\\n  echo \"Database container is already running\"; \\\nfi; \\\ncleanup() { \\\n  if [ \"$$CONTAINER_STARTED\" = \"1\" ]; then \\\n    echo \"Stopping database container...\"; \\\n    podman-compose -f ../../compose.yml down summit-cap-db; \\\n  fi; \\\n}; \\\ntrap cleanup EXIT INT TERM; \\\npnpm migrate && podman-compose -f ../../compose.yml logs -f summit-cap-db",
-    "db:start": "podman-compose -f ../../compose.yml up -d summit-cap-db",
-    "db:stop": "podman-compose -f ../../compose.yml down summit-cap-db",
-    "db:logs": "podman-compose -f ../../compose.yml logs -f summit-cap-db",
+    "dev": "CONTAINER_STARTED=0; \\\nif ! podman-compose -f ../../compose.yml ps mortgage-ai-db 2>/dev/null | grep -q \"Up\"; then \\\n  echo \"Starting database container...\"; \\\n  podman-compose -f ../../compose.yml up -d mortgage-ai-db; \\\n  CONTAINER_STARTED=1; \\\nelse \\\n  echo \"Database container is already running\"; \\\nfi; \\\ncleanup() { \\\n  if [ \"$$CONTAINER_STARTED\" = \"1\" ]; then \\\n    echo \"Stopping database container...\"; \\\n    podman-compose -f ../../compose.yml down mortgage-ai-db; \\\n  fi; \\\n}; \\\ntrap cleanup EXIT INT TERM; \\\npnpm migrate && podman-compose -f ../../compose.yml logs -f mortgage-ai-db",
+    "db:start": "podman-compose -f ../../compose.yml up -d mortgage-ai-db",
+    "db:stop": "podman-compose -f ../../compose.yml down mortgage-ai-db",
+    "db:logs": "podman-compose -f ../../compose.yml logs -f mortgage-ai-db",
     "migrate": "uv run alembic upgrade head",
     "migrate:down": "uv run alembic downgrade -1",
     "migrate:new": "uv run alembic revision --autogenerate",

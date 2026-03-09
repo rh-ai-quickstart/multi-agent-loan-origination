@@ -4,20 +4,20 @@ kind: Deployment
 metadata:
   name: {{ .Values.api.name }}
   labels:
-    {{- include "summit-cap.api.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.api.labels" . | nindent 4 }}
   annotations:
     app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"StatefulSet","name":"{{ .Values.database.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.keycloak.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.minio.name }}"}]'
 spec:
   replicas: {{ .Values.api.replicas }}
   selector:
     matchLabels:
-      {{- include "summit-cap.api.selectorLabels" . | nindent 6 }}
+      {{- include "mortgage-ai.api.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "summit-cap.api.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.api.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
@@ -38,20 +38,20 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: POSTGRES_USER
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: POSTGRES_DB
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: POSTGRES_PASSWORD
         - name: run-migrations
-          image: {{ include "summit-cap.image" (dict "name" .Values.api.image.repository "tag" .Values.api.image.tag "Values" .Values) }}
+          image: {{ include "mortgage-ai.image" (dict "name" .Values.api.image.repository "tag" .Values.api.image.tag "Values" .Values) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           command:
             - /bin/sh
@@ -62,7 +62,7 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: DATABASE_URL
             - name: PYTHONPATH
               value: "/app/packages/db/src:/app/packages/api/src"
@@ -71,7 +71,7 @@ spec:
         - name: api
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: {{ include "summit-cap.image" (dict "name" .Values.api.image.repository "tag" .Values.api.image.tag "Values" .Values) }}
+          image: {{ include "mortgage-ai.image" (dict "name" .Values.api.image.repository "tag" .Values.api.image.tag "Values" .Values) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - name: http
@@ -82,153 +82,153 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: DATABASE_URL
             {{- end }}
             - name: COMPLIANCE_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: COMPLIANCE_DATABASE_URL
             - name: DEBUG
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: DEBUG
             - name: ALLOWED_HOSTS
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: ALLOWED_HOSTS
             - name: AUTH_DISABLED
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: AUTH_DISABLED
             - name: KEYCLOAK_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: KEYCLOAK_URL
             - name: KEYCLOAK_ISSUER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: KEYCLOAK_ISSUER
             - name: KEYCLOAK_REALM
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: KEYCLOAK_REALM
             - name: KEYCLOAK_CLIENT_ID
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: KEYCLOAK_CLIENT_ID
             - name: JWKS_CACHE_TTL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: JWKS_CACHE_TTL
             - name: S3_ENDPOINT
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_ENDPOINT
             - name: S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_ACCESS_KEY
             - name: S3_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_SECRET_KEY
             - name: S3_BUCKET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_BUCKET
             - name: S3_REGION
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_REGION
             - name: UPLOAD_MAX_SIZE_MB
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: UPLOAD_MAX_SIZE_MB
             - name: LLM_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LLM_API_KEY
             - name: LLM_BASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LLM_BASE_URL
             - name: LLM_MODEL_FAST
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LLM_MODEL_FAST
             - name: LLM_MODEL_CAPABLE
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LLM_MODEL_CAPABLE
             - name: EMBEDDING_MODEL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: EMBEDDING_MODEL
             - name: SAFETY_MODEL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SAFETY_MODEL
             - name: SAFETY_ENDPOINT
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SAFETY_ENDPOINT
             - name: SAFETY_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SAFETY_API_KEY
             - name: LANGFUSE_PUBLIC_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LANGFUSE_PUBLIC_KEY
             - name: LANGFUSE_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LANGFUSE_SECRET_KEY
             - name: LANGFUSE_HOST
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LANGFUSE_HOST
             - name: SQLADMIN_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SQLADMIN_USER
             - name: SQLADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SQLADMIN_PASSWORD
             - name: SQLADMIN_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SQLADMIN_SECRET_KEY
           {{- if .Values.api.healthCheck.enabled }}
           livenessProbe:

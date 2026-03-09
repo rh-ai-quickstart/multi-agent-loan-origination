@@ -22,7 +22,7 @@ def _make_user(role: UserRole, **kwargs) -> UserContext:
     """Build a UserContext for the given role."""
     defaults = {
         "user_id": "test-user",
-        "email": "test@summit-cap.com",
+        "email": "test@example.com",
         "name": "Test User",
         "data_scope": DataScope(full_pipeline=True),
     }

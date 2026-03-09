@@ -1,10 +1,10 @@
 # This project was developed with assistance from AI tools.
 #
-# MkDocs configuration for Summit Cap Financial documentation.
+# MkDocs configuration for Mortgage AI documentation.
 # Build locally: mkdocs serve
 # Deploy:        GitHub Actions (.github/workflows/docs.yml)
 
-site_name: Summit Cap Financial
+site_name: Mortgage AI
 site_description: Multi-Agent Loan Origination - Red Hat AI Quickstart
 repo_url: https://github.com/jeremyary/multi-agent-loan-origination
 repo_name: jeremyary/multi-agent-loan-origination

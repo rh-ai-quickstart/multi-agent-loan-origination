@@ -7,6 +7,7 @@ import { Logo } from '../logo/logo';
 import { Button } from '../atoms/button/button';
 import { useAuth, type UserRole } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
+import { COMPANY_NAME } from '@/lib/company';
 
 const ROLE_BADGE_STYLES: Record<UserRole, string> = {
     prospect: 'bg-slate-100 text-slate-700',
@@ -41,7 +42,7 @@ export function Header() {
                 <Link to="/" className="flex items-center gap-2">
                     <Logo />
                     <span className="font-display text-base font-bold text-[#1e3a5f] dark:text-foreground">
-                        Summit Cap Financial
+                        {COMPANY_NAME}
                     </span>
                 </Link>
 

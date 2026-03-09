@@ -2,9 +2,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "summit-cap.fullname" . }}-seed
+  name: {{ include "mortgage-ai.fullname" . }}-seed
   labels:
-    {{- include "summit-cap.api.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.api.labels" . | nindent 4 }}
     app.kubernetes.io/component: seed
   annotations:
     app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.api.name }}"}]'
@@ -17,10 +17,10 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "summit-cap.api.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.api.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: seed
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       restartPolicy: OnFailure
@@ -41,7 +41,7 @@ spec:
         - name: seed
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: {{ include "summit-cap.image" (dict "name" .Values.api.image.repository "tag" .Values.api.image.tag "Values" .Values) }}
+          image: {{ include "mortgage-ai.image" (dict "name" .Values.api.image.repository "tag" .Values.api.image.tag "Values" .Values) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           command:
             - python
@@ -52,37 +52,37 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: DATABASE_URL
             - name: COMPLIANCE_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: COMPLIANCE_DATABASE_URL
             - name: S3_ENDPOINT
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_ENDPOINT
             - name: S3_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_ACCESS_KEY
             - name: S3_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_SECRET_KEY
             - name: S3_BUCKET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_BUCKET
             - name: S3_REGION
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_REGION
           resources:
             requests:

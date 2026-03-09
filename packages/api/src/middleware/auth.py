@@ -168,7 +168,7 @@ def _build_dev_user(
     role: UserRole,
     *,
     user_id: str = "dev-user",
-    email: str = "dev@summit-cap.local",
+    email: str = "dev@example.com",
     name: str | None = None,
 ) -> UserContext:
     """Build a dev user context for the given role."""
@@ -195,7 +195,7 @@ async def get_current_user(request: Request) -> UserContext:
         dev_user = _build_dev_user(
             role or UserRole.ADMIN,
             user_id=request.headers.get("x-dev-user-id", "dev-user"),
-            email=request.headers.get("x-dev-user-email", "dev@summit-cap.local"),
+            email=request.headers.get("x-dev-user-email", "dev@example.com"),
             name=request.headers.get("x-dev-user-name"),
         )
         request.state.pii_mask = dev_user.data_scope.pii_mask

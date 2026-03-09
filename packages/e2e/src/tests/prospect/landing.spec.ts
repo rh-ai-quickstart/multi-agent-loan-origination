@@ -20,7 +20,7 @@ test.describe("Landing Page", () => {
         await expect(landing.getPreQualifiedLink).toHaveAttribute("href", /sign-in/);
     });
 
-    test("should display Summit Cap Financial branding in header", async () => {
+    test("should display company branding in header", async () => {
         await expect(landing.brandingText).toBeVisible();
     });
 

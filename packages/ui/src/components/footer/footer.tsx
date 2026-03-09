@@ -1,6 +1,7 @@
 // This project was developed with assistance from AI tools.
 
 import { Logo } from '../logo/logo';
+import { COMPANY_NAME } from '@/lib/company';
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
@@ -12,7 +13,7 @@ export function Footer() {
                     {/* Brand */}
                     <div className="flex items-center gap-2">
                         <Logo />
-                        <span className="font-display text-base font-bold">Summit Cap Financial</span>
+                        <span className="font-display text-base font-bold">{COMPANY_NAME}</span>
                     </div>
 
                     {/* Section links */}
@@ -26,11 +27,11 @@ export function Footer() {
                 {/* Bottom bar */}
                 <div className="mt-10 flex flex-col gap-2 border-t border-white/10 pt-8 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
                     <p>
-                        &copy; {currentYear} Summit Cap Financial. All rights reserved.
+                        &copy; {currentYear} {COMPANY_NAME}. All rights reserved.
                         &nbsp;&nbsp;Equal Housing Lender.
                     </p>
                     <p className="italic">
-                        Summit Cap Financial is a fictional company created for demonstration purposes.
+                        {COMPANY_NAME} is a fictional company created for demonstration purposes.
                     </p>
                 </div>
             </div>

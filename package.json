@@ -1,7 +1,7 @@
 {
-  "name": "summit-cap",
+  "name": "mortgage-ai",
   "version": "0.1.0",
-  "description": "Multi-agent loan origination system for Summit Cap Financial",
+  "description": "Multi-agent loan origination system",
   "private": true,
   "workspaces": [
     "packages/*"

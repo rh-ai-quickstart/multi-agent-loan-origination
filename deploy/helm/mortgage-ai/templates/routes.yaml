@@ -6,7 +6,7 @@ kind: Route
 metadata:
   name: {{ .Values.ui.name }}-route
   labels:
-    {{- include "summit-cap.ui.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.ui.labels" . | nindent 4 }}
   {{- with .Values.routes.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -40,7 +40,7 @@ kind: Route
 metadata:
   name: {{ .Values.api.name }}-route
   labels:
-    {{- include "summit-cap.api.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.api.labels" . | nindent 4 }}
   {{- with .Values.routes.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -75,7 +75,7 @@ kind: Route
 metadata:
   name: {{ .Values.api.name }}-health-route
   labels:
-    {{- include "summit-cap.api.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.api.labels" . | nindent 4 }}
   {{- with .Values.routes.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -110,7 +110,7 @@ kind: Route
 metadata:
   name: {{ .Values.api.name }}-docs-route
   labels:
-    {{- include "summit-cap.api.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.api.labels" . | nindent 4 }}
   {{- with .Values.routes.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -145,7 +145,7 @@ kind: Route
 metadata:
   name: {{ .Values.api.name }}-admin-route
   labels:
-    {{- include "summit-cap.api.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.api.labels" . | nindent 4 }}
   {{- with .Values.routes.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -182,7 +182,7 @@ kind: Route
 metadata:
   name: langfuse-route
   labels:
-    {{- include "summit-cap.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: langfuse-web
   {{- with .Values.routes.annotations }}
   annotations:
@@ -211,7 +211,7 @@ kind: Route
 metadata:
   name: {{ .Values.keycloak.name }}-route
   labels:
-    {{- include "summit-cap.keycloak.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.keycloak.labels" . | nindent 4 }}
   {{- with .Values.routes.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

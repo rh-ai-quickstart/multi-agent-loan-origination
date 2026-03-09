@@ -4,18 +4,18 @@ kind: Deployment
 metadata:
   name: llamastack
   labels:
-    {{- include "summit-cap.llamastack.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.llamastack.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "summit-cap.llamastack.selectorLabels" . | nindent 6 }}
+      {{- include "mortgage-ai.llamastack.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "summit-cap.llamastack.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.llamastack.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -34,18 +34,18 @@ spec:
             - name: LLM_BASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LLM_BASE_URL
             - name: LLM_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LLM_API_KEY
             {{- if .Values.llamastack.safety.enabled }}
             - name: SAFETY_MODEL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SAFETY_MODEL
             {{- end }}
             {{- if .Values.llamastack.inferenceService.authTokenSecret }}
@@ -86,7 +86,7 @@ kind: Service
 metadata:
   name: llamastack
   labels:
-    {{- include "summit-cap.llamastack.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.llamastack.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
@@ -95,5 +95,5 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "summit-cap.llamastack.selectorLabels" . | nindent 4 }}
+    {{- include "mortgage-ai.llamastack.selectorLabels" . | nindent 4 }}
 {{- end }}

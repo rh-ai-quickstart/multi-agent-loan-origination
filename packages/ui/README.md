@@ -1,8 +1,8 @@
 <!-- This project was developed with assistance from AI tools. -->
 
-# Summit Cap Financial UI
+# Mortgage AI UI
 
-React frontend for the Summit Cap Financial multi-agent loan origination system. This package provides 5 persona-specific interfaces (prospect, borrower, loan officer, underwriter, CEO) with real-time WebSocket chat, Keycloak OIDC authentication, and comprehensive loan workflow management.
+React frontend for the Mortgage AI multi-agent loan origination system. This package provides 5 persona-specific interfaces (prospect, borrower, loan officer, underwriter, CEO) with real-time WebSocket chat, Keycloak OIDC authentication, and comprehensive loan workflow management.
 
 Part of the [rh-ai-quickstart](https://github.com/rh-ai-quickstart) catalog demonstrating multi-agent AI systems on Red Hat AI / OpenShift AI.
 
@@ -87,8 +87,8 @@ Create `.env.local` in `packages/ui/`:
 
 ```bash
 VITE_KEYCLOAK_URL=http://localhost:8080
-VITE_KEYCLOAK_REALM=summit-cap
-VITE_KEYCLOAK_CLIENT_ID=summit-cap-ui
+VITE_KEYCLOAK_REALM=mortgage-ai
+VITE_KEYCLOAK_CLIENT_ID=mortgage-ai-ui
 AUTH_DISABLED=false              # Set to true to bypass Keycloak
 ```
 
@@ -318,7 +318,7 @@ The UI is containerized with nginx for production:
 make containers-build
 
 # Run container
-podman run -p 8080:8080 summit-cap-ui:latest
+podman run -p 8080:8080 mortgage-ai-ui:latest
 ```
 
 The Containerfile uses multi-stage build:
@@ -334,7 +334,7 @@ Deploy via Helm from repository root:
 ```bash
 make deploy
 # or
-helm install summit-cap deploy/helm/summit-cap-financial -f deploy/helm/values-dev.yaml
+helm install mortgage-ai deploy/helm/mortgage-ai -f deploy/helm/values-dev.yaml
 ```
 
 UI service exposes port 8080 and connects to API via cluster DNS.

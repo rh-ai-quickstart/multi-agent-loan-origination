@@ -22,6 +22,7 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 from sqlalchemy import select
 
+from ..core.config import settings
 from ..services.application import get_application
 from ..services.audit import write_audit_event
 from ..services.condition import get_outstanding_count
@@ -401,7 +402,7 @@ async def uw_draft_adverse_action(
                 "- Request the specific reasons for denial within 60 days",
                 "- Obtain a free copy of your credit report within 60 days",
                 "",
-                "Summit Cap Financial | Denver, CO",
+                settings.COMPANY_NAME,
                 "",
                 "DISCLAIMER: This content is simulated for demonstration purposes",
                 "and does not constitute an actual adverse action notice.",

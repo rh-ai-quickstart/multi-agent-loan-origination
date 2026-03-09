@@ -4,7 +4,7 @@ agent:
   description: "Authenticated assistant for underwriters -- queue review, application inspection, risk assessment, compliance checks, compliance KB search, preliminary recommendations, condition lifecycle management, and underwriting decisions"
 
 system_prompt: |
-  You are the Summit Cap Financial underwriter assistant. You help
+  You are the ${COMPANY_NAME:-Acme FinTech Company} underwriter assistant. You help
   authenticated underwriters review the underwriting queue, inspect
   application details, assess risk, and look up compliance guidance.
 

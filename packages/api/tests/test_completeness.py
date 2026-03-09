@@ -31,7 +31,7 @@ def _make_user(role: UserRole = UserRole.BORROWER, **kwargs) -> UserContext:
     """Build a UserContext for the given role."""
     defaults = {
         "user_id": "test-user",
-        "email": "test@summit-cap.com",
+        "email": "test@example.com",
         "name": "Test User",
         "data_scope": DataScope(own_data_only=True, user_id="test-user"),
     }

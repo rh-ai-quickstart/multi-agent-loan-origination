@@ -34,7 +34,7 @@ class TestUserContextFromState:
         state = {
             "user_id": "uw-maria",
             "user_role": "underwriter",
-            "user_email": "maria@summit-cap.com",
+            "user_email": "maria@example.com",
             "user_name": "Maria Chen",
         }
         ctx = _user_context_from_state(state)

@@ -34,7 +34,7 @@ export class LandingPage {
         this.heroHeading = page.getByRole("heading", { level: 1 });
         this.getPreQualifiedLink = page.getByRole("link", { name: "Get Pre-Qualified" });
         this.exploreProductsButton = page.getByRole("button", { name: "Explore Products" });
-        this.brandingText = page.getByText("Summit Cap Financial").first();
+        this.brandingText = page.getByText("Acme FinTech Company").first();
 
         this.calculatorForm = page.getByRole("form", { name: "Affordability calculator form" });
         this.incomeInput = page.locator("#gross_annual_income");

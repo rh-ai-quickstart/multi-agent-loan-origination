@@ -4,28 +4,28 @@ kind: ConfigMap
 metadata:
   name: {{ .Values.keycloak.name }}-realm
   labels:
-    {{- include "summit-cap.keycloak.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.keycloak.labels" . | nindent 4 }}
 data:
-  summit-cap-realm.json: |
-    {{- .Files.Get "files/summit-cap-realm.json" | nindent 4 }}
+  mortgage-ai-realm.json: |
+    {{- .Files.Get "files/mortgage-ai-realm.json" | nindent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Values.keycloak.name }}
   labels:
-    {{- include "summit-cap.keycloak.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.keycloak.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "summit-cap.keycloak.selectorLabels" . | nindent 6 }}
+      {{- include "mortgage-ai.keycloak.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "summit-cap.keycloak.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.keycloak.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -48,12 +48,12 @@ spec:
             - name: KC_BOOTSTRAP_ADMIN_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: KC_BOOTSTRAP_ADMIN_USERNAME
             - name: KC_BOOTSTRAP_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: KC_BOOTSTRAP_ADMIN_PASSWORD
             - name: KC_HEALTH_ENABLED
               value: "true"
@@ -91,7 +91,7 @@ kind: Service
 metadata:
   name: {{ .Values.keycloak.name }}
   labels:
-    {{- include "summit-cap.keycloak.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.keycloak.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
@@ -100,5 +100,5 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "summit-cap.keycloak.selectorLabels" . | nindent 4 }}
+    {{- include "mortgage-ai.keycloak.selectorLabels" . | nindent 4 }}
 {{- end }}

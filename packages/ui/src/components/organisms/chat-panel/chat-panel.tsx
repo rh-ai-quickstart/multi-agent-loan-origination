@@ -80,7 +80,7 @@ export function ChatPanel() {
                     </div>
                     <div>
                         <h2 className="text-sm font-semibold text-foreground">
-                            Summit Cap Assistant
+                            Assistant
                         </h2>
                         <p className="text-xs text-muted-foreground">
                             Ask about loans, rates, or eligibility

@@ -1,6 +1,6 @@
 # This project was developed with assistance from AI tools.
 #
-# Summit Cap Financial -- local development stack
+# Mortgage AI -- local development stack
 #
 # Profiles:
 #   (none)          postgres + minio + api + ui
@@ -15,19 +15,19 @@
 #   make run                                      # alias for full
 
 x-langfuse-environment: &langfuse-env
-  DATABASE_URL: postgresql://user:password@summit-cap-db:5432/langfuse #notsecret
+  DATABASE_URL: postgresql://user:password@mortgage-ai-db:5432/langfuse #notsecret
   NEXTAUTH_URL: http://localhost:3001
   NEXTAUTH_SECRET: mysecret
   SALT: mysalt
   ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
   TELEMETRY_ENABLED: "false"
-  LANGFUSE_INIT_ORG_ID: summit-cap
-  LANGFUSE_INIT_ORG_NAME: Summit Cap Financial
-  LANGFUSE_INIT_PROJECT_ID: summit-cap-dev
-  LANGFUSE_INIT_PROJECT_NAME: Summit Cap Dev
+  LANGFUSE_INIT_ORG_ID: mortgage-ai
+  LANGFUSE_INIT_ORG_NAME: "${COMPANY_NAME:-Acme FinTech Company}"
+  LANGFUSE_INIT_PROJECT_ID: mortgage-ai-dev
+  LANGFUSE_INIT_PROJECT_NAME: "${COMPANY_NAME:-Acme FinTech Company} Dev"
   LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-lf-dev-public
   LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-lf-dev-secret
-  LANGFUSE_INIT_USER_EMAIL: admin@summitcap.dev
+  LANGFUSE_INIT_USER_EMAIL: admin@example.com
   LANGFUSE_INIT_USER_NAME: Admin
   LANGFUSE_INIT_USER_PASSWORD: password
   CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:clickhouse@clickhouse:9000/default #notsecret
@@ -53,26 +53,26 @@ x-langfuse-environment: &langfuse-env
 
 services:
   # ------------------------------------------------------------------ always --
-  summit-cap-db:
+  mortgage-ai-db:
     image: docker.io/pgvector/pgvector:pg16
     labels:
       com.quickstart.package: db
     environment:
-      POSTGRES_DB: summit-cap
+      POSTGRES_DB: mortgage-ai
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
     ports:
       - "5433:5432"
     volumes:
-      - summit_cap_postgres_data:/var/lib/postgresql/data
+      - mortgage_ai_postgres_data:/var/lib/postgresql/data
       - ./config/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d summit-cap"]
+      test: ["CMD-SHELL", "pg_isready -U user -d mortgage-ai"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  summit-cap-api:
+  mortgage-ai-api:
     build:
       context: .
       dockerfile: packages/api/Containerfile
@@ -81,17 +81,17 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      summit-cap-db:
+      mortgage-ai-db:
         condition: service_healthy
       minio:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://user:password@summit-cap-db:5432/summit-cap #notsecret
-      COMPLIANCE_DATABASE_URL: postgresql+asyncpg://compliance_app:compliance_pass@summit-cap-db:5432/summit-cap #notsecret
+      DATABASE_URL: postgresql+asyncpg://user:password@mortgage-ai-db:5432/mortgage-ai #notsecret
+      COMPLIANCE_DATABASE_URL: postgresql+asyncpg://compliance_app:compliance_pass@mortgage-ai-db:5432/mortgage-ai #notsecret
       AUTH_DISABLED: "${AUTH_DISABLED:-true}"
       KEYCLOAK_URL: http://keycloak:8080
-      KEYCLOAK_REALM: summit-cap
-      KEYCLOAK_CLIENT_ID: summit-cap-ui
+      KEYCLOAK_REALM: mortgage-ai
+      KEYCLOAK_CLIENT_ID: mortgage-ai-ui
       JWKS_CACHE_TTL: "${JWKS_CACHE_TTL:-300}"
       SQLADMIN_USER: "${SQLADMIN_USER:-admin}"
       SQLADMIN_PASSWORD: "${SQLADMIN_PASSWORD:-admin}"
@@ -112,6 +112,7 @@ services:
       LANGFUSE_SECRET_KEY: "${LANGFUSE_SECRET_KEY:-sk-lf-dev-secret}"
       LANGFUSE_PUBLIC_KEY: "${LANGFUSE_PUBLIC_KEY:-pk-lf-dev-public}"
       LANGFUSE_HOST: "${LANGFUSE_HOST:-http://langfuse-web:3000}"
+      COMPANY_NAME: "${COMPANY_NAME:-Acme FinTech Company}"
     volumes:
       - ./config:/app/config:ro
     healthcheck:
@@ -121,7 +122,7 @@ services:
       retries: 5
       start_period: 30s
 
-  summit-cap-ui:
+  mortgage-ai-ui:
     build:
       context: .
       dockerfile: packages/ui/Containerfile
@@ -130,10 +131,13 @@ services:
     ports:
       - "3000:8080"
     environment:
-      API_UPSTREAM: summit-cap-api:8000
+      API_UPSTREAM: mortgage-ai-api:8000
       KEYCLOAK_EXTERNAL: ${KEYCLOAK_EXTERNAL:-}
+      KEYCLOAK_REALM: mortgage-ai
+      KEYCLOAK_CLIENT_ID: mortgage-ai-ui
+      COMPANY_NAME: "${COMPANY_NAME:-Acme FinTech Company}"
     depends_on:
-      summit-cap-api:
+      mortgage-ai-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8080/ || exit 1"]
@@ -156,7 +160,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./config/keycloak/summit-cap-realm.json:/opt/keycloak/data/import/summit-cap-realm.json:ro
+      - ./config/keycloak/mortgage-ai-realm.json:/opt/keycloak/data/import/mortgage-ai-realm.json:ro
     healthcheck:
       test: ["CMD", "bash", "-c", "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep 'HTTP/1.0 200'; } 0<>/dev/tcp/localhost/9000"]
       interval: 10s
@@ -250,7 +254,7 @@ services:
     ports:
       - "3001:3000"
     depends_on:
-      summit-cap-db:
+      mortgage-ai-db:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -274,7 +278,7 @@ services:
     labels:
       com.quickstart.package: observability
     depends_on:
-      summit-cap-db:
+      mortgage-ai-db:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -286,7 +290,7 @@ services:
       <<: *langfuse-env
 
 volumes:
-  summit_cap_postgres_data:
+  mortgage_ai_postgres_data:
   langfuse_clickhouse_data:
   langfuse_clickhouse_logs:
   langfuse_minio_data:

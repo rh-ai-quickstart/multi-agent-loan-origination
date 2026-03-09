@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # This project was developed with assistance from AI tools.
-"""Comprehensive live test suite for the Summit Cap Financial API.
+"""Comprehensive live test suite for the Mortgage AI API.
 
 Validates all REST endpoints, WebSocket agent chats, response schemas,
 error handling, application lifecycle, and admin functions against a
@@ -595,8 +595,8 @@ async def test_openapi(c: httpx.AsyncClient):
     spec = r.json()
     ok("spec has openapi version", "openapi" in spec)
     ok("spec has info", "info" in spec)
-    ok("spec title is Summit Cap",
-       "summit cap" in spec.get("info", {}).get("title", "").lower())
+    ok("spec title contains 'mortgage'",
+       "mortgage" in spec.get("info", {}).get("title", "").lower())
     ok("spec has paths", len(spec.get("paths", {})) > 10,
        f"path_count={len(spec.get('paths', {}))}")
 
@@ -1193,7 +1193,7 @@ async def test_websocket_protocol():
 # ---------------------------------------------------------------------------
 
 async def main():
-    parser = argparse.ArgumentParser(description="Live test suite for Summit Cap API")
+    parser = argparse.ArgumentParser(description="Live test suite for Mortgage AI API")
     parser.add_argument("--no-chat", action="store_true",
                         help="Skip WebSocket agent chat tests (requires LLM)")
     parser.add_argument("--section", choices=["rest", "chat", "all"], default="all",
@@ -1201,7 +1201,7 @@ async def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("  LIVE TEST SUITE -- Summit Cap Financial API")
+    print("  LIVE TEST SUITE -- Mortgage AI API")
     print("=" * 60)
 
     run_rest = args.section in ("rest", "all")

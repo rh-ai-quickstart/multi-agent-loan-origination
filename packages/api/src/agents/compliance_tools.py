@@ -35,7 +35,7 @@ async def kb_search(
     query: str,
     state: Annotated[dict, InjectedState],
 ) -> str:
-    """Search the Summit Cap Financial compliance knowledge base for regulatory guidance.
+    """Search the compliance knowledge base for regulatory guidance.
 
     Searches federal regulations, agency guidelines, and internal policies
     using semantic similarity. Returns results ranked by relevance with

@@ -2,7 +2,7 @@
 
 # API Reference
 
-This page provides an overview of the Summit Cap Financial API, covering authentication, response patterns, key REST endpoints, and the WebSocket chat protocol. For detailed schema documentation, see the auto-generated interactive docs at `/docs` (Swagger UI) or `/redoc`.
+This page provides an overview of the Mortgage AI API, covering authentication, response patterns, key REST endpoints, and the WebSocket chat protocol. For detailed schema documentation, see the auto-generated interactive docs at `/docs` (Swagger UI) or `/redoc`.
 
 ## Base URL Structure
 

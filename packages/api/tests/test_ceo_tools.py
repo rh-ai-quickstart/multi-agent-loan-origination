@@ -24,7 +24,7 @@ from src.schemas.analytics import (
 _CEO_STATE = {
     "user_id": "ceo-001",
     "user_role": "ceo",
-    "user_email": "ceo@summit-cap.com",
+    "user_email": "ceo@example.com",
     "user_name": "CEO User",
 }
 

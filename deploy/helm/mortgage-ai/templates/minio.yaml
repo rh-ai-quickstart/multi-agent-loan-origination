@@ -4,20 +4,20 @@ kind: Deployment
 metadata:
   name: {{ .Values.minio.name }}
   labels:
-    {{- include "summit-cap.minio.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.minio.labels" . | nindent 4 }}
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "summit-cap.minio.selectorLabels" . | nindent 6 }}
+      {{- include "mortgage-ai.minio.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "summit-cap.minio.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.minio.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -44,12 +44,12 @@ spec:
             - name: MINIO_ROOT_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: MINIO_ROOT_USER
             - name: MINIO_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "summit-cap.fullname" . }}-secret
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: MINIO_ROOT_PASSWORD
           volumeMounts:
             - name: minio-storage
@@ -83,7 +83,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: {{ .Values.minio.name }}-pvc
   labels:
-    {{- include "summit-cap.minio.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.minio.labels" . | nindent 4 }}
 spec:
   accessModes:
     - ReadWriteOnce
@@ -100,7 +100,7 @@ kind: Service
 metadata:
   name: {{ .Values.minio.name }}
   labels:
-    {{- include "summit-cap.minio.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.minio.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   ports:
@@ -109,5 +109,5 @@ spec:
       protocol: TCP
       name: api
   selector:
-    {{- include "summit-cap.minio.selectorLabels" . | nindent 4 }}
+    {{- include "mortgage-ai.minio.selectorLabels" . | nindent 4 }}
 {{- end }}

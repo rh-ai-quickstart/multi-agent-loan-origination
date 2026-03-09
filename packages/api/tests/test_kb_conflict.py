@@ -37,9 +37,9 @@ class TestDetectConflicts:
                 source="ATR/QM Rule",
             ),
             _make_result(
-                "Summit Cap sets maximum DTI at 40%",
+                "The Company sets maximum DTI at 40%",
                 tier=3,
-                source="Summit Cap Policies",
+                source="Internal Policies",
             ),
         ]
         conflicts = detect_conflicts(results)

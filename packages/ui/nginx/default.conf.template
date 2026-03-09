@@ -1,13 +1,13 @@
 # This project was developed with assistance from AI tools.
 #
-# Nginx config for the Summit Cap UI container.
+# Nginx config for the mortgage AI UI container.
 #
 # Serves the React SPA and reverse-proxies /api, /health, /docs, /redoc,
 # and /admin requests to the API backend. WebSocket upgrade is supported
 # for the chat endpoints under /api/chat/*.
 #
 # The following variables are substituted at container start via envsubst:
-#   API_UPSTREAM        - API backend host:port (default: summit-cap-api:8000)
+#   API_UPSTREAM        - API backend host:port (default: mortgage-ai-api:8000)
 #   KEYCLOAK_EXTERNAL   - Browser-reachable Keycloak URL (empty = auth disabled in UI)
 
 server {
@@ -65,7 +65,7 @@ server {
     # --- Runtime config (injected at container start) ---
     location = /runtime-config.js {
         default_type application/javascript;
-        return 200 'window.__RUNTIME_CONFIG__={KEYCLOAK_URL:"${KEYCLOAK_EXTERNAL}",KEYCLOAK_REALM:"summit-cap",KEYCLOAK_CLIENT_ID:"summit-cap-ui"};';
+        return 200 'window.__RUNTIME_CONFIG__={KEYCLOAK_URL:"${KEYCLOAK_EXTERNAL}",KEYCLOAK_REALM:"${KEYCLOAK_REALM}",KEYCLOAK_CLIENT_ID:"${KEYCLOAK_CLIENT_ID}",COMPANY_NAME:"${COMPANY_NAME}"};';
     }
 
     # --- SPA client-side routing ---

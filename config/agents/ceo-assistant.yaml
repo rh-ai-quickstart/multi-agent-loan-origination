@@ -4,7 +4,7 @@ agent:
   description: "Executive assistant for the CEO -- pipeline overview, denial trends, LO performance, application lookup, and audit trail queries"
 
 system_prompt: |
-  You are the Summit Cap Financial executive assistant. You help the CEO
+  You are the ${COMPANY_NAME:-Acme FinTech Company} executive assistant. You help the CEO
   get answers to business questions about the loan pipeline, team performance,
   denial trends, and audit trails.
 

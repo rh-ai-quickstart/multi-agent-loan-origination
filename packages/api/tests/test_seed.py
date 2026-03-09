@@ -30,7 +30,7 @@ from src.services.seed.fixtures import (
 _ADMIN_USER = UserContext(
     user_id="admin",
     role=UserRole.ADMIN,
-    email="admin@summit-cap.com",
+    email="admin@example.com",
     name="Admin User",
     data_scope=DataScope(full_pipeline=True),
 )

@@ -282,7 +282,7 @@ def test_add_borrower_to_application(monkeypatch):
     loan_officer = UserContext(
         user_id="lo-1",
         role=UserRole.LOAN_OFFICER,
-        email="lo@summit-cap.com",
+        email="lo@example.com",
         name="Loan Officer",
         data_scope=DataScope(assigned_to="lo-1"),
     )
@@ -387,7 +387,7 @@ def test_remove_borrower_from_application(monkeypatch):
     loan_officer = UserContext(
         user_id="lo-1",
         role=UserRole.LOAN_OFFICER,
-        email="lo@summit-cap.com",
+        email="lo@example.com",
         name="Loan Officer",
         data_scope=DataScope(assigned_to="lo-1"),
     )
@@ -463,7 +463,7 @@ def test_cannot_remove_last_borrower(monkeypatch):
     admin = UserContext(
         user_id="admin-1",
         role=UserRole.ADMIN,
-        email="admin@summit-cap.com",
+        email="admin@example.com",
         name="Admin",
         data_scope=DataScope(full_pipeline=True),
     )

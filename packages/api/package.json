@@ -1,5 +1,5 @@
 {
-  "name": "@summit-cap/api",
+  "name": "@mortgage-ai/api",
   "private": true,
   "version": "0.0.0",
   "description": "FastAPI backend application",

@@ -1,6 +1,6 @@
 # This project was developed with assistance from AI tools.
 #
-# Makefile for Summit Cap Financial
+# Makefile for Mortgage AI
 #
 # Usage:
 #   make run            Full stack (all profiles)
@@ -22,11 +22,11 @@ CONTAINER_CLI ?= $(shell command -v podman >/dev/null 2>&1 && echo "podman" || e
 
 # Override with: make push-images REGISTRY=my-registry.example.com REGISTRY_NS=my-org
 REGISTRY    ?= quay.io
-REGISTRY_NS ?= summit-cap
+REGISTRY_NS ?= mortgage-ai
 
 # -- Deployment configuration (OpenShift targets only) -----------------------
 
-PROJECT_NAME    = summit-cap
+PROJECT_NAME    = mortgage-ai
 NAMESPACE      ?= $(PROJECT_NAME)
 IMAGE_TAG      ?= latest
 HELM_TIMEOUT   ?= 15m
@@ -134,10 +134,10 @@ lint:
 
 test-e2e-setup:
 	@echo "Clearing stale LangGraph checkpoints..."
-	@$(COMPOSE) exec -T summit-cap-db psql -U user -d summit-cap \
+	@$(COMPOSE) exec -T mortgage-ai-db psql -U user -d mortgage-ai \
 		-c "DELETE FROM checkpoints; DELETE FROM checkpoint_writes; DELETE FROM checkpoint_blobs;" 2>/dev/null || echo "WARNING: DB cleanup failed (container may not be running)"
 	@echo "Seeding demo data..."
-	@$(COMPOSE) exec -T summit-cap-api python -m src.seed --force 2>/dev/null || echo "WARNING: Seed failed (container may not be running)"
+	@$(COMPOSE) exec -T mortgage-ai-api python -m src.seed --force 2>/dev/null || echo "WARNING: Seed failed (container may not be running)"
 	@echo "Waiting for API health..."
 	@for i in $$(seq 1 30); do \
 		curl -sf http://localhost:8000/health/ >/dev/null 2>&1 && echo "API ready" && break; \
@@ -146,7 +146,7 @@ test-e2e-setup:
 	@echo "E2E environment ready."
 
 test-e2e: test-e2e-setup
-	pnpm --filter @summit-cap/e2e test:e2e
+	pnpm --filter @mortgage-ai/e2e test:e2e
 
 lint-hmda:
 	@scripts/lint-hmda-isolation.sh
@@ -163,13 +163,13 @@ clean:
 # -- Database ----------------------------------------------------------------
 
 db-start:
-	$(COMPOSE) up -d summit-cap-db minio
+	$(COMPOSE) up -d mortgage-ai-db minio
 
 db-stop:
-	$(COMPOSE) stop summit-cap-db
+	$(COMPOSE) stop mortgage-ai-db
 
 db-logs:
-	$(COMPOSE) logs -f summit-cap-db
+	$(COMPOSE) logs -f mortgage-ai-db
 
 db-upgrade:
 	pnpm --filter @*/db migrate
@@ -189,9 +189,9 @@ containers-logs:
 
 build-images:
 	@echo "Building API image..."
-	@$(CONTAINER_CLI) build -f packages/api/Containerfile -t summit-cap-api:$(IMAGE_TAG) .
+	@$(CONTAINER_CLI) build -f packages/api/Containerfile -t mortgage-ai-api:$(IMAGE_TAG) .
 	@echo "Building UI image..."
-	@$(CONTAINER_CLI) build -f packages/ui/Containerfile -t summit-cap-ui:$(IMAGE_TAG) .
+	@$(CONTAINER_CLI) build -f packages/ui/Containerfile -t mortgage-ai-ui:$(IMAGE_TAG) .
 	@echo "Images built successfully"
 
 push-images:

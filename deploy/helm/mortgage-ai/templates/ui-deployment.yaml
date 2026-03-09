@@ -4,27 +4,27 @@ kind: Deployment
 metadata:
   name: {{ .Values.ui.name }}
   labels:
-    {{- include "summit-cap.ui.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.ui.labels" . | nindent 4 }}
   annotations:
     app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.api.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.keycloak.name }}"}]'
 spec:
   replicas: {{ .Values.ui.replicas }}
   selector:
     matchLabels:
-      {{- include "summit-cap.ui.selectorLabels" . | nindent 6 }}
+      {{- include "mortgage-ai.ui.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "summit-cap.ui.selectorLabels" . | nindent 8 }}
+        {{- include "mortgage-ai.ui.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "summit-cap.serviceAccountName" . }}
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: ui
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: {{ include "summit-cap.image" (dict "name" .Values.ui.image.repository "tag" .Values.ui.image.tag "Values" .Values) }}
+          image: {{ include "mortgage-ai.image" (dict "name" .Values.ui.image.repository "tag" .Values.ui.image.tag "Values" .Values) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - name: http

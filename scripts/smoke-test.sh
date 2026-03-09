@@ -107,22 +107,22 @@ print(val)
 log "Starting minimal compose stack..."
 $COMPOSE up -d
 
-if wait_for_healthy "summit-cap-db"; then
-    pass "summit-cap-db healthy"
+if wait_for_healthy "mortgage-ai-db"; then
+    pass "mortgage-ai-db healthy"
 else
-    fail "summit-cap-db did not become healthy within ${TIMEOUT}s"
+    fail "mortgage-ai-db did not become healthy within ${TIMEOUT}s"
 fi
 
-if wait_for_healthy "summit-cap-api"; then
-    pass "summit-cap-api healthy"
+if wait_for_healthy "mortgage-ai-api"; then
+    pass "mortgage-ai-api healthy"
 else
-    fail "summit-cap-api did not become healthy within ${TIMEOUT}s"
+    fail "mortgage-ai-api did not become healthy within ${TIMEOUT}s"
 fi
 
-if wait_for_healthy "summit-cap-ui"; then
-    pass "summit-cap-ui healthy"
+if wait_for_healthy "mortgage-ai-ui"; then
+    pass "mortgage-ai-ui healthy"
 else
-    fail "summit-cap-ui did not become healthy within ${TIMEOUT}s"
+    fail "mortgage-ai-ui did not become healthy within ${TIMEOUT}s"
 fi
 
 log "Running endpoint checks..."

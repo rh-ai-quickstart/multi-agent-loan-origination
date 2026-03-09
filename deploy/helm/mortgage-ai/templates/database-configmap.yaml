@@ -4,7 +4,7 @@ kind: ConfigMap
 metadata:
   name: {{ .Values.database.name }}-init
   labels:
-    {{- include "summit-cap.database.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.database.labels" . | nindent 4 }}
 data:
   init-databases.sh: |
     #!/bin/bash

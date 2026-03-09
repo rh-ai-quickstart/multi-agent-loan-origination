@@ -86,13 +86,13 @@ class TestDerivePsycopgUrl:
 
     def test_strips_asyncpg(self):
         """should strip +asyncpg from DATABASE_URL."""
-        url = "postgresql+asyncpg://user:pass@localhost:5433/summit-cap"
-        assert derive_psycopg_url(url) == "postgresql://user:pass@localhost:5433/summit-cap"
+        url = "postgresql+asyncpg://user:pass@localhost:5433/mortgage-ai"
+        assert derive_psycopg_url(url) == "postgresql://user:pass@localhost:5433/mortgage-ai"
 
     def test_already_plain(self):
         """should handle URL without driver prefix."""
-        url = "postgresql://user:pass@localhost:5433/summit-cap"
-        assert derive_psycopg_url(url) == "postgresql://user:pass@localhost:5433/summit-cap"
+        url = "postgresql://user:pass@localhost:5433/mortgage-ai"
+        assert derive_psycopg_url(url) == "postgresql://user:pass@localhost:5433/mortgage-ai"
 
 
 class TestInitialize:
@@ -116,7 +116,7 @@ class TestInitialize:
                 return_value=mock_saver,
             ),
         ):
-            await service.initialize("postgresql+asyncpg://user:pass@localhost:5433/summit-cap")
+            await service.initialize("postgresql+asyncpg://user:pass@localhost:5433/mortgage-ai")
 
         mock_pool_cls.assert_called_once()
         # Verify the pool was opened

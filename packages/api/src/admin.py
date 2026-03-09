@@ -213,7 +213,9 @@ def setup_admin(app):
     auth_backend = AdminAuth(
         secret_key=settings.SQLADMIN_SECRET_KEY,
     )
-    admin = Admin(app, engine, title="Summit Cap Admin", authentication_backend=auth_backend)
+    admin = Admin(
+        app, engine, title=f"{settings.COMPANY_NAME} Admin", authentication_backend=auth_backend
+    )
 
     admin.add_view(BorrowerAdmin)
     admin.add_view(ApplicationAdmin)

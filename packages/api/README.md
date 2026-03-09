@@ -1,8 +1,8 @@
 # This project was developed with assistance from AI tools.
 
-# Summit Cap Financial API
+# Mortgage AI API
 
-FastAPI backend for a multi-agent mortgage loan origination system. This is the core backend for the Summit Cap Financial demo application (Red Hat AI Quickstart).
+FastAPI backend for a multi-agent mortgage loan origination system. This is the core backend for the Mortgage AI demo application (Red Hat AI Quickstart).
 
 ## Overview
 
@@ -163,7 +163,7 @@ When `AUTH_DISABLED=true`, all authenticated endpoints return a development user
 - Vector search via pgvector (768-dim embeddings, HNSW index, cosine similarity)
 - Tier-based boosting (federal 1.5x, agency 1.2x, internal 1.0x)
 - Conflict detection (numeric thresholds, contradictory directives, same-tier conflicts)
-- Documents: TRID, ECOA, ATR/QM, HMDA, FCRA, Fannie Mae, FHA, Summit Cap policies
+- Documents: TRID, ECOA, ATR/QM, HMDA, FCRA, Fannie Mae, FHA, internal policies
 
 **Compliance Checks:**
 - Pure-function rule implementations (ECOA, ATR/QM, TRID)
@@ -215,7 +215,7 @@ When `AUTH_DISABLED=true`, all authenticated endpoints return a development user
 Environment variables loaded via Pydantic Settings (`src/core/config.py`). See `.env.example` in the root for a complete list.
 
 **Database:**
-- `DATABASE_URL` - PostgreSQL connection string (default: `postgresql+asyncpg://summit_cap:password@localhost:5433/summit_cap`)
+- `DATABASE_URL` - PostgreSQL connection string (default: `postgresql+asyncpg://mortgage_ai:password@localhost:5433/mortgage_ai`)
 - `COMPLIANCE_DATABASE_URL` - HMDA schema connection (same host, separate role)
 
 **Authentication:**
@@ -279,6 +279,6 @@ make db-upgrade    # Run Alembic migrations
 - API: http://localhost:8000
 - OpenAPI docs: http://localhost:8000/docs
 - SQLAdmin dashboard: http://localhost:8000/admin
-- Database: `postgresql://localhost:5433/summit_cap`
+- Database: `postgresql://localhost:5433/mortgage_ai`
 
 See the [DB package README](../db/README.md) for migration and schema details.

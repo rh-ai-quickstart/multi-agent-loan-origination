@@ -1,17 +1,17 @@
 <!-- This project was developed with assistance from AI tools. -->
 
-# Summit Cap Financial
+# Mortgage AI
 
 **Multi-Agent Loan Origination -- Red Hat AI Quickstart**
 
-Summit Cap Financial is a reference application demonstrating how to build multi-agent AI systems on Red Hat AI / OpenShift AI using a realistic, regulated-industry business use case. This Quickstart showcases advanced AI patterns applied to the mortgage lending lifecycle, from prospect inquiry through pre-qualification, application, underwriting, and approval.
+This reference application demonstrates how to build multi-agent AI systems on Red Hat AI / OpenShift AI using a realistic, regulated-industry business use case. This Quickstart showcases advanced AI patterns applied to the mortgage lending lifecycle, from prospect inquiry through pre-qualification, application, underwriting, and approval.
 
 !!! warning "Demonstration Purposes Only"
     All regulatory and compliance content in this application is simulated for demonstration purposes. This is not a production-ready system and does not constitute legal or financial advice.
 
-## What is Summit Cap Financial?
+## What is This Application?
 
-Summit Cap Financial is a fictional mortgage lender headquartered in Denver, Colorado. The application models the end-to-end mortgage lending process, covering:
+The application uses a fictional mortgage lender (Acme FinTech Company) to model the end-to-end mortgage lending process, covering:
 
 - Prospect inquiry and pre-qualification
 - Borrower application and document submission

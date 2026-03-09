@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "summit-cap-db"
+name = "mortgage-ai-db"
 dynamic = ["version"]
-description = "Database package for Summit Cap Financial"
+description = "Database package for Mortgage AI"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

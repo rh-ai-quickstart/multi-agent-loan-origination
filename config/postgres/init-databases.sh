@@ -12,6 +12,6 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     -- HMDA isolation: dual PostgreSQL roles
     CREATE ROLE lending_app WITH LOGIN PASSWORD 'lending_pass';
     CREATE ROLE compliance_app WITH LOGIN PASSWORD 'compliance_pass';
-    GRANT CONNECT ON DATABASE "summit-cap" TO lending_app;
-    GRANT CONNECT ON DATABASE "summit-cap" TO compliance_app;
+    GRANT CONNECT ON DATABASE "mortgage-ai" TO lending_app;
+    GRANT CONNECT ON DATABASE "mortgage-ai" TO compliance_app;
 EOSQL

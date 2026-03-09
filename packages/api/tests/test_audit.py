@@ -27,7 +27,7 @@ def _make_admin() -> UserContext:
     return UserContext(
         user_id="admin",
         role=UserRole.ADMIN,
-        email="admin@summit-cap.com",
+        email="admin@example.com",
         name="Admin",
         data_scope=DataScope(full_pipeline=True),
     )
@@ -37,7 +37,7 @@ def _make_borrower() -> UserContext:
     return UserContext(
         user_id="borrower-1",
         role=UserRole.BORROWER,
-        email="borrower@summit-cap.com",
+        email="borrower@example.com",
         name="Borrower",
         data_scope=DataScope(own_data_only=True, user_id="borrower-1"),
     )

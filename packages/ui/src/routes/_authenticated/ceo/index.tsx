@@ -23,6 +23,7 @@ import type { ModelMonitoringSummary } from '@/schemas/model-monitoring';
 import type { AuditSearchResponse, AuditEventItem } from '@/schemas/audit';
 import { cn } from '@/lib/utils';
 import { staffName } from '@/lib/staff-names';
+import { COMPANY_NAME } from '@/lib/company';
 
 export const Route = createFileRoute('/_authenticated/ceo/')({
     component: CeoDashboard,
@@ -682,7 +683,7 @@ function CeoDashboard() {
             {/* Header */}
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-foreground">Executive Dashboard</h1>
-                <p className="text-sm text-muted-foreground">Summit Cap Financial -- Portfolio Health & Operations</p>
+                <p className="text-sm text-muted-foreground">{COMPANY_NAME} -- Portfolio Health & Operations</p>
             </div>
 
             {/* 2-col grid */}
@@ -698,7 +699,7 @@ function CeoDashboard() {
 
             {/* Footer disclaimer */}
             <p className="mt-8 text-center text-xs text-muted-foreground">
-                Summit Cap Financial is a fictional company. All data is simulated for demonstration purposes.
+                {COMPANY_NAME} is a fictional company. All data is simulated for demonstration purposes.
                 Regulatory references (HMDA, ECOA, TRID, FCRA) are simplified representations, not legal guidance.
             </p>
         </div>

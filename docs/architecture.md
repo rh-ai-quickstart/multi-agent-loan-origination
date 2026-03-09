@@ -1,7 +1,7 @@
 <!-- This project was developed with assistance from AI tools. -->
 # Architecture
 
-Summit Cap Financial is a multi-agent AI reference application built to demonstrate production-grade patterns in a regulated domain. The architecture balances MVP maturity (rapid iteration, focused scope) with production structure (clear boundaries, extensible patterns, hardening paths). This document describes the system design for developers and architects evaluating or adapting this Quickstart.
+This multi-agent AI reference application is built to demonstrate production-grade patterns in a regulated domain. The architecture balances MVP maturity (rapid iteration, focused scope) with production structure (clear boundaries, extensible patterns, hardening paths). This document describes the system design for developers and architects evaluating or adapting this Quickstart.
 
 ## System Overview
 
@@ -294,7 +294,7 @@ The compliance KB stores regulatory content (TRID, ECOA, ATR/QM, HMDA, FCRA, Fan
 
 **Schema:**
 
-- **KBDocument:** Document metadata (title, tier, source, version). Tier: `federal` (CFR), `agency` (Fannie Mae, FHA), or `internal` (Summit Cap policies).
+- **KBDocument:** Document metadata (title, tier, source, version). Tier: `federal` (CFR), `agency` (Fannie Mae, FHA), or `internal` (company policies).
 - **KBChunk:** Chunk of document text with:
   - `embedding`: pgvector `Vector(768)` — OpenAI `text-embedding-3-small` embeddings
   - `metadata`: JSONB (section title, chunk index, parent document ID)
@@ -561,7 +561,7 @@ The `deploy/helm/` directory contains a Helm chart for deploying to OpenShift:
 **Installation:**
 
 ```bash
-helm install summit-cap ./deploy/helm/ \
+helm install mortgage-ai ./deploy/helm/ \
   --set api.llm.baseUrl="https://openshift-ai.example.com/v1" \
   --set api.llm.apiKey="sk-..." \
   --set keycloak.adminPassword="secure-password"
@@ -579,8 +579,8 @@ Configuration follows the **12-factor app** pattern:
 
 | Group | Examples | Default (dev) |
 |-------|----------|---------------|
-| Database | `DATABASE_URL`, `COMPLIANCE_DATABASE_URL` | `postgresql+asyncpg://user:password@localhost:5433/summit-cap` |
-| Auth | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `AUTH_DISABLED` | `http://localhost:8080`, `summit-cap`, `summit-cap-ui`, `true` |
+| Database | `DATABASE_URL`, `COMPLIANCE_DATABASE_URL` | `postgresql+asyncpg://user:password@localhost:5433/mortgage-ai` |
+| Auth | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `AUTH_DISABLED` | `http://localhost:8080`, `mortgage-ai`, `mortgage-ai-ui`, `true` |
 | LLM | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_FAST`, `LLM_MODEL_CAPABLE` | `https://api.openai.com/v1`, `not-needed`, `gpt-4o-mini`, `gpt-4o-mini` |
 | Storage | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | `http://localhost:9090`, `minio`, `miniosecret`, `documents` |
 | Observability | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` | (unset — tracing disabled) |
@@ -623,7 +623,7 @@ Replace the mock LlamaStack / LMStudio setup:
 
 ## Summary
 
-Summit Cap Financial demonstrates how to architect a multi-agent AI system for a regulated domain:
+This application demonstrates how to architect a multi-agent AI system for a regulated domain:
 
 - **Agent orchestration:** LangGraph graphs with rule-based routing, tool RBAC, safety shields.
 - **Data isolation:** Dual PostgreSQL roles enforce HMDA separation.

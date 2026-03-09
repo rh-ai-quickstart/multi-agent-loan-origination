@@ -32,7 +32,7 @@ def user_context_from_state(state: dict, *, default_role: str) -> UserContext:
     return UserContext(
         user_id=user_id,
         role=role,
-        email=state.get("user_email") or f"{user_id}@summit-cap.local",
+        email=state.get("user_email") or f"{user_id}@example.com",
         name=state.get("user_name") or user_id,
         data_scope=build_data_scope(role, user_id),
     )

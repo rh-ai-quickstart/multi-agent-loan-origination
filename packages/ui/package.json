@@ -1,9 +1,9 @@
 {
-  "name": "@summit-cap/ui",
+  "name": "@mortgage-ai/ui",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "prettier": "@summit-cap/prettier-config",
+  "prettier": "@mortgage-ai/prettier-config",
   "scripts": {
     "dev:vite": "vite",
     "dev:storybook": "storybook dev -p 6006 --no-open",
@@ -54,8 +54,8 @@
     "@storybook/react-vite": "^8.6.14",
     "@storybook/test": "^8.6.14",
     "@storybook/types": "^8.6.14",
-    "@summit-cap/eslint-config": "workspace:*",
-    "@summit-cap/prettier-config": "workspace:*",
+    "@mortgage-ai/eslint-config": "workspace:*",
+    "@mortgage-ai/prettier-config": "workspace:*",
     "@tailwindcss/vite": "^4.1.17",
     "@tanstack/react-query": "^5.32.0",
     "@tanstack/react-router": "^1.31.24",

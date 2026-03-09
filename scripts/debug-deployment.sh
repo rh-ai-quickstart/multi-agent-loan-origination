@@ -4,11 +4,11 @@
 # Show detailed diagnostics for failed OpenShift deployments.
 #
 # Env vars (set by Makefile exports):
-#   PROJECT_NAME  -- helm release name (default: summit-cap)
-#   NAMESPACE     -- OpenShift namespace (default: summit-cap)
+#   PROJECT_NAME  -- helm release name (default: mortgage-ai)
+#   NAMESPACE     -- OpenShift namespace (default: mortgage-ai)
 set -euo pipefail
 
-PROJECT_NAME="${PROJECT_NAME:-summit-cap}"
+PROJECT_NAME="${PROJECT_NAME:-mortgage-ai}"
 NAMESPACE="${NAMESPACE:-$PROJECT_NAME}"
 
 # Helper: run command with oc, fall back to kubectl

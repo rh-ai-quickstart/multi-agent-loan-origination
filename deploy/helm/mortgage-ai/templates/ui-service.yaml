@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: {{ .Values.ui.name }}
   labels:
-    {{- include "summit-cap.ui.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.ui.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.ui.service.type }}
   ports:
@@ -13,5 +13,5 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "summit-cap.ui.selectorLabels" . | nindent 4 }}
+    {{- include "mortgage-ai.ui.selectorLabels" . | nindent 4 }}
 {{- end }}

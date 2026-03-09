@@ -23,7 +23,7 @@ This is a **Turborepo monorepo** for building AI-powered applications with a Rea
 ## Package Structure
 
 ```
-summit-cap/
+mortgage-ai/
 ├── packages/
 │   ├── ui/              # React frontend (pnpm)
 │   ├── api/             # FastAPI backend (uv/Python)

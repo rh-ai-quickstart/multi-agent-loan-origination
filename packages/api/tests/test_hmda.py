@@ -293,7 +293,7 @@ def test_hmda_admin_bypasses_ownership():
     admin = UserContext(
         user_id="admin-1",
         role=UserRole.ADMIN,
-        email="admin@summit-cap.local",
+        email="admin@example.com",
         name="Admin",
         data_scope=DataScope(full_pipeline=True),
     )

@@ -30,10 +30,13 @@ _last_check: dict[str, float] = {}
 
 def load_agent_config(agent_name: str) -> dict[str, Any]:
     """Load a single agent's YAML config."""
+    from ..inference.config import _resolve_env_vars
+
     config_path = _AGENTS_CONFIG_DIR / f"{agent_name}.yaml"
     if not config_path.exists():
         raise FileNotFoundError(f"Agent config not found: {config_path}")
-    return yaml.safe_load(config_path.read_text())
+    config = yaml.safe_load(config_path.read_text())
+    return _resolve_env_vars(config)
 
 
 # Agent module registry: agent name -> module path for lazy import

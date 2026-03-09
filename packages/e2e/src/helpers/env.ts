@@ -24,17 +24,17 @@ export const PERSONAS = {
     },
     loan_officer: {
         title: "Loan Officer",
-        email: "james.torres@summit-cap.com",
+        email: "james.torres@example.com",
         homeRoute: "/loan-officer",
     },
     underwriter: {
         title: "Underwriter",
-        email: "maria.chen@summit-cap.com",
+        email: "maria.chen@example.com",
         homeRoute: "/underwriter",
     },
     ceo: {
         title: "CEO",
-        email: "david.park@summit-cap.com",
+        email: "david.park@example.com",
         homeRoute: "/ceo",
     },
 } as const;

@@ -1,5 +1,5 @@
 {
-  "name": "@summit-cap/eslint-config",
+  "name": "@mortgage-ai/eslint-config",
   "version": "0.0.0",
   "private": true,
   "type": "module",

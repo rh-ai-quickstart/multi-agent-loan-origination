@@ -12,9 +12,9 @@ class DatabaseSettings(BaseSettings):
 
     model_config = SettingsConfigDict(extra="ignore")
 
-    DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5433/summit-cap"
+    DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5433/mortgage-ai"
     COMPLIANCE_DATABASE_URL: str = (
-        "postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/summit-cap"
+        "postgresql+asyncpg://compliance_app:compliance_pass@localhost:5433/mortgage-ai"
     )
     SQL_ECHO: bool = False
 

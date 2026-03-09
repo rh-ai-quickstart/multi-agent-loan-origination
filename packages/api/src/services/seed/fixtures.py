@@ -1,10 +1,10 @@
 # This project was developed with assistance from AI tools.
 """
-Demo fixture data for Summit Cap Financial.
+Demo fixture data for multi-agent loan origination.
 
 All fixture data is defined as Python dicts so enums can be referenced directly
 and type-checked. Keycloak user IDs are deterministic UUIDs that match the
-"id" fields in config/keycloak/summit-cap-realm.json.
+"id" fields in config/keycloak/mortgage-ai-realm.json.
 
 Simulated for demonstration purposes -- not real financial data.
 """
@@ -27,7 +27,7 @@ from db.enums import (
 # ---------------------------------------------------------------------------
 # Keycloak user references (deterministic UUIDs)
 # ---------------------------------------------------------------------------
-# These UUIDs match the "id" fields in config/keycloak/summit-cap-realm.json.
+# These UUIDs match the "id" fields in config/keycloak/mortgage-ai-realm.json.
 # Keycloak's JWT "sub" claim returns the user ID, and the application service
 # filters by borrower.keycloak_user_id == sub. Using fixed IDs ensures the
 # seeded data links correctly to authenticated users.

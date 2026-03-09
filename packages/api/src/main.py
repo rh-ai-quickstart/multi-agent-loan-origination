@@ -79,8 +79,8 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Summit Cap Financial API",
-    description="Multi-agent loan origination system for Summit Cap Financial",
+    title=f"{settings.COMPANY_NAME} API",
+    description=f"Multi-agent loan origination system for {settings.COMPANY_NAME}",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -179,4 +179,4 @@ setup_admin(app)
 @app.get("/")
 async def root() -> dict[str, str]:
     """Root endpoint"""
-    return {"message": "Welcome to Summit Cap Financial API"}
+    return {"message": f"Welcome to {settings.COMPANY_NAME} API"}

@@ -13,6 +13,7 @@ import { useAuditEventsFiltered } from '@/hooks/use-audit';
 import type { AuditEventItem } from '@/schemas/audit';
 import { cn } from '@/lib/utils';
 import { staffName } from '@/lib/staff-names';
+import { COMPANY_NAME } from '@/lib/company';
 
 export const Route = createFileRoute('/_authenticated/ceo/audit')({
     component: AuditTrailPage,
@@ -347,7 +348,7 @@ function AuditTrailPage() {
 
             {/* Footer disclaimer */}
             <p className="mt-8 text-center text-xs text-muted-foreground">
-                Summit Cap Financial is a fictional company. All data is simulated for demonstration purposes.
+                {COMPANY_NAME} is a fictional company. All data is simulated for demonstration purposes.
                 Regulatory references (HMDA, ECOA, TRID, FCRA) are simplified representations, not legal guidance.
             </p>
         </div>

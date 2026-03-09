@@ -36,7 +36,7 @@ dependencies = [
     "boto3>=1.34.0",
     "pymupdf>=1.24.0",
 
-    "summit-cap-db",
+    "mortgage-ai-db",
 ]
 
 [project.optional-dependencies]
@@ -88,4 +88,4 @@ ignore_missing_imports = true
 packages = ["src"]
 
 [tool.uv.sources]
-"summit-cap-db" = { path = "../db", editable = true }
+"mortgage-ai-db" = { path = "../db", editable = true }

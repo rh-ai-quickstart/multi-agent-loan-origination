@@ -20,7 +20,7 @@ def _make_user(user_id="borrower-1", role="borrower"):
     return UserContext(
         user_id=user_id,
         role=r,
-        email=f"{user_id}@summit-cap.local",
+        email=f"{user_id}@example.com",
         name=user_id,
         data_scope=build_data_scope(r, user_id),
     )

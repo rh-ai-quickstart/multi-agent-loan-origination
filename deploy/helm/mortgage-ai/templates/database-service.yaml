@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: {{ .Values.database.name }}
   labels:
-    {{- include "summit-cap.database.labels" . | nindent 4 }}
+    {{- include "mortgage-ai.database.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.database.service.type }}
   ports:
@@ -13,5 +13,5 @@ spec:
       protocol: TCP
       name: postgres
   selector:
-    {{- include "summit-cap.database.selectorLabels" . | nindent 4 }}
+    {{- include "mortgage-ai.database.selectorLabels" . | nindent 4 }}
 {{- end }}

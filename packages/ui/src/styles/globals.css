@@ -43,14 +43,14 @@
   --sidebar-accent-foreground: #0f172a;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: #1e3a5f;
-  /* Summit Cap brand tokens */
-  --summit-primary: #1e3a5f;
-  --summit-primary-light: #2b5a8f;
-  --summit-accent: #cc0000;
-  --summit-accent-dark: #990000;
-  --summit-success: #16a34a;
-  --summit-warning: #d97706;
-  --summit-surface: #f8fafc;
+  /* Brand tokens */
+  --brand-primary: #1e3a5f;
+  --brand-primary-light: #2b5a8f;
+  --brand-accent: #cc0000;
+  --brand-accent-dark: #990000;
+  --brand-success: #16a34a;
+  --brand-warning: #d97706;
+  --brand-surface: #f8fafc;
 }
 
 .dark {
@@ -86,13 +86,13 @@
   --sidebar-accent-foreground: #f1f5f9;
   --sidebar-border: #334155;
   --sidebar-ring: #475569;
-  --summit-primary: #93c5fd;
-  --summit-primary-light: #60a5fa;
-  --summit-accent: #ef4444;
-  --summit-accent-dark: #dc2626;
-  --summit-success: #4ade80;
-  --summit-warning: #fbbf24;
-  --summit-surface: #1e293b;
+  --brand-primary: #93c5fd;
+  --brand-primary-light: #60a5fa;
+  --brand-accent: #ef4444;
+  --brand-accent-dark: #dc2626;
+  --brand-success: #4ade80;
+  --brand-warning: #fbbf24;
+  --brand-surface: #1e293b;
 }
 
 @theme inline {
@@ -134,13 +134,13 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --color-summit-primary: var(--summit-primary);
-  --color-summit-primary-light: var(--summit-primary-light);
-  --color-summit-accent: var(--summit-accent);
-  --color-summit-accent-dark: var(--summit-accent-dark);
-  --color-summit-success: var(--summit-success);
-  --color-summit-warning: var(--summit-warning);
-  --color-summit-surface: var(--summit-surface);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-light: var(--brand-primary-light);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-dark: var(--brand-accent-dark);
+  --color-brand-success: var(--brand-success);
+  --color-brand-warning: var(--brand-warning);
+  --color-brand-surface: var(--brand-surface);
 }
 
 @layer base {

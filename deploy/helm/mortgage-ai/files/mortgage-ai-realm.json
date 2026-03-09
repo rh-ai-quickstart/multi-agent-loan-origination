@@ -1,5 +1,5 @@
 {
-  "realm": "summit-cap",
+  "realm": "mortgage-ai",
   "enabled": true,
   "sslRequired": "none",
   "registrationAllowed": false,
@@ -19,7 +19,7 @@
   },
   "clients": [
     {
-      "clientId": "summit-cap-ui",
+      "clientId": "mortgage-ai-ui",
       "enabled": true,
       "publicClient": true,
       "directAccessGrantsEnabled": true,
@@ -36,7 +36,7 @@
           "protocolMapper": "oidc-audience-mapper",
           "consentRequired": false,
           "config": {
-            "included.client.audience": "summit-cap-ui",
+            "included.client.audience": "mortgage-ai-ui",
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
@@ -44,7 +44,7 @@
       ]
     },
     {
-      "clientId": "summit-cap-api",
+      "clientId": "mortgage-ai-api",
       "enabled": true,
       "bearerOnly": true,
       "protocol": "openid-connect"
@@ -67,7 +67,7 @@
       "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567802",
       "username": "james.torres",
       "enabled": true,
-      "email": "james.torres@summit-cap.com",
+      "email": "james.torres@example.com",
       "firstName": "James",
       "lastName": "Torres",
       "credentials": [
@@ -79,7 +79,7 @@
       "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567803",
       "username": "maria.chen",
       "enabled": true,
-      "email": "maria.chen@summit-cap.com",
+      "email": "maria.chen@example.com",
       "firstName": "Maria",
       "lastName": "Chen",
       "credentials": [
@@ -91,7 +91,7 @@
       "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567804",
       "username": "david.park",
       "enabled": true,
-      "email": "david.park@summit-cap.com",
+      "email": "david.park@example.com",
       "firstName": "David",
       "lastName": "Park",
       "credentials": [
@@ -103,7 +103,7 @@
       "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567805",
       "username": "admin",
       "enabled": true,
-      "email": "admin@summit-cap.com",
+      "email": "admin@example.com",
       "firstName": "Admin",
       "lastName": "User",
       "credentials": [
@@ -115,7 +115,7 @@
       "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567807",
       "username": "sarah.patel",
       "enabled": true,
-      "email": "sarah.patel@summit-cap.com",
+      "email": "sarah.patel@example.com",
       "firstName": "Sarah",
       "lastName": "Patel",
       "credentials": [
@@ -127,7 +127,7 @@
       "id": "d1a2b3c4-e5f6-7890-abcd-ef1234567808",
       "username": "marcus.williams",
       "enabled": true,
-      "email": "marcus.williams@summit-cap.com",
+      "email": "marcus.williams@example.com",
       "firstName": "Marcus",
       "lastName": "Williams",
       "credentials": [

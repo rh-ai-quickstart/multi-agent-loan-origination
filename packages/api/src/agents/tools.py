@@ -22,7 +22,7 @@ def current_date() -> str:
 
 @tool
 def product_info() -> str:
-    """Retrieve available mortgage product information from Summit Cap Financial."""
+    """Retrieve available mortgage product information."""
     lines = []
     for p in PRODUCTS:
         lines.append(

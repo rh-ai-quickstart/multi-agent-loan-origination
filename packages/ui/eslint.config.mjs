@@ -1,4 +1,4 @@
-import config from '@summit-cap/eslint-config';
+import config from '@mortgage-ai/eslint-config';
 
 export default [
     { ignores: ['dist/**', 'storybook-static/**', 'src/routeTree.gen.ts'] },

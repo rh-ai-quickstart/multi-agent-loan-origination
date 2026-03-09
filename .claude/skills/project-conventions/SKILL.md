@@ -42,11 +42,11 @@ Customize the sections below to match your project. All agents reference these c
 ## Project Structure
 
 ```
-summit-cap-financial/
+mortgage-ai/
 ├── packages/
 │   ├── ui/                        # React frontend (pnpm) -- 5 persona UIs, chat, dashboards
 │   ├── api/                       # FastAPI backend (uv/Python) -- gateway, agents, services
-│   │   └── src/summit_cap/
+│   │   └── src/
 │   │       ├── middleware/        # Auth, RBAC, PII masking
 │   │       ├── routes/            # API route handlers
 │   │       ├── agents/            # LangGraph agent definitions
@@ -55,7 +55,7 @@ summit-cap-financial/
 │   │       ├── inference/         # LlamaStack wrapper
 │   │       └── schemas/           # Pydantic request/response models
 │   ├── db/                        # Database models & migrations (uv/Python, separate package)
-│   │   ├── src/summit_cap_db/
+│   │   ├── src/db/
 │   │   │   ├── models/            # SQLAlchemy models (all schemas)
 │   │   │   └── database.py        # Engine, session, dual connection pools
 │   │   └── alembic/               # Alembic migrations
@@ -65,7 +65,7 @@ summit-cap-financial/
 │   ├── agents/                    # Per-agent config (prompts, tools, routing) -- hot-reloadable
 │   ├── models.yaml                # Model routing configuration -- hot-reloadable
 │   └── keycloak/
-│       └── summit-cap-realm.json  # Pre-configured Keycloak realm
+│       └── mortgage-ai-realm.json  # Pre-configured Keycloak realm
 ├── data/
 │   ├── compliance-kb/             # Compliance knowledge base source documents
 │   │   ├── tier1-federal/
@@ -116,7 +116,7 @@ plans/reviews/technical-design-phase-1-review-orchestrator.md
 | `DATABASE_URL` | Yes | PostgreSQL connection string (lending_app role) |
 | `HMDA_DATABASE_URL` | Yes | PostgreSQL connection string (compliance_app role) |
 | `KEYCLOAK_URL` | Yes | Keycloak server URL |
-| `KEYCLOAK_REALM` | No | Keycloak realm name (default: `summit-cap`) |
+| `KEYCLOAK_REALM` | No | Keycloak realm name (default: `mortgage-ai`) |
 | `LLAMASTACK_URL` | Yes | LlamaStack server endpoint |
 | `LANGFUSE_HOST` | No | LangFuse server URL (optional, degrades gracefully) |
 | `LANGFUSE_PUBLIC_KEY` | No | LangFuse public key |

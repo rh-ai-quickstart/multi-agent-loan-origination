@@ -54,9 +54,12 @@ RUN chmod -R g+rwx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /etc/nginx/
 RUN sed -i 's|/run/nginx.pid|/var/run/nginx/nginx.pid|' /etc/nginx/nginx.conf
 
 # Default API upstream -- override via env var in compose/k8s
-ENV API_UPSTREAM=summit-cap-api:8000
+ENV API_UPSTREAM=mortgage-ai-api:8000
 # Keycloak URL reachable from the browser (empty = dev mode / auth disabled in UI)
 ENV KEYCLOAK_EXTERNAL=""
+ENV KEYCLOAK_REALM=mortgage-ai
+ENV KEYCLOAK_CLIENT_ID=mortgage-ai-ui
+ENV COMPANY_NAME="Acme FinTech Company"
 
 # Expose port
 EXPOSE 8080

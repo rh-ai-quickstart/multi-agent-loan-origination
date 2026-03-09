@@ -11,6 +11,8 @@ from db import AuditEvent
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..core.config import settings
+
 # Canonical list of disclosures a borrower must acknowledge.
 # Content is simulated for demonstration purposes.
 REQUIRED_DISCLOSURES: list[dict[str, str]] = [
@@ -56,13 +58,13 @@ REQUIRED_DISCLOSURES: list[dict[str, str]] = [
         "id": "privacy_notice",
         "label": "Privacy Notice",
         "summary": (
-            "The Privacy Notice explains how Summit Cap Financial collects, "
+            f"The Privacy Notice explains how {settings.COMPANY_NAME} collects, "
             "uses, and protects your personal information."
         ),
         "content": (
             "PRIVACY NOTICE\n\n"
             "Simulated for demonstration purposes.\n\n"
-            "Summit Cap Financial is committed to protecting the privacy "
+            f"{settings.COMPANY_NAME} is committed to protecting the privacy "
             "and security of your personal information. This notice describes "
             "our practices regarding the collection, use, and disclosure of "
             "nonpublic personal information (NPI) as required by the "
@@ -85,7 +87,7 @@ REQUIRED_DISCLOSURES: list[dict[str, str]] = [
             "marketing purposes.\n\n"
             "YOUR RIGHTS: You have the right to opt out of certain "
             "information sharing, access your personal information, and "
-            "request corrections. Contact us at privacy@summit-cap.com "
+            "request corrections. Contact us at privacy@example.com "
             "to exercise these rights.\n\n"
             "DATA SECURITY: We maintain physical, electronic, and "
             "procedural safeguards to protect your information, including "
@@ -103,8 +105,8 @@ REQUIRED_DISCLOSURES: list[dict[str, str]] = [
         "content": (
             "HOME MORTGAGE DISCLOSURE ACT (HMDA) NOTICE\n\n"
             "Simulated for demonstration purposes.\n\n"
-            "The Home Mortgage Disclosure Act (HMDA) requires Summit Cap "
-            "Financial to collect and report certain information about "
+            f"The Home Mortgage Disclosure Act (HMDA) requires {settings.COMPANY_NAME} "
+            "to collect and report certain information about "
             "mortgage applications and loans. This data is used by federal "
             "regulators and the public to monitor whether financial "
             "institutions are serving the housing needs of their communities "
@@ -155,8 +157,8 @@ REQUIRED_DISCLOSURES: list[dict[str, str]] = [
             "evaluated based on your financial qualifications, not on "
             "prohibited factors listed above.\n\n"
             "2. RIGHT TO KNOW: If your application is denied, you have "
-            "the right to know the specific reasons for the denial. Summit "
-            "Cap Financial will provide a written notice of adverse action "
+            f"the right to know the specific reasons for the denial. {settings.COMPANY_NAME} "
+            "will provide a written notice of adverse action "
             "within 30 days of the decision.\n\n"
             "3. RIGHT TO INCOME CONSIDERATION: All reliable income must "
             "be considered, including part-time employment, retirement "

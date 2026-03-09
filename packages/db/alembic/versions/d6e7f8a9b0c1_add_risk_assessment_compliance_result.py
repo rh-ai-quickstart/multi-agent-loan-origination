@@ -95,11 +95,11 @@ def upgrade() -> None:
     op.execute("""
         DO $$
         BEGIN
-            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'summit_cap_app') THEN
-                EXECUTE 'GRANT SELECT, INSERT ON risk_assessments TO summit_cap_app';
-                EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE risk_assessments_id_seq TO summit_cap_app';
-                EXECUTE 'GRANT SELECT, INSERT ON compliance_results TO summit_cap_app';
-                EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE compliance_results_id_seq TO summit_cap_app';
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mortgage_ai_app') THEN
+                EXECUTE 'GRANT SELECT, INSERT ON risk_assessments TO mortgage_ai_app';
+                EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE risk_assessments_id_seq TO mortgage_ai_app';
+                EXECUTE 'GRANT SELECT, INSERT ON compliance_results TO mortgage_ai_app';
+                EXECUTE 'GRANT USAGE, SELECT ON SEQUENCE compliance_results_id_seq TO mortgage_ai_app';
             END IF;
         END $$;
     """)
