@@ -184,13 +184,18 @@ def build_routed_graph(
         the response is discarded and the graph escalates to
         agent_capable.
         """
-        llm_with_logprobs = fast_llm.bind(logprobs=True)
+        # TODO: re-enable logprobs once LiteLLM proxy fixes MockValSer
+        # Pydantic serialization bug in streaming responses with logprobs.
+        # When re-enabling, also unskip test_fast_model_low_logprobs_escalates
+        # in tests/test_chat.py.
+        # llm_with_logprobs = fast_llm.bind(logprobs=True)
         messages = [SystemMessage(content=system_prompt), *state["messages"]]
-        response = await llm_with_logprobs.ainvoke(messages)
+        # response = await llm_with_logprobs.ainvoke(messages)
+        response = await fast_llm.ainvoke(messages)
 
-        if _low_confidence(response):
-            logger.info("Fast model low confidence, escalating to capable_large")
-            return {"escalated": True}
+        # if _low_confidence(response):
+        #     logger.info("Fast model low confidence, escalating to capable_large")
+        #     return {"escalated": True}
 
         return {"messages": [response]}
 

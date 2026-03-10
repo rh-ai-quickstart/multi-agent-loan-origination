@@ -203,7 +203,8 @@ async def run_agent_stream(
     agent_task: asyncio.Task | None = None
 
     async def _run_agent(user_text: str, input_messages: list) -> str:
-        """Run the agent graph and stream events back to the client.
+        """Run the agent graph and buffer the response until the output
+        shield has passed before sending anything to the client.
 
         Returns the full (unfiltered) response text.
         """
@@ -213,6 +214,11 @@ async def run_agent_stream(
         }
 
         full_response = ""
+        # Buffer tokens until output shield passes -- never stream
+        # tokens to the client before the safety check completes.
+        buffered_tokens: list[str] = []
+        safety_blocked = False
+        safety_override_content = ""
         think_filter = ThinkTagFilter()
         async for event in graph.astream_events(
             {
@@ -238,12 +244,15 @@ async def run_agent_stream(
                     clean = think_filter.feed(chunk.content)
                     if clean:
                         clean = clean.replace("**", "")
-                        await _send({"type": "token", "content": clean})
+                        # Buffer instead of sending immediately:
+                        # await _send({"type": "token", "content": clean})
+                        buffered_tokens.append(clean)
                     full_response += chunk.content
 
             elif kind == "on_chain_end" and node == "input_shield":
                 output = event.get("data", {}).get("output")
                 if isinstance(output, dict) and output.get("safety_blocked"):
+                    # Input blocked -- send immediately (no LLM response to leak)
                     for msg in output.get("messages", []):
                         if hasattr(msg, "content") and msg.content:
                             await _send({"type": "token", "content": msg.content})
@@ -281,13 +290,24 @@ async def run_agent_stream(
                 if isinstance(output, dict):
                     shield_msgs = output.get("messages", [])
                     if shield_msgs:
-                        override = shield_msgs[-1].content
-                        await _send({"type": "safety_override", "content": override})
-                        full_response = override
+                        safety_blocked = True
+                        safety_override_content = shield_msgs[-1].content
                         await _audit(
                             "safety_block",
                             {"shield": "output", "blocked": True},
                         )
+
+        # Output shield has now completed -- send the response to the client.
+        if safety_blocked:
+            await _send({"type": "token", "content": safety_override_content})
+            full_response = safety_override_content
+        else:
+            # Send buffered response as a single token. Sending individual
+            # tokens in a tight loop causes a React state batching race:
+            # the 'done' handler clears streamBufferRef before React flushes
+            # the batched setMessages callbacks from token handlers.
+            if buffered_tokens:
+                await _send({"type": "token", "content": "".join(buffered_tokens)})
 
         return full_response
 
@@ -379,15 +399,19 @@ async def run_agent_stream(
                 )
                 continue
 
-            # Strip think tags and markdown bold markers from accumulated response
+            # Strip think tags, markdown bold markers, and stray tool-call
+            # text that small models (e.g. Llama) sometimes emit inline
+            # instead of using the structured tool-calling format.
             full_response = re.sub(r"<think>.*?</think>", "", full_response, flags=re.DOTALL)
-            full_response = full_response.replace("**", "").strip()
+            full_response = full_response.replace("**", "")
+            full_response = re.sub(r"\[[^\]]*\w+\(.*?\)[^\]]*\]", "", full_response)
+            full_response = full_response.strip()
 
             # Without checkpointer, manually track history for this session
             if not use_checkpointer and full_response:
                 messages_fallback.append(AIMessage(content=full_response))
 
-            await _send({"type": "done"})
+            await _send({"type": "done", "content": full_response})
 
     except Exception as exc:
         from fastapi import WebSocketDisconnect

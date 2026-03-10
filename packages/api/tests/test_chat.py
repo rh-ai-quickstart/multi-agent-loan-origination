@@ -295,6 +295,9 @@ async def test_simple_query_uses_fast_model(_fresh_graph, monkeypatch):
     mock_capable.ainvoke.assert_not_awaited()
 
 
+@pytest.mark.skip(
+    reason="Logprobs/escalation disabled -- LiteLLM MockValSer bug. Re-enable with confidence escalation in base.py agent_fast."
+)
 @pytest.mark.asyncio
 async def test_fast_model_low_logprobs_escalates(_fresh_graph, monkeypatch):
     """should escalate to capable when fast model response has low logprobs."""
@@ -348,6 +351,9 @@ async def test_fast_model_low_logprobs_escalates(_fresh_graph, monkeypatch):
     mock_capable.ainvoke.assert_awaited_once()
 
 
+@pytest.mark.skip(
+    reason="Logprobs/escalation disabled -- LiteLLM MockValSer bug. Re-enable with confidence escalation in base.py agent_fast."
+)
 @pytest.mark.asyncio
 async def test_fast_model_hedging_escalates(_fresh_graph, monkeypatch):
     """should escalate to capable when fast model uses multiple hedging phrases."""

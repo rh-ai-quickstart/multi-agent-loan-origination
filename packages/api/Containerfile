@@ -54,9 +54,11 @@ WORKDIR /app/packages/api
 
 # HuggingFace model cache -- sentence-transformers downloads models here
 ENV HF_HOME=/app/.cache/huggingface
+RUN mkdir -p /app/.cache/huggingface
 
-# Set ownership
-RUN chown -R appuser:appuser /app
+# Set ownership -- use group 0 (root) with g+w so OpenShift's arbitrary
+# UIDs (restricted SCC) can write to the cache directory.
+RUN chown -R appuser:0 /app && chmod -R g+w /app/.cache
 
 # Switch to non-root user
 USER appuser

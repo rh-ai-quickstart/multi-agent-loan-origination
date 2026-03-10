@@ -127,10 +127,10 @@ api:
   replicas: 1
   resources:
     requests:
-      memory: "256Mi"
+      memory: "1Gi"
       cpu: "200m"
     limits:
-      memory: "768Mi"
+      memory: "2Gi"
       cpu: "1000m"
   healthCheck:
     enabled: true
