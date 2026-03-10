@@ -22,7 +22,7 @@ CONTAINER_CLI ?= $(shell command -v podman >/dev/null 2>&1 && echo "podman" || e
 
 # Override with: make push-images REGISTRY=my-registry.example.com REGISTRY_NS=my-org
 REGISTRY    ?= quay.io
-REGISTRY_NS ?= mortgage-ai
+REGISTRY_NS ?= jary
 
 # -- Deployment configuration (OpenShift targets only) -----------------------
 

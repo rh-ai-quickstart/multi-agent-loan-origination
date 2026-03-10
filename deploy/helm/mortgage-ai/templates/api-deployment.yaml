@@ -95,6 +95,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: DEBUG
+            - name: COMPANY_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: COMPANY_NAME
             - name: ALLOWED_HOSTS
               valueFrom:
                 secretKeyRef:
