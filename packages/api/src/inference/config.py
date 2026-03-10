@@ -34,12 +34,17 @@ _REMOTE_PROVIDERS = {"openai_compatible"}
 
 
 def _substitute_env_vars(value: str) -> str:
-    """Replace ${VAR:-default} patterns with environment values."""
+    """Replace ${VAR:-default} patterns with environment values.
+
+    Follows bash ``:-`` semantics: the default is used when the variable
+    is **unset or empty**.  This matters when Helm/k8s injects env vars
+    with empty-string values for optional config.
+    """
 
     def _replace(match: re.Match) -> str:
         var_name = match.group(1)
         default = match.group(2) or ""
-        return os.environ.get(var_name, default)
+        return os.environ.get(var_name) or default
 
     return _ENV_VAR_PATTERN.sub(_replace, value)
 

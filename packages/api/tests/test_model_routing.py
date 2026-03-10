@@ -146,6 +146,17 @@ def test_env_var_uses_default_when_unset():
     assert result["endpoint"] == "http://fallback"
 
 
+def test_env_var_uses_default_when_empty(monkeypatch):
+    """Should use the default when env var is set to empty string.
+
+    Helm/k8s sets optional config to empty strings. The :- operator
+    must treat empty the same as unset (matching bash semantics).
+    """
+    monkeypatch.setenv("EMPTY_TEST_VAR", "")
+    result = _resolve_env_vars({"model": "${EMPTY_TEST_VAR:-fallback-model}"})
+    assert result["model"] == "fallback-model"
+
+
 # -- Query classification --
 
 
