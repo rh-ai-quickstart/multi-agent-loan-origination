@@ -399,15 +399,19 @@ async def run_agent_stream(
                 )
                 continue
 
-            # Strip think tags and markdown bold markers from accumulated response
+            # Strip think tags, markdown bold markers, and stray tool-call
+            # text that small models (e.g. Llama) sometimes emit inline
+            # instead of using the structured tool-calling format.
             full_response = re.sub(r"<think>.*?</think>", "", full_response, flags=re.DOTALL)
-            full_response = full_response.replace("**", "").strip()
+            full_response = full_response.replace("**", "")
+            full_response = re.sub(r"\[[^\]]*\w+\(.*?\)[^\]]*\]", "", full_response)
+            full_response = full_response.strip()
 
             # Without checkpointer, manually track history for this session
             if not use_checkpointer and full_response:
                 messages_fallback.append(AIMessage(content=full_response))
 
-            await _send({"type": "done"})
+            await _send({"type": "done", "content": full_response})
 
     except Exception as exc:
         from fastapi import WebSocketDisconnect

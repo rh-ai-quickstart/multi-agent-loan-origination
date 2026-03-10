@@ -97,14 +97,18 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                 if (!mountedRef.current) return;
 
                 switch (msg.type) {
-                    case 'token':
+                    case 'token': {
                         streamBufferRef.current += msg.content ?? '';
+                        // Capture value now -- if React batches this with the
+                        // "done" handler (Firefox does), the ref will already
+                        // be cleared by the time the state updater runs.
+                        const snapshot = streamBufferRef.current;
                         setMessages((prev) => {
                             const last = prev[prev.length - 1];
                             if (last?.role === 'assistant' && isStreamingMsg(last)) {
                                 return [
                                     ...prev.slice(0, -1),
-                                    { ...last, content: streamBufferRef.current },
+                                    { ...last, content: snapshot },
                                 ];
                             }
                             return [
@@ -112,13 +116,14 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                                 {
                                     id: uuid(),
                                     role: 'assistant',
-                                    content: streamBufferRef.current,
+                                    content: snapshot,
                                     timestamp: new Date(),
                                     _streaming: true,
                                 },
                             ];
                         });
                         break;
+                    }
 
                     case 'tool_start':
                         if (msg.tool_name) {
@@ -138,24 +143,38 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                         }
                         break;
 
-                    case 'done':
+                    case 'done': {
+                        // The server includes the final content in the done
+                        // message so we don't depend on the token message
+                        // having been processed first (Firefox microtask race).
+                        const doneContent = msg.content ?? streamBufferRef.current;
                         setMessages((prev) => {
                             const last = prev[prev.length - 1];
                             if (last?.role === 'assistant') {
-                                const updated = { ...last };
+                                const updated = { ...last, content: doneContent };
                                 if (currentToolCallsRef.current.length > 0) {
                                     updated.toolCalls = [...currentToolCallsRef.current];
                                 }
                                 delete (updated as Record<string, unknown>)['_streaming'];
                                 return [...prev.slice(0, -1), updated];
                             }
-                            return prev;
+                            // No assistant message yet -- create one with the content
+                            return [
+                                ...prev,
+                                {
+                                    id: uuid(),
+                                    role: 'assistant' as const,
+                                    content: doneContent,
+                                    timestamp: new Date(),
+                                },
+                            ];
                         });
                         streamBufferRef.current = '';
                         currentToolCallsRef.current = [];
                         setIsStreaming(false);
                         window.dispatchEvent(new Event('chat-done'));
                         break;
+                    }
 
                     case 'safety_override':
                         setMessages((prev) => {
