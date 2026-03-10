@@ -114,24 +114,6 @@ cd packages/api && uv run ruff check src/  # Python lint
 pnpm --filter ui lint           # UI lint (ESLint)
 ```
 
-## Planning Artifacts
-
-Existing planning artifacts in `plans/`:
-
-| Artifact | Path | Status |
-|----------|------|--------|
-| Product plan | `plans/product-plan.md` | Complete |
-| Architecture | `plans/architecture.md` | Complete (v1.3) |
-| Requirements (master) | `plans/requirements.md` | Complete |
-| Requirements (Phase 1 - Foundation) | `plans/requirements-chunk-1-foundation.md` | Complete |
-| Requirements (Phase 2 - Borrower) | `plans/requirements-chunk-2-borrower.md` | Complete |
-| Requirements (Phase 3 - Loan Officer) | `plans/requirements-chunk-3-loan-officer.md` | Complete |
-| Requirements (Phase 4 - Underwriting) | `plans/requirements-chunk-4-underwriting.md` | Complete |
-| Requirements (Phase 5 - Executive) | `plans/requirements-chunk-5-executive.md` | Complete |
-| Interface contracts (Phase 1) | `plans/interface-contracts-phase-1.md` | Complete |
-| Demo walkthrough | `plans/demo-walkthrough.md` | Complete |
-| Ideas backlog | `plans/ideas-backlog.md` | Active |
-
 ## Stakeholder Preferences
 
 | Preference | Evidence |
