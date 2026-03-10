@@ -202,8 +202,9 @@ When `AUTH_DISABLED=true`, all authenticated endpoints return a development user
 **Model Tiers:**
 - Fast tier: text-only responses for simple queries (no tools)
 - Capable tier: tool-calling for complex queries
+- Embedding tier: vector embeddings for compliance KB search (defaults to in-process `nomic-ai/nomic-embed-text-v1.5` via sentence-transformers; no external service needed)
 - Confidence escalation: fast responses with low confidence auto-escalate to capable
-- Configurable via `LLM_MODEL_FAST` and `LLM_MODEL_CAPABLE` env vars
+- Configurable via `LLM_MODEL_FAST`, `LLM_MODEL_CAPABLE`, and `EMBEDDING_*` env vars
 
 **Safety Shields:**
 - Optional Llama Guard integration (input/output)
@@ -229,6 +230,12 @@ Environment variables loaded via Pydantic Settings (`src/core/config.py`). See `
 - `LLM_BASE_URL`, `LLM_API_KEY` - OpenAI-compatible endpoint
 - `LLM_MODEL_FAST`, `LLM_MODEL_CAPABLE` - Model names for routing
 - `SAFETY_MODEL`, `SAFETY_ENDPOINT` - Llama Guard (optional)
+
+**Embedding (optional -- defaults to local, no config needed):**
+- `EMBEDDING_PROVIDER` - `local` (default, in-process) or `openai_compatible` (remote endpoint)
+- `EMBEDDING_MODEL` - Model name (default: `nomic-ai/nomic-embed-text-v1.5`)
+- `EMBEDDING_BASE_URL` - Remote endpoint URL (only needed when provider is `openai_compatible`; falls back to `LLM_BASE_URL`)
+- `EMBEDDING_API_KEY` - Remote endpoint API key (only needed when provider is `openai_compatible`; falls back to `LLM_API_KEY`)
 
 **Observability:**
 - `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` - LangFuse (optional)

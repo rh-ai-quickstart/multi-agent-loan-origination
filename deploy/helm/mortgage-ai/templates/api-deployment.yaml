@@ -185,6 +185,21 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: EMBEDDING_MODEL
+            - name: EMBEDDING_PROVIDER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: EMBEDDING_PROVIDER
+            - name: EMBEDDING_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: EMBEDDING_BASE_URL
+            - name: EMBEDDING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: EMBEDDING_API_KEY
             - name: SAFETY_MODEL
               valueFrom:
                 secretKeyRef:

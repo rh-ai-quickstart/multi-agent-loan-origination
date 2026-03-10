@@ -53,11 +53,15 @@ async def get_completion(
 
 
 async def get_embeddings(texts: list[str], tier: str = "embedding") -> list[list[float]]:
-    """Get embeddings for a list of texts from the specified model tier."""
-    client = _get_client(tier)
-    model_cfg = get_model_config(tier)
-    response = await client.embeddings.create(model=model_cfg["model_name"], input=texts)
-    return [item.embedding for item in response.data]
+    """Get embeddings for a list of texts from the configured provider.
+
+    The provider (local sentence-transformers or remote OpenAI-compatible)
+    is determined by the ``embedding`` model config in ``config/models.yaml``.
+    """
+    from .embeddings import get_embedding_provider
+
+    provider = get_embedding_provider()
+    return await provider.embed(texts)
 
 
 async def get_streaming_completion(

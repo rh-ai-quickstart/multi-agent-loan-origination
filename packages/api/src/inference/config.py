@@ -28,16 +28,23 @@ _cached_mtime: float = 0.0
 
 _ENV_VAR_PATTERN = re.compile(r"\$\{(\w+)(?::-(.*?))?\}")
 
-REQUIRED_MODEL_FIELDS = {"provider", "model_name", "endpoint"}
+REQUIRED_MODEL_FIELDS = {"provider", "model_name"}
+# Remote providers also need an endpoint
+_REMOTE_PROVIDERS = {"openai_compatible"}
 
 
 def _substitute_env_vars(value: str) -> str:
-    """Replace ${VAR:-default} patterns with environment values."""
+    """Replace ${VAR:-default} patterns with environment values.
+
+    Follows bash ``:-`` semantics: the default is used when the variable
+    is **unset or empty**.  This matters when Helm/k8s injects env vars
+    with empty-string values for optional config.
+    """
 
     def _replace(match: re.Match) -> str:
         var_name = match.group(1)
         default = match.group(2) or ""
-        return os.environ.get(var_name, default)
+        return os.environ.get(var_name) or default
 
     return _ENV_VAR_PATTERN.sub(_replace, value)
 
@@ -75,6 +82,10 @@ def _validate_config(config: dict[str, Any]) -> None:
         missing = REQUIRED_MODEL_FIELDS - set(model.keys())
         if missing:
             raise ValueError(f"Model '{name}' is missing required fields: {missing}")
+        # Remote providers also require an endpoint
+        provider = model.get("provider", "openai_compatible")
+        if provider in _REMOTE_PROVIDERS and "endpoint" not in model:
+            raise ValueError(f"Model '{name}' with provider '{provider}' requires 'endpoint'")
 
 
 def load_config(path: Path | None = None) -> dict[str, Any]:
@@ -113,6 +124,11 @@ def get_config(path: Path | None = None) -> dict[str, Any]:
             from .client import clear_client_cache
 
             clear_client_cache()
+
+            # Reset the embedding provider so it picks up new config
+            from .embeddings import reset_embedding_provider
+
+            reset_embedding_provider()
         except (yaml.YAMLError, ValueError) as exc:
             if _cached_config is not None:
                 logger.warning("Failed to reload config (%s), keeping last valid config", exc)

@@ -52,6 +52,9 @@ COPY data/ ./data/
 # Set working directory to API package
 WORKDIR /app/packages/api
 
+# HuggingFace model cache -- sentence-transformers downloads models here
+ENV HF_HOME=/app/.cache/huggingface
+
 # Set ownership
 RUN chown -R appuser:appuser /app
 

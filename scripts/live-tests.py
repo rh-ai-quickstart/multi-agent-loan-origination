@@ -947,8 +947,12 @@ async def test_embedding_model(c: httpx.AsyncClient):
     """Test the embedding model tier directly and via KB search.
 
     The embedding model (nomic-embed-text-v1.5) is exercised two ways:
-    1. Direct: call the OpenAI-compatible /v1/embeddings endpoint
+    1. Direct: call the OpenAI-compatible /v1/embeddings endpoint (remote only)
     2. Indirect: verify KB chunks were ingested with embeddings
+
+    When the provider is ``local`` (in-process sentence-transformers), the
+    direct endpoint test is skipped because there is no remote server.
+    The KB data verification still confirms embeddings were generated.
 
     The KB search path (agent tool -> get_embeddings -> pgvector cosine
     similarity) is exercised during agent chats. Here we verify the
@@ -957,9 +961,8 @@ async def test_embedding_model(c: httpx.AsyncClient):
     """
     section("Embedding Model + Compliance KB")
 
-    # 1. Direct embedding endpoint test
+    # 1. Direct embedding endpoint test (remote provider only)
     # Read the embedding config from the models.yaml via the running app
-    # The app uses the same endpoint for embeddings as for chat
     import yaml
     from pathlib import Path
 
@@ -968,6 +971,7 @@ async def test_embedding_model(c: httpx.AsyncClient):
         raw = config_path.read_text()
         config = yaml.safe_load(raw)
         emb_cfg = config.get("models", {}).get("embedding", {})
+        provider = emb_cfg.get("provider", "openai_compatible")
         endpoint = emb_cfg.get("endpoint", "")
         model_name = emb_cfg.get("model_name", "")
         api_key = emb_cfg.get("api_key", "not-needed")
@@ -981,15 +985,19 @@ async def test_embedding_model(c: httpx.AsyncClient):
                 lambda m: os.environ.get(m.group(1), m.group(2) or ""),
                 s,
             )
+        provider = resolve(provider)
         endpoint = resolve(endpoint)
         model_name = resolve(model_name)
         api_key = resolve(api_key)
 
         ok("embedding config loaded",
-           bool(endpoint and model_name),
-           f"endpoint={endpoint}, model={model_name}")
+           bool(model_name),
+           f"provider={provider}, model={model_name}")
 
-        if endpoint and model_name:
+        if provider == "local":
+            print("    SKIP  direct embedding call (provider=local, in-process)")
+            print("          Verifying embedding model indirectly via KB chunk data instead.")
+        elif endpoint and model_name:
             # Call embedding endpoint directly.
             # The API key may be set via env var at server startup but not
             # available to this test script. Try the resolved key first,

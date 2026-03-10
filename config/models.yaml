@@ -94,9 +94,11 @@ models:
     endpoint: "${LLM_BASE_URL:-https://api.openai.com/v1}"
     api_key: "${LLM_API_KEY:-not-needed}"
   embedding:
-    provider: openai_compatible
-    model_name: "${EMBEDDING_MODEL:-nomic-embed-text-v1.5}"
+    provider: "${EMBEDDING_PROVIDER:-local}"
+    model_name: "${EMBEDDING_MODEL:-nomic-ai/nomic-embed-text-v1.5}"
     description: "Embedding model for compliance KB vector search"
-    endpoint: "${LLM_BASE_URL:-https://api.openai.com/v1}"
-    api_key: "${LLM_API_KEY:-not-needed}"
+    # Used only when provider=openai_compatible. Set EMBEDDING_BASE_URL to
+    # override; falls back to LLM_BASE_URL if unset.
+    endpoint: "${EMBEDDING_BASE_URL:-https://api.openai.com/v1}"
+    api_key: "${EMBEDDING_API_KEY:-not-needed}"
     dimensions: 768

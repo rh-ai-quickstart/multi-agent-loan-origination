@@ -75,6 +75,46 @@ def test_load_config_rejects_missing_model_fields(tmp_path):
         load_config(cfg)
 
 
+def test_load_config_rejects_remote_model_without_endpoint(tmp_path):
+    """Should reject an openai_compatible model that has no endpoint."""
+    cfg = tmp_path / "models.yaml"
+    cfg.write_text(
+        textwrap.dedent("""\
+        routing:
+          default_tier: fast_small
+        models:
+          fast_small:
+            provider: openai_compatible
+            model_name: test-model
+        """)
+    )
+    with pytest.raises(ValueError, match="requires 'endpoint'"):
+        load_config(cfg)
+
+
+def test_load_config_accepts_local_model_without_endpoint(tmp_path):
+    """Local provider models do not need an endpoint."""
+    cfg = tmp_path / "models.yaml"
+    cfg.write_text(
+        textwrap.dedent("""\
+        routing:
+          default_tier: fast_small
+        models:
+          fast_small:
+            provider: openai_compatible
+            model_name: test-model
+            endpoint: http://localhost:8000/v1
+          embedding:
+            provider: local
+            model_name: nomic-ai/nomic-embed-text-v1.5
+            dimensions: 768
+        """)
+    )
+    config = load_config(cfg)
+    assert config["models"]["embedding"]["provider"] == "local"
+    assert "endpoint" not in config["models"]["embedding"]
+
+
 def test_load_config_rejects_bad_default_tier(tmp_path):
     """Should reject default_tier pointing to nonexistent model."""
     cfg = tmp_path / "models.yaml"
@@ -104,6 +144,17 @@ def test_env_var_uses_default_when_unset():
     """Should use the default when env var is not set."""
     result = _resolve_env_vars({"endpoint": "${DEFINITELY_UNSET_VAR:-http://fallback}"})
     assert result["endpoint"] == "http://fallback"
+
+
+def test_env_var_uses_default_when_empty(monkeypatch):
+    """Should use the default when env var is set to empty string.
+
+    Helm/k8s sets optional config to empty strings. The :- operator
+    must treat empty the same as unset (matching bash semantics).
+    """
+    monkeypatch.setenv("EMPTY_TEST_VAR", "")
+    result = _resolve_env_vars({"model": "${EMPTY_TEST_VAR:-fallback-model}"})
+    assert result["model"] == "fallback-model"
 
 
 # -- Query classification --

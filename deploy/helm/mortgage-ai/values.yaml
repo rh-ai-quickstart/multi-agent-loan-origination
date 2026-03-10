@@ -49,7 +49,14 @@ secrets:
   LLM_BASE_URL: "http://vllm:8000/v1"
   LLM_MODEL_FAST: "gpt-4o-mini"
   LLM_MODEL_CAPABLE: "gpt-4o-mini"
+  # Embedding model -- defaults to in-process sentence-transformers.
+  # Leave these empty to use the built-in local provider (no external
+  # service needed). To use a remote OpenAI-compatible endpoint instead,
+  # set EMBEDDING_PROVIDER to "openai_compatible" and provide the URL.
   EMBEDDING_MODEL: ""
+  EMBEDDING_PROVIDER: ""
+  EMBEDDING_BASE_URL: ""
+  EMBEDDING_API_KEY: ""
 
   # Safety / Shields (optional)
   SAFETY_MODEL: ""
