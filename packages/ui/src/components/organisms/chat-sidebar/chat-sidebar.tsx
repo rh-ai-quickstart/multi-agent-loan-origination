@@ -5,7 +5,7 @@ import { useLocation } from '@tanstack/react-router';
 import { MessageSquare, Send, Loader2, X, Trash2 } from 'lucide-react';
 import { useChat } from '@/hooks/use-chat';
 import { useAuth } from '@/contexts/auth-context';
-import { ChatBubble, TypingIndicator } from '@/components/atoms/chat-bubble/chat-bubble';
+import { ChatBubble } from '@/components/atoms/chat-bubble/chat-bubble';
 import { cn } from '@/lib/utils';
 
 function useCurrentAppId(): string | undefined {
@@ -174,9 +174,6 @@ export function ChatSidebar() {
                     <ChatBubble key={msg.id} message={msg} />
                 ))}
 
-                {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
-                    <TypingIndicator />
-                )}
             </div>
 
             {/* Input */}
@@ -195,7 +192,6 @@ export function ChatSidebar() {
                         }}
                         onKeyDown={handleKeyDown}
                         placeholder="Type your message..."
-                        disabled={isStreaming}
                         rows={1}
                         className="flex-1 resize-none bg-transparent text-sm leading-snug text-foreground outline-none placeholder:text-muted-foreground"
                     />

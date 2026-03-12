@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { MessageSquare, X, Send, Loader2 } from 'lucide-react';
 import { useChat } from '@/hooks/use-chat';
 import { useChatContext } from '@/contexts/chat-context';
-import { ChatBubble, TypingIndicator } from '@/components/atoms/chat-bubble/chat-bubble';
+import { ChatBubble } from '@/components/atoms/chat-bubble/chat-bubble';
 import { cn } from '@/lib/utils';
 
 export function ChatPanel() {
@@ -137,9 +137,6 @@ export function ChatPanel() {
                     <ChatBubble key={msg.id} message={msg} />
                 ))}
 
-                {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
-                    <TypingIndicator />
-                )}
             </div>
 
             {/* Input */}
@@ -152,7 +149,6 @@ export function ChatPanel() {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="Type your message..."
-                        disabled={isStreaming}
                         className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
                     />
                     <button
