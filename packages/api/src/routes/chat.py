@@ -3,9 +3,7 @@
 
 Protocol:
   Client sends:  {"type": "message", "content": "user text"}
-  Server sends:  {"type": "token", "content": "..."} (streamed)
-                 {"type": "safety_override", "content": "..."} (output shield replaced response)
-                 {"type": "done"} (end of response)
+  Server sends:  {"type": "done", "content": "..."} (complete response after safety check)
                  {"type": "error", "content": "..."} (on failure)
 
 Audit events are written with the same session_id used for LangFuse traces,

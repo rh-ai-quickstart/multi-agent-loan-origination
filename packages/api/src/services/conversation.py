@@ -11,6 +11,7 @@ Prospects get ephemeral (random UUID) thread IDs that are never resumed.
 """
 
 import logging
+import re
 from typing import Any
 
 from psycopg.rows import dict_row
@@ -209,6 +210,12 @@ class ConversationService:
                 else:
                     continue  # skip tool, system, and function messages
                 content = getattr(msg, "content", str(msg))
+                if content and role == "assistant":
+                    # Clean LLM artifacts that were stored raw in checkpoints
+                    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL)
+                    content = content.replace("**", "")
+                    content = re.sub(r"\[[^\]]*\w+\(.*?\)[^\]]*\]", "", content)
+                    content = content.strip()
                 if content:
                     result.append({"role": role, "content": content})
             return result

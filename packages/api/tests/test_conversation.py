@@ -204,3 +204,118 @@ class TestClearConversation:
 
         result = await service.clear_conversation("user:test:agent:uw")
         assert result is False
+
+
+class TestGetConversationHistory:
+    """Tests for ConversationService.get_conversation_history()."""
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_not_initialized(self):
+        """should return empty list when service is not initialized."""
+        service = ConversationService()
+        result = await service.get_conversation_history("any-thread")
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_cleans_think_tags_from_assistant_messages(self):
+        """should strip <think> blocks from stored assistant content."""
+        service = ConversationService()
+        service._initialized = True
+
+        mock_ai = MagicMock()
+        mock_ai.type = "ai"
+        mock_ai.content = "<think>reasoning</think>\n\nHere is the answer."
+
+        mock_human = MagicMock()
+        mock_human.type = "human"
+        mock_human.content = "What are your rates?"
+
+        mock_checkpoint = {
+            "channel_values": {"messages": [mock_human, mock_ai]},
+        }
+        mock_tuple = MagicMock()
+        mock_tuple.checkpoint = mock_checkpoint
+
+        mock_saver = AsyncMock()
+        mock_saver.aget_tuple.return_value = mock_tuple
+        service._checkpointer = mock_saver
+
+        result = await service.get_conversation_history("user:test:agent:pub")
+
+        assert len(result) == 2
+        assert result[0] == {"role": "user", "content": "What are your rates?"}
+        assert result[1] == {"role": "assistant", "content": "Here is the answer."}
+
+    @pytest.mark.asyncio
+    async def test_cleans_bold_and_tool_calls_from_history(self):
+        """should strip bold markers and inline tool calls from assistant content."""
+        service = ConversationService()
+        service._initialized = True
+
+        mock_ai = MagicMock()
+        mock_ai.type = "ai"
+        mock_ai.content = "**Great!** [tool_call(x=1)] Here are the results."
+
+        mock_checkpoint = {
+            "channel_values": {"messages": [mock_ai]},
+        }
+        mock_tuple = MagicMock()
+        mock_tuple.checkpoint = mock_checkpoint
+
+        mock_saver = AsyncMock()
+        mock_saver.aget_tuple.return_value = mock_tuple
+        service._checkpointer = mock_saver
+
+        result = await service.get_conversation_history("user:test:agent:pub")
+
+        assert len(result) == 1
+        assert result[0]["content"] == "Great!  Here are the results."
+
+    @pytest.mark.asyncio
+    async def test_skips_empty_assistant_messages_after_cleaning(self):
+        """should omit assistant messages that become empty after cleaning."""
+        service = ConversationService()
+        service._initialized = True
+
+        mock_ai = MagicMock()
+        mock_ai.type = "ai"
+        mock_ai.content = "<think>only thinking</think>"
+
+        mock_checkpoint = {
+            "channel_values": {"messages": [mock_ai]},
+        }
+        mock_tuple = MagicMock()
+        mock_tuple.checkpoint = mock_checkpoint
+
+        mock_saver = AsyncMock()
+        mock_saver.aget_tuple.return_value = mock_tuple
+        service._checkpointer = mock_saver
+
+        result = await service.get_conversation_history("user:test:agent:pub")
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_does_not_clean_user_messages(self):
+        """should leave user message content untouched."""
+        service = ConversationService()
+        service._initialized = True
+
+        mock_human = MagicMock()
+        mock_human.type = "human"
+        mock_human.content = "Tell me about **FHA loans** <think>test</think>"
+
+        mock_checkpoint = {
+            "channel_values": {"messages": [mock_human]},
+        }
+        mock_tuple = MagicMock()
+        mock_tuple.checkpoint = mock_checkpoint
+
+        mock_saver = AsyncMock()
+        mock_saver.aget_tuple.return_value = mock_tuple
+        service._checkpointer = mock_saver
+
+        result = await service.get_conversation_history("user:test:agent:pub")
+
+        assert len(result) == 1
+        assert result[0]["content"] == "Tell me about **FHA loans** <think>test</think>"

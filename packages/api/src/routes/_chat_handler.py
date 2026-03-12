@@ -30,55 +30,6 @@ from ..services.conversation import ConversationService, get_conversation_servic
 logger = logging.getLogger(__name__)
 
 
-class ThinkTagFilter:
-    """Streaming filter that suppresses <think>...</think> blocks.
-
-    Reasoning models (e.g. Qwen3) emit chain-of-thought wrapped in
-    ``<think>`` tags.  This filter buffers across chunk boundaries so
-    tags that arrive split across multiple tokens are still caught.
-    """
-
-    def __init__(self) -> None:
-        self._inside = False
-        self._buf = ""
-
-    def feed(self, text: str) -> str:
-        """Feed a chunk and return the portion to send to the client."""
-        self._buf += text
-        out: list[str] = []
-
-        while self._buf:
-            if self._inside:
-                end = self._buf.find("</think>")
-                if end == -1:
-                    # Might be a partial closing tag at the tail
-                    if self._buf.endswith(("<", "</", "</t", "</th", "</thi", "</thin", "</think")):
-                        break  # hold buffer until more data arrives
-                    self._buf = ""
-                    break
-                # Skip everything up to and including </think>
-                self._buf = self._buf[end + len("</think>") :]
-                self._inside = False
-            else:
-                start = self._buf.find("<think>")
-                if start == -1:
-                    # Check for partial opening tag at the tail
-                    for i in range(1, min(len("<think>"), len(self._buf) + 1)):
-                        if self._buf.endswith("<think>"[:i]):
-                            out.append(self._buf[: len(self._buf) - i])
-                            self._buf = self._buf[len(self._buf) - i :]
-                            break
-                    else:
-                        out.append(self._buf)
-                        self._buf = ""
-                    break
-                out.append(self._buf[:start])
-                self._buf = self._buf[start + len("<think>") :]
-                self._inside = True
-
-        return "".join(out)
-
-
 async def authenticate_websocket(
     ws: WebSocket,
     required_role: UserRole | None = None,
@@ -203,10 +154,12 @@ async def run_agent_stream(
     agent_task: asyncio.Task | None = None
 
     async def _run_agent(user_text: str, input_messages: list) -> str:
-        """Run the agent graph and buffer the response until the output
-        shield has passed before sending anything to the client.
+        """Run the agent graph, buffering until the output shield completes.
 
-        Returns the full (unfiltered) response text.
+        No messages are sent to the client from here -- the caller handles
+        cleanup and sends a single ``done`` message with the final content.
+
+        Returns the raw response text (caller applies cleanup).
         """
         config = {
             **build_langfuse_config(session_id=session_id),
@@ -214,12 +167,8 @@ async def run_agent_stream(
         }
 
         full_response = ""
-        # Buffer tokens until output shield passes -- never stream
-        # tokens to the client before the safety check completes.
-        buffered_tokens: list[str] = []
         safety_blocked = False
         safety_override_content = ""
-        think_filter = ThinkTagFilter()
         async for event in graph.astream_events(
             {
                 "messages": input_messages,
@@ -241,21 +190,13 @@ async def run_agent_stream(
             ):
                 chunk = event.get("data", {}).get("chunk")
                 if isinstance(chunk, AIMessageChunk) and chunk.content:
-                    clean = think_filter.feed(chunk.content)
-                    if clean:
-                        clean = clean.replace("**", "")
-                        # Buffer instead of sending immediately:
-                        # await _send({"type": "token", "content": clean})
-                        buffered_tokens.append(clean)
                     full_response += chunk.content
 
             elif kind == "on_chain_end" and node == "input_shield":
                 output = event.get("data", {}).get("output")
                 if isinstance(output, dict) and output.get("safety_blocked"):
-                    # Input blocked -- send immediately (no LLM response to leak)
                     for msg in output.get("messages", []):
                         if hasattr(msg, "content") and msg.content:
-                            await _send({"type": "token", "content": msg.content})
                             full_response = msg.content
                     await _audit("safety_block", {"shield": "input", "blocked": True})
 
@@ -297,17 +238,8 @@ async def run_agent_stream(
                             {"shield": "output", "blocked": True},
                         )
 
-        # Output shield has now completed -- send the response to the client.
         if safety_blocked:
-            await _send({"type": "token", "content": safety_override_content})
             full_response = safety_override_content
-        else:
-            # Send buffered response as a single token. Sending individual
-            # tokens in a tight loop causes a React state batching race:
-            # the 'done' handler clears streamBufferRef before React flushes
-            # the batched setMessages callbacks from token handlers.
-            if buffered_tokens:
-                await _send({"type": "token", "content": "".join(buffered_tokens)})
 
         return full_response
 

@@ -41,7 +41,6 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
     const [isConnected, setIsConnected] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
     const wsRef = useRef<ChatWs | null>(null);
-    const streamBufferRef = useRef('');
     const currentToolCallsRef = useRef<ToolCall[]>([]);
     const mountedRef = useRef(true);
     const prevOptionsRef = useRef<string>('');
@@ -97,34 +96,6 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                 if (!mountedRef.current) return;
 
                 switch (msg.type) {
-                    case 'token': {
-                        streamBufferRef.current += msg.content ?? '';
-                        // Capture value now -- if React batches this with the
-                        // "done" handler (Firefox does), the ref will already
-                        // be cleared by the time the state updater runs.
-                        const snapshot = streamBufferRef.current;
-                        setMessages((prev) => {
-                            const last = prev[prev.length - 1];
-                            if (last?.role === 'assistant' && isStreamingMsg(last)) {
-                                return [
-                                    ...prev.slice(0, -1),
-                                    { ...last, content: snapshot },
-                                ];
-                            }
-                            return [
-                                ...prev,
-                                {
-                                    id: uuid(),
-                                    role: 'assistant',
-                                    content: snapshot,
-                                    timestamp: new Date(),
-                                    _streaming: true,
-                                },
-                            ];
-                        });
-                        break;
-                    }
-
                     case 'tool_start':
                         if (msg.tool_name) {
                             currentToolCallsRef.current.push({
@@ -144,10 +115,11 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                         break;
 
                     case 'done': {
-                        // The server includes the final content in the done
-                        // message so we don't depend on the token message
-                        // having been processed first (Firefox microtask race).
-                        const doneContent = msg.content ?? streamBufferRef.current;
+                        // The server sends a single done message with the
+                        // complete, cleaned response (no preceding token
+                        // messages). This eliminates the Firefox microtask
+                        // race that caused blank responses.
+                        const doneContent = msg.content ?? '';
                         setMessages((prev) => {
                             const last = prev[prev.length - 1];
                             if (last?.role === 'assistant') {
@@ -158,7 +130,6 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                                 delete (updated as Record<string, unknown>)['_streaming'];
                                 return [...prev.slice(0, -1), updated];
                             }
-                            // No assistant message yet -- create one with the content
                             return [
                                 ...prev,
                                 {
@@ -169,49 +140,40 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                                 },
                             ];
                         });
-                        streamBufferRef.current = '';
                         currentToolCallsRef.current = [];
                         setIsStreaming(false);
                         window.dispatchEvent(new Event('chat-done'));
                         break;
                     }
 
-                    case 'safety_override':
-                        setMessages((prev) => {
-                            const last = prev[prev.length - 1];
-                            if (last?.role === 'assistant') {
-                                return [
-                                    ...prev.slice(0, -1),
-                                    { ...last, content: msg.content ?? '' },
-                                ];
-                            }
-                            return [
-                                ...prev,
-                                {
-                                    id: uuid(),
-                                    role: 'assistant',
-                                    content: msg.content ?? '',
-                                    timestamp: new Date(),
-                                },
-                            ];
-                        });
-                        break;
-
                     case 'error':
                         if (msg.content === 'WebSocket connection failed') {
                             setConnectionError(msg.content);
                         } else {
-                            setMessages((prev) => [
-                                ...prev,
-                                {
-                                    id: uuid(),
-                                    role: 'assistant',
-                                    content: msg.content ?? 'An error occurred.',
-                                    timestamp: new Date(),
-                                },
-                            ]);
+                            setMessages((prev) => {
+                                const last = prev[prev.length - 1];
+                                // Update the placeholder if it exists
+                                if (last?.role === 'assistant' && isStreamingMsg(last)) {
+                                    return [
+                                        ...prev.slice(0, -1),
+                                        {
+                                            ...last,
+                                            content: msg.content ?? 'An error occurred.',
+                                            _streaming: undefined,
+                                        },
+                                    ];
+                                }
+                                return [
+                                    ...prev,
+                                    {
+                                        id: uuid(),
+                                        role: 'assistant',
+                                        content: msg.content ?? 'An error occurred.',
+                                        timestamp: new Date(),
+                                    },
+                                ];
+                            });
                         }
-                        streamBufferRef.current = '';
                         currentToolCallsRef.current = [];
                         setIsStreaming(false);
                         break;
@@ -275,8 +237,14 @@ export function useChat({ path, historyPath, wsOptions }: UseChatOptions) {
                     content: displayContent ?? content,
                     timestamp: new Date(),
                 },
+                {
+                    id: uuid(),
+                    role: 'assistant',
+                    content: '',
+                    timestamp: new Date(),
+                    _streaming: true,
+                },
             ]);
-            streamBufferRef.current = '';
             currentToolCallsRef.current = [];
             setIsStreaming(true);
         },
