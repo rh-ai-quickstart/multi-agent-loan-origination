@@ -16,7 +16,15 @@ export function ChatBubble({ message }: { message: ChatMessage }) {
                         : 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100',
                 )}
             >
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                {!isUser && message._streaming && !message.content ? (
+                    <div className="flex items-center gap-1.5 py-0.5">
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:0ms]" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:150ms]" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:300ms]" />
+                    </div>
+                ) : (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                )}
                 {message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="mt-2 flex flex-col gap-1">
                         {message.toolCalls.map((tc, i) => (
