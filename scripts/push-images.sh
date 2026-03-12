@@ -7,13 +7,13 @@
 #   CONTAINER_CLI  -- podman or docker (default: podman)
 #   IMAGE_TAG      -- image tag (default: latest)
 #   REGISTRY       -- registry host (default: quay.io)
-#   REGISTRY_NS    -- registry namespace/org (default: mortgage-ai)
+#   REGISTRY_NS    -- registry namespace/org (default: rh-ai-quickstart)
 set -euo pipefail
 
 CONTAINER_CLI="${CONTAINER_CLI:-podman}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 REGISTRY="${REGISTRY:-quay.io}"
-REGISTRY_NS="${REGISTRY_NS:-mortgage-ai}"
+REGISTRY_NS="${REGISTRY_NS:-rh-ai-quickstart}"
 
 # Build missing images
 need_build=false

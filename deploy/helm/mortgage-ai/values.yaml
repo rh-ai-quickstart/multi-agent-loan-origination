@@ -9,7 +9,7 @@
 #                       --set secrets.S3_ENDPOINT=https://...
 global:
   imageRegistry: quay.io
-  imageRepository: mortgage-ai
+  imageRepository: rh-ai-quickstart
   imageTag: latest
   imagePullPolicy: Always
   storageClass: ""

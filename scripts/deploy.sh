@@ -11,7 +11,7 @@
 #   ENV_FILE        -- env file to source (default: .env)
 #   IMAGE_TAG       -- image tag (default: latest)
 #   REGISTRY        -- registry host (default: quay.io)
-#   REGISTRY_NS     -- registry namespace/org (default: mortgage-ai)
+#   REGISTRY_NS     -- registry namespace/org (default: rh-ai-quickstart)
 #   HELM_TIMEOUT    -- helm timeout (default: 15m)
 #   HELM_EXTRA_ARGS -- additional helm args (default: empty)
 set -euo pipefail
@@ -21,7 +21,7 @@ NAMESPACE="${NAMESPACE:-$PROJECT_NAME}"
 ENV_FILE="${ENV_FILE:-.env}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 REGISTRY="${REGISTRY:-quay.io}"
-REGISTRY_NS="${REGISTRY_NS:-$PROJECT_NAME}"
+REGISTRY_NS="${REGISTRY_NS:-rh-ai-quickstart}"
 HELM_TIMEOUT="${HELM_TIMEOUT:-15m}"
 HELM_EXTRA_ARGS="${HELM_EXTRA_ARGS:-}"
 
