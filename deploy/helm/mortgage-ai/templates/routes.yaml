@@ -174,35 +174,6 @@ spec:
   {{- end }}
   wildcardPolicy: None
 {{- end }}
-{{- if .Values.langfuse.enabled }}
----
-# LangFuse Route - observability UI
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: langfuse-route
-  labels:
-    {{- include "mortgage-ai.labels" . | nindent 4 }}
-    app.kubernetes.io/component: langfuse-web
-  {{- with .Values.routes.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-spec:
-  {{- if .Values.routes.sharedHost }}
-  host: {{ printf "langfuse-%s" .Values.routes.sharedHost }}
-  {{- end }}
-  to:
-    kind: Service
-    name: langfuse-web
-    weight: 100
-  port:
-    targetPort: http
-  tls:
-    termination: edge
-    insecureEdgeTerminationPolicy: Redirect
-  wildcardPolicy: None
-{{- end }}
 {{- if .Values.keycloak.enabled }}
 ---
 # Keycloak Route - browser-accessible OIDC endpoint

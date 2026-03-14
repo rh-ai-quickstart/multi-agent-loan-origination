@@ -220,21 +220,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SAFETY_API_KEY
-            - name: LANGFUSE_PUBLIC_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: LANGFUSE_PUBLIC_KEY
-            - name: LANGFUSE_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: LANGFUSE_SECRET_KEY
-            - name: LANGFUSE_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: LANGFUSE_HOST
             - name: MLFLOW_TRACKING_URI
               valueFrom:
                 secretKeyRef:

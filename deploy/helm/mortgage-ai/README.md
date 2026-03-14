@@ -82,17 +82,6 @@ oc patch secret mortgage-ai-secret -n mortgage-ai \
 oc rollout restart deployment/mortgage-ai-api -n mortgage-ai
 ```
 
-### LangFuse Observability (Alternative)
-
-For self-hosted LangFuse instead of MLflow:
-
-```bash
-helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
-  --set langfuse.enabled=true \
-  --set secrets.LANGFUSE_PUBLIC_KEY=pk-... \
-  --set secrets.LANGFUSE_SECRET_KEY=sk-...
-```
-
 ## External Services
 
 To use external services instead of the chart-provided ones:

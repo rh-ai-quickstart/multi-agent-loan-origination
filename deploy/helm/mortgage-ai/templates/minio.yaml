@@ -30,7 +30,7 @@ spec:
             - sh
             - -c
             - >-
-              mkdir -p /data/langfuse /data/documents &&
+              mkdir -p /data/documents &&
               exec minio server --address ":9000"
               --console-address ":9001" /data
           ports:

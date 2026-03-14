@@ -117,7 +117,7 @@ The application will be available at the following URLs:
 
 ### Container deployment
 
-To run the full stack including Keycloak and LangFuse:
+To run the full stack including Keycloak:
 
 ```bash
 make run      # Start all containers
@@ -185,7 +185,7 @@ This quickstart demonstrates production-ready AI patterns for regulated industri
 - **Compliance knowledge base** - pgvector retrieval-augmented generation (RAG) with tiered boosting (federal regulations > agency guidelines > internal policies)
 - **Fair lending safeguards** - HMDA demographic data isolation in separate database schema with access controls
 - **Model routing** - Complexity-based routing between fast and capable LLM tiers to optimize cost and latency
-- **Comprehensive audit trail** - Hash-chained, append-only audit events with LangFuse trace correlation
+- **Comprehensive audit trail** - Hash-chained, append-only audit events with MLflow trace correlation
 - **PII masking** - Middleware-based masking for executive roles (SSN, DOB, account numbers)
 - **Safety shields** - Input and output content filters with escalation pattern detection
 
@@ -214,7 +214,7 @@ mortgage-ai/
 | Backend | FastAPI, LangGraph, SQLAlchemy 2.0 (async), Pydantic 2.x |
 | Database | PostgreSQL 16 + pgvector |
 | Identity | Keycloak (OpenID Connect) |
-| Observability | MLflow (RHOAI) or LangFuse (self-hosted) |
+| Observability | MLflow (RHOAI) |
 | Object Storage | MinIO (S3-compatible) |
 | Deployment | Helm, OpenShift / Kubernetes |
 | Build | Turborepo, uv (Python), pnpm (Node.js) |
@@ -252,7 +252,7 @@ LLM_MODEL_FAST=qwen3-30b-a3b
 LLM_MODEL_CAPABLE=qwen3-30b-a3b
 ```
 
-See `.env.example` for all available settings including database connection, authentication, safety shields, and observability (MLflow or LangFuse).
+See `.env.example` for all available settings including database connection, authentication, safety shields, and MLflow observability.
 
 ### MLflow observability (RHOAI 3.4+)
 

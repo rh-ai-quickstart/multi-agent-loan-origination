@@ -13,10 +13,6 @@ data:
         -- Enable pgvector extension (required by KB and embedding features)
         CREATE EXTENSION IF NOT EXISTS vector;
 
-        -- Create langfuse database for observability stack
-        SELECT 'CREATE DATABASE langfuse'
-        WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'langfuse')\gexec
-
         -- HMDA isolation: dual PostgreSQL roles
         DO \$\$
         BEGIN
