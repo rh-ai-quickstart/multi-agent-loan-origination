@@ -247,6 +247,14 @@ langfuse:
         memory: "512Mi"
         cpu: "500m"
 
+# MLflow observability (RHOAI 3.4+)
+mlflow:
+  # RBAC resources for MLflow server access
+  rbac:
+    enabled: false  # Enable when deploying with RHOAI MLflow
+    # Creates: ClusterRole, ServiceAccount, ClusterRoleBinding
+    # The ServiceAccount can be used to generate tokens for MLflow auth
+
 # LlamaStack model serving
 llamastack:
   enabled: false
