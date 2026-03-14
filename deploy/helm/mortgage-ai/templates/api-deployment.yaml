@@ -235,6 +235,31 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LANGFUSE_HOST
+            - name: MLFLOW_TRACKING_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: MLFLOW_TRACKING_URI
+            - name: MLFLOW_EXPERIMENT_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: MLFLOW_EXPERIMENT_NAME
+            - name: MLFLOW_WORKSPACE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: MLFLOW_WORKSPACE
+            - name: MLFLOW_TRACKING_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: MLFLOW_TRACKING_TOKEN
+            - name: MLFLOW_TRACKING_INSECURE_TLS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: MLFLOW_TRACKING_INSECURE_TLS
             - name: SQLADMIN_USER
               valueFrom:
                 secretKeyRef:

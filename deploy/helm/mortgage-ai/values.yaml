@@ -68,6 +68,13 @@ secrets:
   LANGFUSE_SECRET_KEY: ""
   LANGFUSE_HOST: ""
 
+  # Observability (MLflow) -- leave blank to disable MLflow tracing
+  MLFLOW_TRACKING_URI: ""
+  MLFLOW_EXPERIMENT_NAME: ""
+  MLFLOW_WORKSPACE: ""
+  MLFLOW_TRACKING_TOKEN: ""
+  MLFLOW_TRACKING_INSECURE_TLS: "false"
+
   # Admin panel
   SQLADMIN_USER: "admin"
   SQLADMIN_PASSWORD: "admin"
