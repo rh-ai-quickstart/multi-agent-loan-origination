@@ -214,7 +214,7 @@ mortgage-ai/
 | Backend | FastAPI, LangGraph, SQLAlchemy 2.0 (async), Pydantic 2.x |
 | Database | PostgreSQL 16 + pgvector |
 | Identity | Keycloak (OpenID Connect) |
-| Observability | LangFuse (self-hosted) |
+| Observability | MLflow (RHOAI) or LangFuse (self-hosted) |
 | Object Storage | MinIO (S3-compatible) |
 | Deployment | Helm, OpenShift / Kubernetes |
 | Build | Turborepo, uv (Python), pnpm (Node.js) |
@@ -252,7 +252,36 @@ LLM_MODEL_FAST=qwen3-30b-a3b
 LLM_MODEL_CAPABLE=qwen3-30b-a3b
 ```
 
-See `.env.example` for all available settings including database connection, authentication, safety shields, and LangFuse observability.
+See `.env.example` for all available settings including database connection, authentication, safety shields, and observability (MLflow or LangFuse).
+
+### MLflow observability (RHOAI 3.4+)
+
+When deploying to Red Hat OpenShift AI with MLflow, enable RBAC resources and configure the MLflow connection:
+
+```bash
+helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
+  --set mlflow.rbac.enabled=true \
+  --set secrets.MLFLOW_TRACKING_URI=https://<mlflow-route>/mlflow \
+  --set secrets.MLFLOW_EXPERIMENT_NAME=multi-agent-loan-origination \
+  --set secrets.MLFLOW_WORKSPACE=<workspace-name> \
+  --set secrets.MLFLOW_TRACKING_INSECURE_TLS=true
+```
+
+After deployment, generate a token for the MLflow ServiceAccount:
+
+```bash
+# Generate a 30-day token
+oc create token mortgage-ai-mlflow-client --duration=720h -n <namespace>
+
+# Update the secret with the token
+oc patch secret mortgage-ai-secret -n <namespace> \
+  --type='json' -p='[{"op":"replace","path":"/data/MLFLOW_TRACKING_TOKEN","value":"'$(echo -n "<token>" | base64)'"}]'
+```
+
+The Helm chart creates:
+- `ClusterRole` with `mlflow.kubeflow.org` API permissions (experiments, datasets, models, gateway)
+- `ServiceAccount` for MLflow client authentication
+- `ClusterRoleBinding` connecting the ServiceAccount to the ClusterRole
 
 ## Tags
 
