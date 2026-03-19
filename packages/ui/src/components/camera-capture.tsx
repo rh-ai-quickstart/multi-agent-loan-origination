@@ -8,7 +8,6 @@ import {
     Content as DialogContent,
     Title as DialogTitle,
     Close as DialogClose,
-    Trigger as DialogTrigger,
 } from '@radix-ui/react-dialog';
 import { Camera, X, RefreshCw, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,6 +19,10 @@ interface CameraCaptureProps {
 
 type CameraState = 'idle' | 'streaming' | 'captured';
 
+function canUseGetUserMedia(): boolean {
+    return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+}
+
 export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
     const [open, setOpen] = useState(false);
     const [state, setState] = useState<CameraState>('idle');
@@ -29,6 +32,7 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
+    const nativeInputRef = useRef<HTMLInputElement>(null);
 
     const stopStream = useCallback(() => {
         if (streamRef.current) {
@@ -39,10 +43,6 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
 
     const startStream = useCallback(async () => {
         setError(null);
-        if (!navigator.mediaDevices?.getUserMedia) {
-            setError('Camera is not available. Your browser may require HTTPS to access the camera.');
-            return;
-        }
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment' },
@@ -109,10 +109,10 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
                 setError(null);
                 setPreviewUrl(null);
                 setCapturedBlob(null);
-                // Start stream after dialog renders
-                requestAnimationFrame(() => {
+                // Use setTimeout(0) to start stream after dialog renders
+                setTimeout(() => {
                     startStream();
-                });
+                }, 0);
             } else {
                 stopStream();
                 if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -124,28 +124,64 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
         [startStream, stopStream, previewUrl],
     );
 
-    return (
-        <DialogRoot open={open} onOpenChange={handleOpenChange}>
-            <DialogTrigger asChild>
+    const handleNativeCapture = useCallback(
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (file) onCapture(file);
+            if (nativeInputRef.current) nativeInputRef.current.value = '';
+        },
+        [onCapture],
+    );
+
+    const buttonClass = cn(
+        'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-foreground dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-800',
+        disabled && 'pointer-events-none opacity-50',
+    );
+
+    // No getUserMedia (mobile over HTTP, older browsers) -- use native file input
+    // with capture="environment" which opens the OS camera directly
+    if (!canUseGetUserMedia()) {
+        return (
+            <>
                 <button
                     type="button"
                     disabled={disabled}
-                    className={cn(
-                        'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-foreground dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-800',
-                        disabled && 'pointer-events-none opacity-50',
-                    )}
+                    onClick={() => nativeInputRef.current?.click()}
+                    className={buttonClass}
                 >
                     <Camera className="h-4 w-4" />
                     Take a Photo
                 </button>
-            </DialogTrigger>
+                <input
+                    ref={nativeInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleNativeCapture}
+                />
+            </>
+        );
+    }
+
+    // getUserMedia available -- use the viewfinder dialog
+    return (
+        <DialogRoot open={open} onOpenChange={handleOpenChange}>
+            <button
+                type="button"
+                disabled={disabled}
+                onClick={() => handleOpenChange(true)}
+                className={buttonClass}
+            >
+                <Camera className="h-4 w-4" />
+                Take a Photo
+            </button>
             <DialogPortal>
                 <DialogOverlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
                 <DialogContent
                     className="fixed inset-0 z-50 flex flex-col bg-black sm:inset-4 sm:rounded-xl"
                     aria-describedby={undefined}
                 >
-                    {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3">
                         <DialogTitle className="text-sm font-medium text-white">
                             Capture Document
@@ -160,7 +196,6 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
                         </DialogClose>
                     </div>
 
-                    {/* Viewfinder / Preview */}
                     <div className="relative flex flex-1 items-center justify-center overflow-hidden">
                         {error ? (
                             <p className="px-8 text-center text-sm text-white/70">{error}</p>
@@ -181,7 +216,6 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
                         )}
                     </div>
 
-                    {/* Controls */}
                     <div className="flex items-center justify-center gap-6 px-4 py-6">
                         {state === 'streaming' && (
                             <button

@@ -27,11 +27,16 @@ describe('CameraCapture', () => {
         expect(getButton()).toBeDisabled();
     });
 
-    it('should open dialog and request camera on click', async () => {
+    it('should open dialog on click', () => {
+        render(<CameraCapture onCapture={vi.fn()} />);
+        fireEvent.click(getButton());
+        expect(screen.getByText('Capture Document')).toBeInTheDocument();
+    });
+
+    it('should request rear camera when dialog opens', async () => {
         const mockStream = {
             getTracks: () => [{ stop: vi.fn() }],
         } as unknown as MediaStream;
-
         const getUserMedia = vi.fn().mockResolvedValue(mockStream);
         Object.defineProperty(navigator, 'mediaDevices', {
             value: { getUserMedia },
@@ -42,7 +47,6 @@ describe('CameraCapture', () => {
         render(<CameraCapture onCapture={vi.fn()} />);
         fireEvent.click(getButton());
 
-        expect(screen.getByText('Capture Document')).toBeInTheDocument();
         await waitFor(() => {
             expect(getUserMedia).toHaveBeenCalledWith({
                 video: { facingMode: 'environment' },
@@ -50,22 +54,7 @@ describe('CameraCapture', () => {
         });
     });
 
-    it('should show HTTPS error when getUserMedia is unavailable', async () => {
-        Object.defineProperty(navigator, 'mediaDevices', {
-            value: undefined,
-            writable: true,
-            configurable: true,
-        });
-
-        render(<CameraCapture onCapture={vi.fn()} />);
-        fireEvent.click(getButton());
-
-        expect(
-            await screen.findByText(/browser may require HTTPS/),
-        ).toBeInTheDocument();
-    });
-
-    it('should show error message when camera permission is denied', async () => {
+    it('should show error when camera permission is denied', async () => {
         const getUserMedia = vi.fn().mockRejectedValue(
             new DOMException('Permission denied', 'NotAllowedError'),
         );
@@ -83,8 +72,8 @@ describe('CameraCapture', () => {
         ).toBeInTheDocument();
     });
 
-    it('should show generic error when camera fails for unknown reason', async () => {
-        const getUserMedia = vi.fn().mockRejectedValue(new Error('Unknown error'));
+    it('should show generic error when camera fails', async () => {
+        const getUserMedia = vi.fn().mockRejectedValue(new Error('Unknown'));
         Object.defineProperty(navigator, 'mediaDevices', {
             value: { getUserMedia },
             writable: true,
@@ -104,7 +93,6 @@ describe('CameraCapture', () => {
         const mockStream = {
             getTracks: () => [{ stop: stopTrack }],
         } as unknown as MediaStream;
-
         const getUserMedia = vi.fn().mockResolvedValue(mockStream);
         Object.defineProperty(navigator, 'mediaDevices', {
             value: { getUserMedia },
@@ -114,11 +102,39 @@ describe('CameraCapture', () => {
 
         render(<CameraCapture onCapture={vi.fn()} />);
         fireEvent.click(getButton());
-
         await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
 
         fireEvent.click(screen.getByLabelText('Close'));
-
         await waitFor(() => expect(stopTrack).toHaveBeenCalled());
+    });
+
+    it('should render native file input fallback when getUserMedia is unavailable', () => {
+        Object.defineProperty(navigator, 'mediaDevices', {
+            value: undefined,
+            writable: true,
+            configurable: true,
+        });
+
+        render(<CameraCapture onCapture={vi.fn()} />);
+        expect(getButton()).toBeInTheDocument();
+        expect(document.querySelector('input[capture="environment"]')).toBeInTheDocument();
+    });
+
+    it('should call onCapture when a file is selected via native input', () => {
+        Object.defineProperty(navigator, 'mediaDevices', {
+            value: undefined,
+            writable: true,
+            configurable: true,
+        });
+
+        const onCapture = vi.fn();
+        render(<CameraCapture onCapture={onCapture} />);
+
+        const fileInput = document.querySelector('input[capture="environment"]') as HTMLInputElement;
+        const file = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
+        Object.defineProperty(fileInput, 'files', { value: [file] });
+        fireEvent.change(fileInput);
+
+        expect(onCapture).toHaveBeenCalledWith(file);
     });
 });
