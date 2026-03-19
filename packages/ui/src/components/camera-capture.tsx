@@ -23,6 +23,11 @@ function canUseGetUserMedia(): boolean {
     return typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
 }
 
+function isMobileDevice(): boolean {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(pointer: coarse)').matches;
+}
+
 export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
     const [open, setOpen] = useState(false);
     const [state, setState] = useState<CameraState>('idle');
@@ -137,6 +142,9 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
         'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-foreground dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-800',
         disabled && 'pointer-events-none opacity-50',
     );
+
+    // Only show camera capture on mobile/tablet devices
+    if (!isMobileDevice()) return null;
 
     // No getUserMedia (mobile over HTTP, older browsers) -- use native file input
     // with capture="environment" which opens the OS camera directly
