@@ -17,6 +17,7 @@ import {
     CheckCircle2,
     ClipboardList,
 } from 'lucide-react';
+import { CameraCapture } from '@/components/camera-capture';
 import { useApplication } from '@/hooks/use-applications';
 import { useDocuments, useCompleteness, useExtractions, useUploadDocument } from '@/hooks/use-documents';
 import { useConditions } from '@/hooks/use-conditions';
@@ -376,8 +377,18 @@ function DocumentUpload({ appId }: { appId: number }) {
                     onChange={(e) => handleFiles(e.target.files)}
                 />
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <Upload className="h-6 w-6" />
-                    <p className="text-sm">{upload.isPending ? 'Uploading...' : 'Drop files here or click to upload'}</p>
+                    {upload.isPending ? (
+                        <Upload className="h-6 w-6" />
+                    ) : (
+                        <div className="flex items-center gap-3">
+                            <Upload className="h-6 w-6" />
+                            <CameraCapture
+                                onCapture={(file) => upload.mutate({ file, documentType: 'other' })}
+                                disabled={upload.isPending}
+                            />
+                        </div>
+                    )}
+                    <p className="text-sm">{upload.isPending ? 'Uploading...' : 'Drop files here, click to upload, or take a photo'}</p>
                 </div>
             </div>
             {upload.isError && (
