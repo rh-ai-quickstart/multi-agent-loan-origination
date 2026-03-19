@@ -15,6 +15,8 @@ describe('CameraCapture', () => {
             writable: true,
             configurable: true,
         });
+        // Simulate mobile device so the component renders
+        window.matchMedia = vi.fn().mockReturnValue({ matches: true });
     });
 
     it('should render camera button', () => {
