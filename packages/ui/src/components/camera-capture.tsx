@@ -212,11 +212,11 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
                                     autoPlay
                                     playsInline
                                     muted
-                                    className="max-h-full max-w-full object-contain"
+                                    className="absolute inset-0 h-full w-full object-cover"
                                 />
                                 {state === 'streaming' && (
                                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                                        <div className="aspect-[8.5/11] h-[75%] rounded-lg border-2 border-dashed border-white/50" />
+                                        <div className="aspect-[8.5/11] h-[70%] rounded-lg border-2 border-dashed border-white/50" />
                                         <p className="mt-2 text-xs text-white/50">
                                             Align document within the frame
                                         </p>
