@@ -1,6 +1,6 @@
 // This project was developed with assistance from AI tools.
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import {
     Root as DialogRoot,
     Portal as DialogPortal,
@@ -26,17 +26,9 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
     const [error, setError] = useState<string | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
-    const [isAvailable, setIsAvailable] = useState(true);
-
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
-
-    useEffect(() => {
-        if (!navigator.mediaDevices?.getUserMedia) {
-            setIsAvailable(false);
-        }
-    }, []);
 
     const stopStream = useCallback(() => {
         if (streamRef.current) {
@@ -47,6 +39,10 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
 
     const startStream = useCallback(async () => {
         setError(null);
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setError('Camera is not available. Your browser may require HTTPS to access the camera.');
+            return;
+        }
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: 'environment' },
@@ -128,25 +124,21 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
         [startStream, stopStream, previewUrl],
     );
 
-    if (!isAvailable) return null;
-
     return (
         <DialogRoot open={open} onOpenChange={handleOpenChange}>
-            <div role="presentation" onClick={(e) => e.stopPropagation()}>
-                <DialogTrigger asChild>
-                    <button
-                        type="button"
-                        disabled={disabled}
-                        className={cn(
-                            'inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-800',
-                            disabled && 'pointer-events-none opacity-50',
-                        )}
-                        title="Take a photo"
-                    >
-                        <Camera className="h-6 w-6" />
-                    </button>
-                </DialogTrigger>
-            </div>
+            <DialogTrigger asChild>
+                <button
+                    type="button"
+                    disabled={disabled}
+                    className={cn(
+                        'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-foreground dark:border-slate-700 dark:hover:border-slate-600 dark:hover:bg-slate-800',
+                        disabled && 'pointer-events-none opacity-50',
+                    )}
+                >
+                    <Camera className="h-4 w-4" />
+                    Take a Photo
+                </button>
+            </DialogTrigger>
             <DialogPortal>
                 <DialogOverlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
                 <DialogContent

@@ -353,15 +353,16 @@ function DocumentsCard({
                     {uploadMutation.isPending ? (
                         <Loader2 className="h-6 w-6 animate-spin" />
                     ) : (
-                        <div className="flex items-center gap-3">
-                            <Upload className="h-6 w-6" />
-                            <CameraCapture onCapture={handleFileSelect} disabled={uploadMutation.isPending} />
-                        </div>
+                        <Upload className="h-6 w-6" />
                     )}
                     <p className="text-sm">
-                        {uploadMutation.isPending ? 'Uploading...' : 'Drop files here, click to upload, or take a photo'}
+                        {uploadMutation.isPending ? 'Uploading...' : 'Drop files here or click to upload'}
                     </p>
                 </div>
+            </div>
+
+            <div className="mt-2">
+                <CameraCapture onCapture={handleFileSelect} disabled={uploadMutation.isPending} />
             </div>
         </CardShell>
     );

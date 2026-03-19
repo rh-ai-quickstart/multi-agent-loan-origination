@@ -4,6 +4,10 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CameraCapture } from './camera-capture';
 
+function getButton(): HTMLElement {
+    return screen.getByRole('button', { name: /take a photo/i });
+}
+
 describe('CameraCapture', () => {
     beforeEach(() => {
         Object.defineProperty(navigator, 'mediaDevices', {
@@ -13,25 +17,14 @@ describe('CameraCapture', () => {
         });
     });
 
-    it('should render camera button when getUserMedia is available', () => {
+    it('should render camera button', () => {
         render(<CameraCapture onCapture={vi.fn()} />);
-        expect(screen.getByTitle('Take a photo')).toBeInTheDocument();
-    });
-
-    it('should not render when getUserMedia is unavailable', () => {
-        Object.defineProperty(navigator, 'mediaDevices', {
-            value: undefined,
-            writable: true,
-            configurable: true,
-        });
-
-        const { container } = render(<CameraCapture onCapture={vi.fn()} />);
-        expect(container.innerHTML).toBe('');
+        expect(getButton()).toBeInTheDocument();
     });
 
     it('should render as disabled when disabled prop is true', () => {
         render(<CameraCapture onCapture={vi.fn()} disabled />);
-        expect(screen.getByTitle('Take a photo')).toBeDisabled();
+        expect(getButton()).toBeDisabled();
     });
 
     it('should open dialog and request camera on click', async () => {
@@ -47,7 +40,7 @@ describe('CameraCapture', () => {
         });
 
         render(<CameraCapture onCapture={vi.fn()} />);
-        fireEvent.click(screen.getByTitle('Take a photo'));
+        fireEvent.click(getButton());
 
         expect(screen.getByText('Capture Document')).toBeInTheDocument();
         await waitFor(() => {
@@ -55,6 +48,21 @@ describe('CameraCapture', () => {
                 video: { facingMode: 'environment' },
             });
         });
+    });
+
+    it('should show HTTPS error when getUserMedia is unavailable', async () => {
+        Object.defineProperty(navigator, 'mediaDevices', {
+            value: undefined,
+            writable: true,
+            configurable: true,
+        });
+
+        render(<CameraCapture onCapture={vi.fn()} />);
+        fireEvent.click(getButton());
+
+        expect(
+            await screen.findByText(/browser may require HTTPS/),
+        ).toBeInTheDocument();
     });
 
     it('should show error message when camera permission is denied', async () => {
@@ -68,7 +76,7 @@ describe('CameraCapture', () => {
         });
 
         render(<CameraCapture onCapture={vi.fn()} />);
-        fireEvent.click(screen.getByTitle('Take a photo'));
+        fireEvent.click(getButton());
 
         expect(
             await screen.findByText('Camera not available. Please check your permissions.'),
@@ -84,7 +92,7 @@ describe('CameraCapture', () => {
         });
 
         render(<CameraCapture onCapture={vi.fn()} />);
-        fireEvent.click(screen.getByTitle('Take a photo'));
+        fireEvent.click(getButton());
 
         expect(
             await screen.findByText('Could not access camera.'),
@@ -105,25 +113,12 @@ describe('CameraCapture', () => {
         });
 
         render(<CameraCapture onCapture={vi.fn()} />);
-        fireEvent.click(screen.getByTitle('Take a photo'));
+        fireEvent.click(getButton());
 
         await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
 
         fireEvent.click(screen.getByLabelText('Close'));
 
         await waitFor(() => expect(stopTrack).toHaveBeenCalled());
-    });
-
-    it('should not propagate click to parent elements', () => {
-        const parentClick = vi.fn();
-
-        render(
-            <div onClick={parentClick} role="presentation">
-                <CameraCapture onCapture={vi.fn()} />
-            </div>,
-        );
-
-        fireEvent.click(screen.getByTitle('Take a photo'));
-        expect(parentClick).not.toHaveBeenCalled();
     });
 });

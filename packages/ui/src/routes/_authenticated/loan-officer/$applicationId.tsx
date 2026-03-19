@@ -377,19 +377,15 @@ function DocumentUpload({ appId }: { appId: number }) {
                     onChange={(e) => handleFiles(e.target.files)}
                 />
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    {upload.isPending ? (
-                        <Upload className="h-6 w-6" />
-                    ) : (
-                        <div className="flex items-center gap-3">
-                            <Upload className="h-6 w-6" />
-                            <CameraCapture
-                                onCapture={(file) => upload.mutate({ file, documentType: 'other' })}
-                                disabled={upload.isPending}
-                            />
-                        </div>
-                    )}
-                    <p className="text-sm">{upload.isPending ? 'Uploading...' : 'Drop files here, click to upload, or take a photo'}</p>
+                    <Upload className="h-6 w-6" />
+                    <p className="text-sm">{upload.isPending ? 'Uploading...' : 'Drop files here or click to upload'}</p>
                 </div>
+            </div>
+            <div className="mt-2">
+                <CameraCapture
+                    onCapture={(file) => upload.mutate({ file, documentType: 'other' })}
+                    disabled={upload.isPending}
+                />
             </div>
             {upload.isError && (
                 <p className="mt-2 text-sm text-red-600">Upload failed. Please try again.</p>
