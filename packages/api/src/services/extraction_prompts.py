@@ -57,6 +57,17 @@ QUALITY_FLAGS = [
 
 # Only demographic fields that must be blocked from the lending path.
 # Non-demographic HMDA fields (income, DTI, etc.) flow through normally.
+VALID_DOC_TYPES = [
+    "w2",
+    "pay_stub",
+    "tax_return",
+    "bank_statement",
+    "id",
+    "property_appraisal",
+    "insurance",
+    "other",
+]
+
 HMDA_DEMOGRAPHIC_KEYWORDS: set[str] = {
     "race",
     "ethnicity",
@@ -82,7 +93,7 @@ def build_extraction_prompt(doc_type: str, text: str) -> list[dict]:
         '"confidence": <0.0-1.0>, "source_page": <int>}\n'
         "  ],\n"
         f'  "quality_flags": [<zero or more of: {", ".join(QUALITY_FLAGS)}>],\n'
-        '  "detected_doc_type": "<actual document type detected>"\n'
+        f'  "detected_doc_type": "<one of: {", ".join(VALID_DOC_TYPES)}>"\n'
         "}\n\n"
         f"Expected document type: {doc_type}\n"
         f"Expected fields: {fields_csv}\n"
@@ -118,7 +129,7 @@ def build_image_extraction_prompt(doc_type: str) -> dict:
             '"confidence": <0.0-1.0>, "source_page": <int>}\n'
             "  ],\n"
             f'  "quality_flags": [<zero or more of: {", ".join(QUALITY_FLAGS)}>],\n'
-            '  "detected_doc_type": "<actual document type detected>"\n'
+            f'  "detected_doc_type": "<one of: {", ".join(VALID_DOC_TYPES)}>"\n'
             "}\n\n"
             f"Expected document type: {doc_type}\n"
             f"Expected fields: {fields_csv}\n"

@@ -73,6 +73,7 @@ def make_upload_session(application: object | None = None) -> AsyncMock:
     def track_add(obj):
         obj.id = 501
         obj.created_at = "2026-02-24T12:00:00+00:00"
+        obj.updated_at = "2026-02-24T12:00:00+00:00"
 
     session.add = MagicMock(side_effect=track_add)
 

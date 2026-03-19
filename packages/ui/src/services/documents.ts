@@ -27,6 +27,20 @@ export async function fetchExtractions(applicationId: number, documentId: number
     return ExtractionListResponseSchema.parse(data);
 }
 
+export async function updateDocumentStatus(
+    applicationId: number,
+    documentId: number,
+    status: string,
+    reason?: string,
+): Promise<Document> {
+    const data = await apiFetch<unknown>(`/api/applications/${applicationId}/documents/${documentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, reason }),
+    });
+    return DocumentSchema.parse(data);
+}
+
 export async function uploadDocument(
     applicationId: number,
     file: File,

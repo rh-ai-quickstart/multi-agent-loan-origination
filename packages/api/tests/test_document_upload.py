@@ -113,7 +113,10 @@ def _upload_file(client, content_type="application/pdf", filename="test.pdf", da
 @patch("src.routes.documents.get_extraction_service")
 @patch("src.routes.documents.asyncio.create_task")
 @patch("src.services.document.get_storage_service")
-def test_upload_document_success(mock_get_storage, mock_create_task, mock_get_extraction):
+@patch("src.services.document.write_audit_event", new_callable=AsyncMock)
+def test_upload_document_success(
+    mock_audit, mock_get_storage, mock_create_task, mock_get_extraction
+):
     """Happy path: multipart upload creates DB record and uploads to S3."""
     mock_storage = MagicMock()
     mock_storage.build_object_key.return_value = "100/1/test.pdf"
@@ -133,6 +136,7 @@ def test_upload_document_success(mock_get_storage, mock_create_task, mock_get_ex
     def tracked_add(obj):
         obj.id = 1
         obj.created_at = "2026-02-24T10:00:00+00:00"
+        obj.updated_at = "2026-02-24T10:00:00+00:00"
         original_add(obj)
 
     mock_session.add = tracked_add
@@ -186,6 +190,7 @@ def test_upload_rejects_oversized_file(mock_get_storage):
     def tracked_add(obj):
         obj.id = 1
         obj.created_at = "2026-02-24T10:00:00+00:00"
+        obj.updated_at = "2026-02-24T10:00:00+00:00"
         original_add(obj)
 
     mock_session.add = tracked_add

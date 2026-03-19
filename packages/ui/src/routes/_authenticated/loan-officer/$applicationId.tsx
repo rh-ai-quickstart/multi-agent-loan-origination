@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { CameraCapture } from '@/components/camera-capture';
 import { useApplication } from '@/hooks/use-applications';
-import { useDocuments, useCompleteness, useExtractions, useUploadDocument } from '@/hooks/use-documents';
+import { useDocuments, useCompleteness, useExtractions, useUploadDocument, useUpdateDocumentStatus } from '@/hooks/use-documents';
 import { useConditions } from '@/hooks/use-conditions';
 import { useRateLock } from '@/hooks/use-rate-lock';
 import { formatCurrency, formatDate, formatPercent } from '@/lib/format';
@@ -426,6 +426,7 @@ function DocumentsTab({ appId }: { appId: number }) {
     const [expandedDocId, setExpandedDocId] = useState<number | null>(null);
     const { data: documents, isLoading: docsLoading } = useDocuments(appId);
     const { data: completeness, isLoading: compLoading } = useCompleteness(appId);
+    const statusMutation = useUpdateDocumentStatus(appId);
 
     if (docsLoading || compLoading) {
         return (
@@ -475,7 +476,7 @@ function DocumentsTab({ appId }: { appId: number }) {
             )}
 
             {/* Documents table */}
-            <CardShell className="overflow-hidden p-0">
+            <CardShell className="overflow-x-auto p-0">
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-border bg-slate-50 dark:bg-slate-800/50">
@@ -526,14 +527,34 @@ function DocumentsTab({ appId }: { appId: number }) {
                                             </td>
                                             <td className="px-4 py-3 text-muted-foreground">{formatDate(doc.created_at)}</td>
                                             <td className="px-4 py-3">
-                                                {doc.status === 'flagged_for_resubmission' || doc.status === 'rejected' ? (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); chatPrefill(`Request resubmission of ${DOC_TYPE_LABELS[doc.doc_type] ?? doc.doc_type} for application #${appId}.`); }}
-                                                        className="text-xs font-medium text-[#1e3a5f] hover:underline"
-                                                    >
-                                                        Request Resubmission
-                                                    </button>
-                                                ) : null}
+                                                <div className="flex items-center gap-2">
+                                                    {doc.status === 'processing_complete' && (
+                                                        <>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); statusMutation.mutate({ documentId: doc.id, status: 'accepted' }); }}
+                                                                disabled={statusMutation.isPending}
+                                                                className="rounded bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                                                            >
+                                                                Accept
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); statusMutation.mutate({ documentId: doc.id, status: 'rejected' }); }}
+                                                                disabled={statusMutation.isPending}
+                                                                className="rounded bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                                                            >
+                                                                Reject
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {(doc.status === 'flagged_for_resubmission' || doc.status === 'rejected') && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); chatPrefill(`Request resubmission of ${DOC_TYPE_LABELS[doc.doc_type] ?? doc.doc_type} for application #${appId}.`); }}
+                                                            className="text-xs font-medium text-[#1e3a5f] hover:underline"
+                                                        >
+                                                            Request Resubmission
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                         {isExpanded && (

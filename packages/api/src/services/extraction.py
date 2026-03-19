@@ -20,10 +20,11 @@ from db import (
     DocumentExtraction,
 )
 from db.database import SessionLocal
-from db.enums import DocumentStatus
+from db.enums import DocumentStatus, DocumentType
 from sqlalchemy import select
 
 from ..inference.client import get_completion
+from ..services.audit import write_audit_event
 from .compliance.hmda import route_extraction_demographics
 from .extraction_prompts import (
     HMDA_DEMOGRAPHIC_KEYWORDS,
@@ -34,6 +35,43 @@ from .freshness import check_freshness
 from .storage import get_storage_service
 
 logger = logging.getLogger(__name__)
+
+# Map common LLM variants to our enum values
+_DOC_TYPE_ALIASES: dict[str, str] = {
+    "homeowners_insurance": "insurance",
+    "homeowner_insurance": "insurance",
+    "insurance_document": "insurance",
+    "insurance_policy": "insurance",
+    "proof_of_insurance": "insurance",
+    "hoi": "insurance",
+    "drivers_license": "id",
+    "driver_license": "id",
+    "passport": "id",
+    "government_id": "id",
+    "identification": "id",
+    "appraisal": "property_appraisal",
+    "w-2": "w2",
+    "paystub": "pay_stub",
+}
+
+
+def _normalize_doc_type(raw: str) -> str | None:
+    """Try to resolve an LLM-returned doc type string to a valid DocumentType value."""
+    cleaned = raw.strip().lower().replace(" ", "_").replace("-", "_")
+    # Direct match
+    try:
+        return DocumentType(cleaned).value
+    except ValueError:
+        pass
+    # Alias lookup
+    if cleaned in _DOC_TYPE_ALIASES:
+        return _DOC_TYPE_ALIASES[cleaned]
+    # Substring match (e.g. "insurance" in "homeowners_insurance_policy")
+    for dtype in DocumentType:
+        if dtype.value != "other" and dtype.value in cleaned:
+            return dtype.value
+    return None
+
 
 # Minimum text length to consider PDF text extraction successful.
 # Below this threshold we assume the PDF is scanned (image-only).
@@ -104,9 +142,20 @@ class ExtractionService:
                     await session.commit()
                     return
 
-                # Document type mismatch detection
+                # Auto-reclassify when LLM detects a different document type
                 if detected_doc_type and detected_doc_type != doc_type:
-                    quality_flags.append("document_type_mismatch")
+                    normalized = _normalize_doc_type(detected_doc_type)
+                    if normalized and normalized != doc_type:
+                        doc.doc_type = DocumentType(normalized)
+                        logger.info(
+                            "Reclassified document %d from %s to %s (raw: %s)",
+                            document_id,
+                            doc_type,
+                            normalized,
+                            detected_doc_type,
+                        )
+                    elif not normalized:
+                        quality_flags.append("document_type_mismatch")
 
                 # HMDA demographic filter
                 lending_extractions, demographic_extractions = self._filter_hmda_fields(extractions)
@@ -140,6 +189,20 @@ class ExtractionService:
                     session.add(extraction)
 
                 doc.status = DocumentStatus.PROCESSING_COMPLETE
+
+                await write_audit_event(
+                    session,
+                    event_type="document_extraction_complete",
+                    application_id=application_id,
+                    event_data={
+                        "document_id": document_id,
+                        "doc_type": doc.doc_type.value,
+                        "extraction_count": len(lending_extractions),
+                        "quality_flags": quality_flags,
+                        "reclassified_from": (doc_type if doc.doc_type.value != doc_type else None),
+                    },
+                )
+
                 await session.commit()
                 logger.info(
                     "Document %s processed: %d extractions, %d flags",
@@ -148,10 +211,19 @@ class ExtractionService:
                     len(quality_flags),
                 )
 
-            except Exception:
+            except Exception as exc:
                 logger.exception("Extraction failed for document %s", document_id)
                 try:
                     doc.status = DocumentStatus.PROCESSING_FAILED
+                    await write_audit_event(
+                        session,
+                        event_type="document_extraction_failed",
+                        application_id=doc.application_id,
+                        event_data={
+                            "document_id": document_id,
+                            "error": str(exc)[:500],
+                        },
+                    )
                     await session.commit()
                 except Exception:
                     logger.exception("Failed to update status for document %s", document_id)

@@ -318,7 +318,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("400000.00"),
         "assigned_to": JAMES_TORRES_ID,
         "created_at": _days_ago(14),
-        "updated_at": _days_ago(8),
+        "updated_at": _days_ago(0),
         "financials": {
             "gross_monthly_income": Decimal("8500.00"),
             "monthly_debts": Decimal("2400.00"),
@@ -443,7 +443,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_address": "910 Pine Lane, Lakewood, CO 80226",
         "loan_amount": Decimal("200000.00"),
         "property_value": Decimal("260000.00"),
-        "assigned_to": JAMES_TORRES_ID,
+        "assigned_to": SARAH_PATEL_ID,
         "created_at": _days_ago(7),
         "updated_at": _days_ago(3),
         "financials": {
@@ -981,7 +981,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_address": "4567 Aspen Ridge, Highlands Ranch, CO 80129",
         "loan_amount": Decimal("425000.00"),
         "property_value": Decimal("510000.00"),
-        "assigned_to": SARAH_PATEL_ID,
+        "assigned_to": MARCUS_WILLIAMS_ID,
         "created_at": _days_ago(60),
         "updated_at": _days_ago(2),
         "financials": {
