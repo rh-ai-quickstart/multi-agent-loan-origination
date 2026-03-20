@@ -1,31 +1,23 @@
 # This project was developed with assistance from AI tools.
 """MLflow GenAI evaluation framework for multi-agent loan origination system.
 
-This module provides evaluation capabilities using MLflow's GenAI framework:
-- Evaluation datasets with ground truth for 5 agent personas
-- Custom domain-specific scorers for mortgage workflows
-- Integration with MLflow's built-in LLM judges
-
 Usage:
-    # From project root:
-    uv run python -m evaluations.runner
+    # Simple mode (fast, no LLM judge):
+    MLFLOW_TRACKING_TOKEN=$(oc whoami --show-token) uv run python -m evaluations.run_agent_eval --mode simple
 
-    # Or evaluate a single agent:
-    uv run python -m evaluations.runner --agent public-assistant
+    # LLM-as-a-judge mode (full evaluation):
+    MLFLOW_TRACKING_TOKEN=$(oc whoami --show-token) uv run python -m evaluations.run_agent_eval --mode llm-judge
 
-Environment variables required:
+Environment variables:
     MLFLOW_TRACKING_URI: MLflow server URL
     MLFLOW_EXPERIMENT_NAME: Experiment name
     MLFLOW_TRACKING_TOKEN: Authentication token
-    MLFLOW_WORKSPACE: Workspace name (for RHOAI)
+    LLM_BASE_URL: Judge model endpoint
+    LLM_API_KEY: API key for judge model
 """
 
-from .config import EvalConfig, get_eval_config
-from .runner import evaluate_agent, run_all_evaluations
+from .run_agent_eval import run_agent_evaluation
 
 __all__ = [
-    "EvalConfig",
-    "get_eval_config",
-    "run_all_evaluations",
-    "evaluate_agent",
+    "run_agent_evaluation",
 ]
