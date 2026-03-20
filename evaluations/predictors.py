@@ -12,27 +12,80 @@ Where user_message is the input from the dataset.
 The predictors use mock database responses for evaluation, allowing agents
 to be evaluated on behavior without requiring a running database. The public
 assistant (prospect persona) doesn't need database access and runs without mocks.
+
+Tool Call Tracking:
+    The predictor tracks which tools were called during agent execution.
+    Tool names are stored in a thread-local variable `_last_tool_calls`
+    which can be accessed by scorers to validate tool usage.
 """
 
 import asyncio
 import logging
 import sys
+import threading
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import mlflow
+
+# Allow nested event loops for MLflow compatibility
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
 
 # Add packages/api to path for imports
 _api_path = Path(__file__).parent.parent / "packages" / "api"
 if str(_api_path) not in sys.path:
     sys.path.insert(0, str(_api_path))
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, ToolMessage
 
 from src.agents.registry import get_agent
 
 from .mock_db import mock_application, mock_documents, mock_conditions
 
 logger = logging.getLogger(__name__)
+
+# Thread-local storage for tool call tracking
+_tool_call_storage = threading.local()
+
+
+def get_last_tool_calls() -> list[str]:
+    """Get the list of tool names called in the last prediction.
+
+    Returns:
+        List of tool names that were called, or empty list if none.
+    """
+    return getattr(_tool_call_storage, "tool_calls", [])
+
+
+def _extract_tool_calls(messages: list[Any]) -> list[str]:
+    """Extract tool names from message history.
+
+    Args:
+        messages: List of LangChain messages from agent execution.
+
+    Returns:
+        List of unique tool names that were called.
+    """
+    tool_names = []
+    for msg in messages:
+        # Check for AIMessage with tool_calls
+        if hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tc in msg.tool_calls:
+                if isinstance(tc, dict) and "name" in tc:
+                    tool_names.append(tc["name"])
+                elif hasattr(tc, "name"):
+                    tool_names.append(tc.name)
+        # Also check ToolMessage for the tool name
+        if isinstance(msg, ToolMessage) and hasattr(msg, "name"):
+            if msg.name and msg.name not in tool_names:
+                tool_names.append(msg.name)
+    return tool_names
 
 # Role mapping for each agent persona
 AGENT_ROLES = {
@@ -80,12 +133,15 @@ def create_predict_fn(agent_name: str) -> Callable[[str], str]:
         For authenticated personas (borrower, loan officer, underwriter, CEO),
         this patches SessionLocal to return mock data so evaluation can run
         without a database. The public-assistant doesn't need database access.
+
+        Uses mlflow.trace() context manager to ensure traces are captured
+        when using asyncio.run() with async agents.
     """
     user_role = AGENT_ROLES.get(agent_name, "prospect")
     needs_db_mock = agent_name != "public-assistant"
 
     def predict_fn(user_message: str) -> str:
-        """Synchronous wrapper for async agent invocation.
+        """Synchronous wrapper for async agent invocation with MLflow tracing.
 
         Args:
             user_message: The user's message text
@@ -115,11 +171,16 @@ def create_predict_fn(agent_name: str) -> Callable[[str], str]:
                     "decision_proposals": {},
                 }
 
-                # Invoke the agent
+                # Use async invoke
                 result = await graph.ainvoke(initial_state)
 
-                # Extract the final AI message
+                # Extract the final AI message and tool calls
                 messages = result.get("messages", [])
+
+                # Track tool calls for scoring
+                tool_calls = _extract_tool_calls(messages)
+                _tool_call_storage.tool_calls = tool_calls
+
                 if messages:
                     last_message = messages[-1]
                     if hasattr(last_message, "content"):
@@ -132,13 +193,16 @@ def create_predict_fn(agent_name: str) -> Callable[[str], str]:
                 logger.exception("Error invoking agent %s: %s", agent_name, e)
                 return f"Error: {type(e).__name__}: {str(e)}"
 
-        # Run async function in sync context
-        # For authenticated personas, mock the database session
-        if needs_db_mock:
-            with patch("db.database.SessionLocal", side_effect=_create_mock_session):
-                return asyncio.run(_invoke())
-        else:
-            return asyncio.run(_invoke())
+        # Wrap execution in MLflow trace context for proper trace capture
+        with mlflow.start_span(name=f"{agent_name}-eval") as span:
+            span.set_inputs({"user_message": user_message})
+            if needs_db_mock:
+                with patch("db.database.SessionLocal", side_effect=_create_mock_session):
+                    result = asyncio.run(_invoke())
+            else:
+                result = asyncio.run(_invoke())
+            span.set_outputs({"response": result})
+            return result
 
     return predict_fn
 

@@ -32,9 +32,11 @@ from typing import Any
 warnings.filterwarnings("ignore")
 
 # Load environment before importing MLflow
+# Use override=False so shell env vars (like fresh MLFLOW_TRACKING_TOKEN
+# from `oc whoami --show-token`) take precedence over stale .env values
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv(override=False)
 
 # Suppress MLflow autolog context warnings
 logging.getLogger("mlflow").setLevel(logging.ERROR)
@@ -48,6 +50,7 @@ from .datasets import (
     CEO_ASSISTANT_DATASET,
     LOAN_OFFICER_ASSISTANT_DATASET,
     PUBLIC_ASSISTANT_DATASET,
+    PUBLIC_ASSISTANT_SIMPLE_DATASET,
     UNDERWRITER_ASSISTANT_DATASET,
 )
 from .predictors import get_predictor
@@ -55,20 +58,28 @@ from .scorers.builtin_scorers import get_builtin_scorers, get_persona_guidelines
 from .scorers.custom_scorers import (
     avoids_forbidden,
     contains_expected,
+    has_numeric_result,
     mentions_expected_topics,
     professional_tone,
+    response_length,
     response_length_appropriate,
+    tool_calls_match,
 )
 
 logger = logging.getLogger(__name__)
 
-# Agent name -> dataset mapping
+# Agent name -> dataset mapping (full datasets)
 AGENT_DATASETS = {
     "public-assistant": PUBLIC_ASSISTANT_DATASET,
     "borrower-assistant": BORROWER_ASSISTANT_DATASET,
     "loan-officer-assistant": LOAN_OFFICER_ASSISTANT_DATASET,
     "underwriter-assistant": UNDERWRITER_ASSISTANT_DATASET,
     "ceo-assistant": CEO_ASSISTANT_DATASET,
+}
+
+# Simple datasets for baseline evaluation
+SIMPLE_DATASETS = {
+    "public-assistant": PUBLIC_ASSISTANT_SIMPLE_DATASET,
 }
 
 
@@ -105,22 +116,36 @@ def setup_mlflow(config: EvalConfig) -> None:
     )
 
 
-def get_scorers(agent_name: str | None = None) -> list:
+def get_scorers(agent_name: str | None = None, simple: bool = False) -> list:
     """Get the list of scorers to use for evaluation.
 
     Args:
         agent_name: Optional agent name for persona-specific scorers
+        simple: If True, use simplified scorers for baseline evaluation
 
     Returns:
         List of scorer instances (custom + built-in)
     """
-    # Custom scorers (lightweight, no LLM calls)
+    from mlflow.genai.scorers import ToolCallCorrectness, ToolCallEfficiency
+
+    if simple:
+        # Simplified scorers for baseline evaluation
+        # Note: ToolCallCorrectness/ToolCallEfficiency require LLM judge config
+        return [
+            contains_expected,
+            has_numeric_result,
+            response_length,
+        ]
+
+    # Full custom scorers (lightweight, no LLM calls)
     scorers = [
         contains_expected,
         avoids_forbidden,
         mentions_expected_topics,
         response_length_appropriate,
         professional_tone,
+        ToolCallCorrectness(),
+        ToolCallEfficiency(),
     ]
 
     # Built-in LLM judge scorers (require judge model config)
@@ -140,6 +165,7 @@ def evaluate_agent(
     agent_name: str,
     dataset: list[dict[str, Any]] | None = None,
     scorers: list | None = None,
+    simple: bool = False,
 ) -> Any:
     """Run evaluation for a single agent.
 
@@ -147,25 +173,30 @@ def evaluate_agent(
         agent_name: The agent identifier (e.g., 'public-assistant')
         dataset: Optional evaluation dataset. If not provided, uses default.
         scorers: Optional list of scorers. If not provided, uses defaults.
+        simple: If True, use simple dataset and scorers for baseline.
 
     Returns:
         MLflow evaluation result object
     """
     if dataset is None:
-        dataset = AGENT_DATASETS.get(agent_name)
+        if simple and agent_name in SIMPLE_DATASETS:
+            dataset = SIMPLE_DATASETS[agent_name]
+        else:
+            dataset = AGENT_DATASETS.get(agent_name)
         if dataset is None:
             raise ValueError(f"No dataset found for agent: {agent_name}")
 
     if scorers is None:
-        scorers = get_scorers(agent_name)
+        scorers = get_scorers(agent_name, simple=simple)
 
     predict_fn = get_predictor(agent_name)
 
     logger.info(
-        "Starting evaluation for %s with %d examples and %d scorers",
+        "Starting evaluation for %s with %d examples and %d scorers (simple=%s)",
         agent_name,
         len(dataset),
         len(scorers),
+        simple,
     )
 
     # Run MLflow evaluation
@@ -191,28 +222,63 @@ def print_results(agent_name: str, result: Any) -> None:
 
     if hasattr(result, "metrics") and result.metrics:
         print("\nAggregated Metrics:")
+        print("-" * 40)
         for metric, value in sorted(result.metrics.items()):
             if isinstance(value, float):
-                print(f"  - {metric}: {value:.2%}")
+                print(f"  {metric}: {value:.2%}")
             else:
-                print(f"  - {metric}: {value}")
+                print(f"  {metric}: {value}")
 
     # Print per-example results if available
     if hasattr(result, "tables") and result.tables:
         table_name = list(result.tables.keys())[0] if result.tables else None
         if table_name:
-            print(f"\nPer-Example Results (from {table_name}):")
+            df = result.tables[table_name]
+            print(f"\nPer-Example Results ({len(df)} examples):")
             print("-" * 60)
-            for i, row in enumerate(result.tables[table_name].itertuples(), 1):
-                inputs_str = getattr(row, "inputs", str(row)[:50])
-                outputs_str = getattr(row, "outputs", "")
-                output_display = (
-                    str(outputs_str)[:100] + "..."
-                    if len(str(outputs_str)) > 100
-                    else outputs_str
-                )
-                print(f"\n[{i}] Input: {inputs_str}")
-                print(f"    Output: {output_display}")
+
+            for i, row in df.iterrows():
+                # Get request/response (MLflow GenAI uses these column names)
+                request = row.get("request", {})
+                response = row.get("response", "")
+                state = row.get("state", "")
+                expected = row.get("expected_answer/value", "")
+
+                # Extract user message from request
+                if isinstance(request, dict):
+                    user_msg = request.get("user_message", str(request)[:60])
+                else:
+                    user_msg = str(request)[:60]
+
+                # Extract actual response text from trace structure
+                response_text = ""
+                if isinstance(response, str):
+                    response_text = response
+                elif isinstance(response, dict):
+                    # Response might be nested in messages
+                    messages = response.get("messages", [])
+                    if messages:
+                        # Get last AI message content
+                        for msg in reversed(messages):
+                            if isinstance(msg, dict):
+                                if msg.get("type") == "ai" and msg.get("content"):
+                                    response_text = msg.get("content", "")
+                                    break
+                            elif hasattr(msg, "content") and hasattr(msg, "type"):
+                                if msg.type == "ai" and msg.content:
+                                    response_text = msg.content
+                                    break
+
+                # Truncate response for display
+                response_display = (
+                    response_text[:150] + "..."
+                    if len(response_text) > 150
+                    else response_text
+                ) if response_text else "(no response)"
+
+                print(f"\n[{i+1}] {user_msg}")
+                print(f"    Expected: {expected} | State: {state}")
+                print(f"    Response: {response_display}")
 
     print()
 
@@ -301,6 +367,12 @@ def main():
         help="Evaluate a specific agent (default: all agents)",
     )
     parser.add_argument(
+        "--simple",
+        "-s",
+        action="store_true",
+        help="Use simplified dataset and scorers for baseline evaluation",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -333,14 +405,21 @@ def main():
 
     # Run evaluation
     if args.agent:
-        result = evaluate_agent(args.agent)
+        result = evaluate_agent(args.agent, simple=args.simple)
         print_results(args.agent, result)
 
         # Print MLflow link
         print(f"\nView results in MLflow UI:")
         print(f"  {config.mlflow_tracking_uri}/#/experiments")
     else:
-        run_all_evaluations()
+        if args.simple:
+            # Only run simple evaluation for public-assistant
+            result = evaluate_agent("public-assistant", simple=True)
+            print_results("public-assistant", result)
+            print(f"\nView results in MLflow UI:")
+            print(f"  {config.mlflow_tracking_uri}/#/experiments")
+        else:
+            run_all_evaluations()
 
 
 if __name__ == "__main__":

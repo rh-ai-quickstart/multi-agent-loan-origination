@@ -10,6 +10,8 @@ They cannot return dict - the dict format was deprecated.
 
 from mlflow.genai.scorers import scorer
 
+from ..predictors import get_last_tool_calls
+
 
 @scorer
 def contains_expected(
@@ -114,3 +116,115 @@ def professional_tone(outputs: str) -> bool:
 
     found_unprofessional = [m for m in unprofessional if m in outputs_lower]
     return len(found_unprofessional) == 0
+
+
+@scorer
+def has_numeric_result(outputs: str) -> bool:
+    """Check if response contains numeric values (useful for calculation queries).
+
+    Args:
+        outputs: The model's response text
+
+    Returns:
+        True if response contains numbers (dollar amounts, percentages, etc.)
+    """
+    import re
+
+    # Look for dollar amounts, percentages, or plain numbers
+    patterns = [
+        r"\$[\d,]+",  # Dollar amounts like $100,000
+        r"\d+%",  # Percentages like 6.5%
+        r"\d{1,3}(,\d{3})+",  # Large numbers with commas
+    ]
+
+    for pattern in patterns:
+        if re.search(pattern, str(outputs)):
+            return True
+    return False
+
+
+@scorer
+def response_length(outputs: str) -> float:
+    """Score response length (simplified version).
+
+    Returns 1.0 for responses with reasonable length (50+ chars).
+
+    Args:
+        outputs: The model's response text
+
+    Returns:
+        1.0 if adequate length, 0.5 otherwise
+    """
+    length = len(str(outputs))
+    return 1.0 if length >= 50 else 0.5
+
+
+@scorer
+def tool_calls_match(expectations: dict, trace) -> bool:
+    """Check if expected tools were called during agent execution.
+
+    This scorer extracts tool calls from the MLflow trace and compares
+    against the expected_tools list in the dataset expectations.
+
+    Args:
+        expectations: Dict containing expected_tools list
+        trace: MLflow trace object containing span information
+
+    Returns:
+        True if all expected tools were called, False otherwise.
+        Returns True if no expected tools specified (pass by default).
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    expected_tools = expectations.get("expected_tools", [])
+    if not expected_tools:
+        return True  # No expected tools specified, pass
+
+    # Extract actual tool calls from trace
+    actual_tools = set()
+
+    if trace is None:
+        logger.debug("tool_calls_match: trace is None")
+        return False
+
+    # Debug: log trace structure
+    logger.debug(f"tool_calls_match: trace type={type(trace)}, attrs={dir(trace)[:10]}")
+
+    # Method 1: Try search_spans for TOOL type
+    try:
+        if hasattr(trace, "search_spans"):
+            spans = list(trace.search_spans(span_type="TOOL"))
+            logger.debug(f"tool_calls_match: TOOL spans found: {len(spans)}")
+            for span in spans:
+                name = getattr(span, "name", "")
+                logger.debug(f"tool_calls_match: TOOL span name={name}")
+                if name:
+                    actual_tools.add(name)
+    except Exception as e:
+        logger.debug(f"tool_calls_match: search_spans error: {e}")
+
+    # Method 2: Try to iterate all spans and check span_type
+    try:
+        if hasattr(trace, "data") and hasattr(trace.data, "spans"):
+            for span in trace.data.spans:
+                span_type = getattr(span, "span_type", None)
+                name = getattr(span, "name", "")
+                logger.debug(f"tool_calls_match: span name={name}, type={span_type}")
+                # Check if it's a TOOL span or matches our tool names
+                if span_type == "TOOL" or name in [
+                    "product_info", "affordability_calc", "kb_search",
+                    "current_date", "list_my_applications"
+                ]:
+                    actual_tools.add(name)
+    except Exception as e:
+        logger.debug(f"tool_calls_match: data.spans error: {e}")
+
+    logger.debug(f"tool_calls_match: expected={expected_tools}, actual={actual_tools}")
+
+    # Check if all expected tools were called
+    for tool in expected_tools:
+        if tool not in actual_tools:
+            return False
+
+    return True
