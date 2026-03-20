@@ -98,7 +98,7 @@ def test_get_required_doc_types_default():
     assert DocumentType.W2 in result
     assert DocumentType.PAY_STUB in result
     assert DocumentType.BANK_STATEMENT in result
-    assert DocumentType.ID in result
+    assert DocumentType.DRIVERS_LICENSE in result
 
 
 def test_get_required_doc_types_self_employed():
@@ -113,7 +113,7 @@ def test_get_required_doc_types_unemployed():
     """Unemployed borrowers need only bank statement and ID."""
     result = _get_required_doc_types(None, EmploymentStatus.UNEMPLOYED.value)
     assert DocumentType.BANK_STATEMENT in result
-    assert DocumentType.ID in result
+    assert DocumentType.DRIVERS_LICENSE in result
     assert DocumentType.W2 not in result
     assert DocumentType.PAY_STUB not in result
     assert DocumentType.TAX_RETURN not in result
@@ -123,7 +123,7 @@ def test_get_required_doc_types_fallback_loan_type():
     """Unknown loan type falls back to _default requirements."""
     result = _get_required_doc_types("nonexistent_loan", EmploymentStatus.W2_EMPLOYEE.value)
     assert DocumentType.W2 in result
-    assert DocumentType.ID in result
+    assert DocumentType.DRIVERS_LICENSE in result
 
 
 def test_get_required_doc_types_fallback_employment_status():
@@ -152,7 +152,7 @@ async def test_check_completeness_all_provided(mock_get_app):
         _make_document(doc_id=1, doc_type=DocumentType.W2),
         _make_document(doc_id=2, doc_type=DocumentType.PAY_STUB),
         _make_document(doc_id=3, doc_type=DocumentType.BANK_STATEMENT),
-        _make_document(doc_id=4, doc_type=DocumentType.ID),
+        _make_document(doc_id=4, doc_type=DocumentType.DRIVERS_LICENSE),
     ]
 
     session = AsyncMock()
@@ -226,7 +226,7 @@ async def test_check_completeness_quality_flags_surfaced(mock_get_app):
         _make_document(doc_id=1, doc_type=DocumentType.W2, quality_flags=["blurry"]),
         _make_document(doc_id=2, doc_type=DocumentType.PAY_STUB),
         _make_document(doc_id=3, doc_type=DocumentType.BANK_STATEMENT),
-        _make_document(doc_id=4, doc_type=DocumentType.ID),
+        _make_document(doc_id=4, doc_type=DocumentType.DRIVERS_LICENSE),
     ]
 
     session = AsyncMock()

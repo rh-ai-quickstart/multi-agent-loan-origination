@@ -36,24 +36,6 @@ from .storage import get_storage_service
 
 logger = logging.getLogger(__name__)
 
-# Map common LLM variants to our enum values
-_DOC_TYPE_ALIASES: dict[str, str] = {
-    "homeowners_insurance": "insurance",
-    "homeowner_insurance": "insurance",
-    "insurance_document": "insurance",
-    "insurance_policy": "insurance",
-    "proof_of_insurance": "insurance",
-    "hoi": "insurance",
-    "drivers_license": "id",
-    "driver_license": "id",
-    "passport": "id",
-    "government_id": "id",
-    "identification": "id",
-    "appraisal": "property_appraisal",
-    "w-2": "w2",
-    "paystub": "pay_stub",
-}
-
 
 def _normalize_doc_type(raw: str) -> str | None:
     """Try to resolve an LLM-returned doc type string to a valid DocumentType value."""
@@ -63,9 +45,6 @@ def _normalize_doc_type(raw: str) -> str | None:
         return DocumentType(cleaned).value
     except ValueError:
         pass
-    # Alias lookup
-    if cleaned in _DOC_TYPE_ALIASES:
-        return _DOC_TYPE_ALIASES[cleaned]
     # Substring match (e.g. "insurance" in "homeowners_insurance_policy")
     for dtype in DocumentType:
         if dtype.value != "other" and dtype.value in cleaned:

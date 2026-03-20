@@ -73,7 +73,7 @@ class TestBorrowerCompleteness:
         missing = [r for r in data["requirements"] if not r["is_provided"]]
         missing_types = {r["doc_type"] for r in missing}
         assert "bank_statement" in missing_types
-        assert "id" in missing_types
+        assert "drivers_license" in missing_types
 
     def test_borrower_cannot_see_other_app(self, app, make_client):
         """Borrower checking another user's app gets 404 (scope returns None)."""
@@ -93,7 +93,7 @@ class TestLoanOfficerCompleteness:
             _make_doc(1, DocumentType.W2),
             _make_doc(2, DocumentType.PAY_STUB),
             _make_doc(3, DocumentType.BANK_STATEMENT),
-            _make_doc(4, DocumentType.ID),
+            _make_doc(4, DocumentType.DRIVERS_LICENSE),
         ]
         session = _make_completeness_session(sarah_app, docs)
         client = make_client(loan_officer(), session)
@@ -145,7 +145,7 @@ class TestQualityFlagsSurfaced:
             _make_doc(1, DocumentType.W2, quality_flags=["blurry"]),
             _make_doc(2, DocumentType.PAY_STUB),
             _make_doc(3, DocumentType.BANK_STATEMENT),
-            _make_doc(4, DocumentType.ID),
+            _make_doc(4, DocumentType.DRIVERS_LICENSE),
         ]
         session = _make_completeness_session(sarah_app, docs)
         client = make_client(loan_officer(), session)

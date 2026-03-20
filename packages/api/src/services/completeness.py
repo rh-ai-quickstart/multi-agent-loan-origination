@@ -26,22 +26,37 @@ DOC_TYPE_LABELS: dict[DocumentType, str] = {
     DocumentType.PAY_STUB: "Recent Pay Stub",
     DocumentType.TAX_RETURN: "Tax Return",
     DocumentType.BANK_STATEMENT: "Bank Statement",
-    DocumentType.ID: "Government-Issued ID",
+    DocumentType.DRIVERS_LICENSE: "Driver's License",
+    DocumentType.PASSPORT: "Passport",
     DocumentType.PROPERTY_APPRAISAL: "Property Appraisal",
-    DocumentType.INSURANCE: "Homeowner's Insurance",
+    DocumentType.HOMEOWNERS_INSURANCE: "Homeowner's Insurance",
+    DocumentType.TITLE_INSURANCE: "Title Insurance",
+    DocumentType.FLOOD_INSURANCE: "Flood Insurance",
+    DocumentType.PURCHASE_AGREEMENT: "Purchase Agreement",
+    DocumentType.GIFT_LETTER: "Gift Letter",
 }
 
 # Common document sets (factored for reuse)
-_W2_DOCS = [DocumentType.W2, DocumentType.PAY_STUB, DocumentType.BANK_STATEMENT, DocumentType.ID]
+_ID_DOCS = [DocumentType.DRIVERS_LICENSE, DocumentType.PASSPORT]
+_W2_DOCS = [
+    DocumentType.W2,
+    DocumentType.PAY_STUB,
+    DocumentType.BANK_STATEMENT,
+    DocumentType.DRIVERS_LICENSE,
+]
 _W2_WITH_TAX = [
     DocumentType.W2,
     DocumentType.PAY_STUB,
     DocumentType.TAX_RETURN,
     DocumentType.BANK_STATEMENT,
-    DocumentType.ID,
+    DocumentType.DRIVERS_LICENSE,
 ]
-_SELF_EMPLOYED_DOCS = [DocumentType.TAX_RETURN, DocumentType.BANK_STATEMENT, DocumentType.ID]
-_UNEMPLOYED_DOCS = [DocumentType.BANK_STATEMENT, DocumentType.ID]
+_SELF_EMPLOYED_DOCS = [
+    DocumentType.TAX_RETURN,
+    DocumentType.BANK_STATEMENT,
+    DocumentType.DRIVERS_LICENSE,
+]
+_UNEMPLOYED_DOCS = [DocumentType.BANK_STATEMENT, DocumentType.DRIVERS_LICENSE]
 
 # Document requirements by loan_type and employment_status.
 # Key structure: DOCUMENT_REQUIREMENTS[loan_type_value][employment_status_value]

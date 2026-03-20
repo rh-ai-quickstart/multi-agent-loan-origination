@@ -59,7 +59,7 @@ async def test_status_after_all_docs_uploaded(client_factory, seed_data):
     )
 
     with patch("src.routes.documents.asyncio.create_task"):
-        for doc_type in ("bank_statement", "id"):
+        for doc_type in ("bank_statement", "drivers_license"):
             resp = await client.post(
                 f"/api/applications/{app_id}/documents",
                 files={"file": ("doc.pdf", io.BytesIO(pdf), "application/pdf")},

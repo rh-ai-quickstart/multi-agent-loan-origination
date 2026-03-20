@@ -72,9 +72,14 @@ class DocumentType(str, enum.Enum):
     PAY_STUB = "pay_stub"
     TAX_RETURN = "tax_return"
     BANK_STATEMENT = "bank_statement"
-    ID = "id"
+    DRIVERS_LICENSE = "drivers_license"
+    PASSPORT = "passport"
     PROPERTY_APPRAISAL = "property_appraisal"
-    INSURANCE = "insurance"
+    HOMEOWNERS_INSURANCE = "homeowners_insurance"
+    TITLE_INSURANCE = "title_insurance"
+    FLOOD_INSURANCE = "flood_insurance"
+    PURCHASE_AGREEMENT = "purchase_agreement"
+    GIFT_LETTER = "gift_letter"
     OTHER = "other"
 
 
