@@ -38,12 +38,14 @@ DOC_TYPE_LABELS: dict[DocumentType, str] = {
 
 # Common document sets (factored for reuse)
 _ID_DOCS = [DocumentType.DRIVERS_LICENSE, DocumentType.PASSPORT]
+# Standard W-2 employee docs (conventional loans)
 _W2_DOCS = [
     DocumentType.W2,
     DocumentType.PAY_STUB,
     DocumentType.BANK_STATEMENT,
     DocumentType.DRIVERS_LICENSE,
 ]
+# W-2 employee + tax returns (jumbo, FHA -- higher income verification)
 _W2_WITH_TAX = [
     DocumentType.W2,
     DocumentType.PAY_STUB,
