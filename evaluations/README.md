@@ -102,12 +102,67 @@ evaluations/
 ├── run_agent_eval.py          # Main CLI entry point
 ├── predictors.py              # Agent predictor wrapper
 ├── evaluate_agent.ipynb       # Interactive notebook
+├── kfp_eval_pipeline.py       # Kubeflow Pipeline definitions
+├── pipelines_gen/             # Generated pipeline YAMLs (gitignored)
+│   ├── simple_eval_pipeline.yaml
+│   └── llm_judge_eval_pipeline.yaml
 ├── datasets/
 │   ├── __init__.py
 │   └── public_assistant_simple.py  # Test cases
 └── scorers/
     ├── __init__.py
     └── custom_scorers.py      # Custom evaluation scorers
+```
+
+## Kubeflow Pipelines
+
+The evaluation can also run as Kubeflow Pipelines on OpenShift AI.
+
+### Pipeline Steps
+
+Both pipelines follow a 4-step structure:
+
+1. **setup_mlflow_op** - Configure MLflow tracking and experiment
+2. **create_dataset_op** - Create/load evaluation dataset in MLflow
+3. **run_eval_op** - Run evaluation (simple or LLM-judge)
+4. **report_results_op** - Generate and display evaluation report
+
+### Pipeline Parameters
+
+**Simple Pipeline:**
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `mlflow_tracking_uri` | MLflow server URL | (required) |
+| `mlflow_experiment_name` | Experiment name | `multi-agent-loan-origination` |
+| `agent_name` | Agent to evaluate | `public-assistant` |
+| `dataset_name` | MLflow dataset name | `public_assistant_eval` |
+| `mlflow_secret_name` | K8s secret for MLflow token | `mlflow-credentials` |
+
+**LLM-Judge Pipeline (additional):**
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `llm_base_url` | LLM endpoint URL | (required) |
+| `llm_model` | Model for LLM judge | `qwen3-14b` |
+| `llm_secret_name` | K8s secret for LLM API key | `llm-credentials` |
+
+### Required Kubernetes Secrets
+
+```yaml
+# mlflow-credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mlflow-credentials
+stringData:
+  MLFLOW_TRACKING_TOKEN: <your-token>
+
+# llm-credentials (for LLM-judge mode)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: llm-credentials
+stringData:
+  LLM_API_KEY: <your-api-key>
 ```
 
 ## Dataset Format

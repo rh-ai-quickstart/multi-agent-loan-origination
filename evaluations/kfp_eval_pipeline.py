@@ -1,0 +1,767 @@
+# This project was developed with assistance from AI tools.
+"""Kubeflow Pipeline for Agent Evaluation with MLflow.
+
+This pipeline evaluates the multi-agent loan origination system using MLflow's
+GenAI evaluation framework. It supports two evaluation modes:
+
+1. Simple mode: Fast, deterministic checks (no LLM calls)
+2. LLM-as-a-Judge mode: Full evaluation with LLM judges
+
+The pipeline is split into modular steps:
+1. setup_mlflow_op: Configure MLflow tracking
+2. create_dataset_op: Create/load evaluation dataset
+3. run_simple_eval_op: Run deterministic scorers
+4. run_llm_judge_eval_op: Run LLM-as-a-judge scorers
+
+Environment variables (from secrets in OpenShift):
+    MLFLOW_TRACKING_URI: MLflow server URL
+    MLFLOW_EXPERIMENT_NAME: Experiment name
+    MLFLOW_TRACKING_TOKEN: Authentication token
+    LLM_BASE_URL: LLM endpoint URL (for llm-judge mode)
+    LLM_API_KEY: API key for LLM endpoint
+    LLM_MODEL_CAPABLE: Model name for judge
+"""
+
+import kfp
+from kfp import dsl
+from kfp.dsl import component, Output, Input, Artifact, Dataset
+from kfp import kubernetes
+
+
+# =============================================================================
+# Shared base image and packages
+# =============================================================================
+BASE_IMAGE = "python:3.11-slim"
+
+COMMON_PACKAGES = [
+    "mlflow>=2.15.0",
+    "python-dotenv>=1.0.0",
+    "nest-asyncio>=1.6.0",
+    "pydantic>=2.0.0",
+    "httpx>=0.27.0",
+]
+
+AGENT_PACKAGES = COMMON_PACKAGES + [
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langgraph>=0.2.0",
+]
+
+LLM_JUDGE_PACKAGES = AGENT_PACKAGES + [
+    "openai>=1.0.0",
+]
+
+
+# =============================================================================
+# Step 1: Setup MLflow
+# =============================================================================
+@component(
+    base_image=BASE_IMAGE,
+    packages_to_install=COMMON_PACKAGES,
+)
+def setup_mlflow_op(
+    mlflow_tracking_uri: str,
+    mlflow_experiment_name: str,
+    mlflow_workspace: str,
+) -> str:
+    """Configure MLflow tracking and return experiment name.
+
+    Args:
+        mlflow_tracking_uri: MLflow server URL
+        mlflow_experiment_name: Base experiment name
+        mlflow_workspace: MLflow workspace (namespace) for RHOAI
+
+    Returns:
+        Full experiment name (with -eval suffix)
+    """
+    import logging
+    import mlflow
+
+    logging.getLogger("mlflow").setLevel(logging.ERROR)
+
+    mlflow.set_tracking_uri(mlflow_tracking_uri)
+    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
+
+    experiment_name = mlflow_experiment_name
+    if not experiment_name.endswith("-eval"):
+        experiment_name = f"{experiment_name}-eval"
+
+    mlflow.set_experiment(experiment_name)
+
+    print(f"MLflow configured: {mlflow_tracking_uri}")
+    print(f"Workspace: {mlflow_workspace}")
+    print(f"Experiment: {experiment_name}")
+
+    return experiment_name
+
+
+# =============================================================================
+# Step 2: Create Dataset
+# =============================================================================
+@component(
+    base_image=BASE_IMAGE,
+    packages_to_install=COMMON_PACKAGES,
+)
+def create_dataset_op(
+    mlflow_tracking_uri: str,
+    experiment_name: str,
+    dataset_name: str,
+    agent_name: str,
+    mlflow_workspace: str,
+) -> str:
+    """Create evaluation dataset in MLflow.
+
+    Args:
+        mlflow_tracking_uri: MLflow server URL
+        experiment_name: Experiment name
+        dataset_name: Name for the dataset
+        agent_name: Agent being evaluated
+        mlflow_workspace: MLflow workspace (namespace) for RHOAI
+
+    Returns:
+        Dataset ID
+    """
+    import logging
+    import mlflow
+    from mlflow.genai.datasets import create_dataset
+
+    logging.getLogger("mlflow").setLevel(logging.ERROR)
+
+    mlflow.set_tracking_uri(mlflow_tracking_uri)
+    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
+    mlflow.set_experiment(experiment_name)
+
+    # Define test cases
+    test_cases = [
+        {
+            "inputs": {"user_message": "What loan products do you offer?"},
+            "expectations": {
+                "expected_answer": "30-year",
+                "expected_tool_calls": [{"name": "product_info"}],
+                "expected_topics": ["fixed", "FHA", "VA"],
+                "forbidden_content": [],
+            },
+        },
+        {
+            "inputs": {"user_message": "Tell me about FHA loans"},
+            "expectations": {
+                "expected_answer": "FHA",
+                "expected_tool_calls": [{"name": "product_info"}],
+                "expected_topics": ["down payment"],
+                "forbidden_content": [],
+            },
+        },
+        {
+            "inputs": {"user_message": "What is a VA loan?"},
+            "expectations": {
+                "expected_answer": "VA",
+                "expected_tool_calls": [{"name": "product_info"}],
+                "expected_topics": ["veteran", "military"],
+                "forbidden_content": [],
+            },
+        },
+        {
+            "inputs": {"user_message": "Compare fixed vs adjustable rate mortgages"},
+            "expectations": {
+                "expected_answer": "fixed",
+                "expected_tool_calls": [{"name": "product_info"}],
+                "expected_topics": ["ARM", "rate"],
+                "forbidden_content": [],
+            },
+        },
+        {
+            "inputs": {
+                "user_message": "I make $100,000 a year with $500 monthly debts and $20,000 for down payment. How much house can I afford?"
+            },
+            "expectations": {
+                "expected_answer": "afford",
+                "expected_tool_calls": [{"name": "affordability_calc"}],
+                "expected_topics": ["loan", "payment"],
+                "forbidden_content": ["approved", "guaranteed"],
+            },
+        },
+        {
+            "inputs": {
+                "user_message": "What would my monthly payment be on a $300,000 loan at 6.5% for 30 years?"
+            },
+            "expectations": {
+                "expected_answer": "payment",
+                "expected_tool_calls": [{"name": "affordability_calc"}],
+                "expected_topics": ["monthly", "interest"],
+                "forbidden_content": [],
+            },
+        },
+    ]
+
+    # Create dataset
+    dataset = create_dataset(
+        name=dataset_name,
+        tags={"stage": "validation", "version": "1", "agent": agent_name},
+    )
+    dataset = dataset.merge_records(test_cases)
+
+    print(f"Dataset created: {dataset.dataset_id}")
+    print(f"Test cases: {len(test_cases)}")
+
+    return dataset.dataset_id
+
+
+# =============================================================================
+# Step 3a: Run Simple Evaluation (no LLM judge)
+# =============================================================================
+@component(
+    base_image=BASE_IMAGE,
+    packages_to_install=AGENT_PACKAGES,
+)
+def run_simple_eval_op(
+    mlflow_tracking_uri: str,
+    experiment_name: str,
+    dataset_name: str,
+    mlflow_workspace: str,
+) -> dict:
+    """Run simple evaluation without LLM judge.
+
+    Uses deterministic scorers:
+    - contains_expected: Check if expected keyword appears
+    - has_numeric_result: Check for numeric values
+    - response_length: Ensure adequate response length
+
+    Args:
+        mlflow_tracking_uri: MLflow server URL
+        experiment_name: Experiment name
+        dataset_name: Name of the dataset to use
+        mlflow_workspace: MLflow workspace (namespace) for RHOAI
+
+    Returns:
+        Dictionary with evaluation metrics
+    """
+    import re
+    import logging
+    import warnings
+
+    warnings.filterwarnings("ignore")
+
+    import mlflow
+    from mlflow.genai.scorers import scorer
+
+    logging.getLogger("mlflow").setLevel(logging.ERROR)
+
+    # Allow nested event loops
+    try:
+        import nest_asyncio
+        nest_asyncio.apply()
+    except ImportError:
+        pass
+
+    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
+
+    # -------------------------------------------------------------------------
+    # Define scorers
+    # -------------------------------------------------------------------------
+    @scorer
+    def contains_expected(inputs: dict, outputs: str, expectations: dict) -> bool:
+        expected = expectations.get("expected_answer", "")
+        if not expected:
+            return True
+        return str(expected).lower() in str(outputs).lower()
+
+    @scorer
+    def has_numeric_result(outputs: str) -> bool:
+        patterns = [r"\$[\d,]+", r"\d+%", r"\d{1,3}(,\d{3})+"]
+        for pattern in patterns:
+            if re.search(pattern, str(outputs)):
+                return True
+        return False
+
+    @scorer
+    def response_length(outputs: str) -> float:
+        length = len(str(outputs))
+        return 1.0 if length >= 50 else 0.5
+
+    # -------------------------------------------------------------------------
+    # Define mock predictor
+    # -------------------------------------------------------------------------
+    def predict_fn(user_message: str) -> str:
+        msg_lower = user_message.lower()
+        if "loan products" in msg_lower or "offer" in msg_lower:
+            return "We offer several mortgage products including 30-year fixed, 15-year fixed, FHA loans, VA loans, and adjustable rate mortgages (ARMs)."
+        elif "fha" in msg_lower:
+            return "FHA loans are government-backed mortgages with lower down payment requirements, typically 3.5% for qualified borrowers."
+        elif "va" in msg_lower:
+            return "VA loans are available to eligible veterans and military service members, often with no down payment required."
+        elif "fixed" in msg_lower and "adjustable" in msg_lower:
+            return "Fixed rate mortgages have consistent payments, while ARMs have rates that adjust periodically based on market conditions."
+        elif "afford" in msg_lower:
+            return "Based on your income of $100,000 and monthly debts, you could potentially afford a loan amount of approximately $350,000 with monthly payments around $2,200."
+        elif "payment" in msg_lower and "300,000" in msg_lower:
+            return "On a $300,000 loan at 6.5% for 30 years, your estimated monthly payment would be approximately $1,896 for principal and interest."
+        else:
+            return "I can help you with information about our mortgage products, affordability calculations, and loan options."
+
+    # -------------------------------------------------------------------------
+    # Setup MLflow and load dataset
+    # -------------------------------------------------------------------------
+    mlflow.set_tracking_uri(mlflow_tracking_uri)
+    mlflow.set_experiment(experiment_name)
+
+    from mlflow.genai.datasets import get_dataset
+    dataset = get_dataset(name=dataset_name)
+
+    # -------------------------------------------------------------------------
+    # Run evaluation
+    # -------------------------------------------------------------------------
+    scorers = [contains_expected, has_numeric_result, response_length]
+
+    print(f"\nRunning Simple Evaluation")
+    print(f"Scorers: {len(scorers)}")
+
+    result = mlflow.genai.evaluate(
+        data=dataset,
+        predict_fn=predict_fn,
+        scorers=scorers,
+    )
+
+    # Extract metrics
+    metrics = {}
+    if hasattr(result, "metrics") and result.metrics:
+        for metric, value in result.metrics.items():
+            if isinstance(value, float):
+                metrics[metric] = round(value, 4)
+            else:
+                metrics[metric] = value
+
+    print(f"\nResults: {metrics}")
+    return metrics
+
+
+# =============================================================================
+# Step 3b: Run LLM-as-a-Judge Evaluation
+# =============================================================================
+@component(
+    base_image=BASE_IMAGE,
+    packages_to_install=LLM_JUDGE_PACKAGES,
+)
+def run_llm_judge_eval_op(
+    mlflow_tracking_uri: str,
+    experiment_name: str,
+    dataset_name: str,
+    llm_base_url: str,
+    llm_model: str,
+    mlflow_workspace: str,
+) -> dict:
+    """Run LLM-as-a-Judge evaluation.
+
+    Uses all scorers including LLM judges:
+    - contains_expected, has_numeric_result, response_length (deterministic)
+    - ToolCallCorrectness, ToolCallEfficiency (LLM judge)
+    - RelevanceToQuery, Safety, Guidelines (LLM judge)
+
+    Args:
+        mlflow_tracking_uri: MLflow server URL
+        experiment_name: Experiment name
+        dataset_name: Name of the dataset to use
+        llm_base_url: LLM endpoint URL
+        llm_model: Model name for judge
+        mlflow_workspace: MLflow workspace (namespace) for RHOAI
+
+    Returns:
+        Dictionary with evaluation metrics
+    """
+    import os
+    import re
+    import logging
+    import warnings
+
+    warnings.filterwarnings("ignore")
+
+    import mlflow
+    from mlflow.genai.scorers import (
+        scorer,
+        Guidelines,
+        RelevanceToQuery,
+        Safety,
+        ToolCallCorrectness,
+        ToolCallEfficiency,
+    )
+
+    logging.getLogger("mlflow").setLevel(logging.ERROR)
+
+    # Allow nested event loops
+    try:
+        import nest_asyncio
+        nest_asyncio.apply()
+    except ImportError:
+        pass
+
+    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
+
+    # -------------------------------------------------------------------------
+    # Define custom scorers
+    # -------------------------------------------------------------------------
+    @scorer
+    def contains_expected(inputs: dict, outputs: str, expectations: dict) -> bool:
+        expected = expectations.get("expected_answer", "")
+        if not expected:
+            return True
+        return str(expected).lower() in str(outputs).lower()
+
+    @scorer
+    def has_numeric_result(outputs: str) -> bool:
+        patterns = [r"\$[\d,]+", r"\d+%", r"\d{1,3}(,\d{3})+"]
+        for pattern in patterns:
+            if re.search(pattern, str(outputs)):
+                return True
+        return False
+
+    @scorer
+    def response_length(outputs: str) -> float:
+        length = len(str(outputs))
+        return 1.0 if length >= 50 else 0.5
+
+    # -------------------------------------------------------------------------
+    # Define mock predictor
+    # -------------------------------------------------------------------------
+    def predict_fn(user_message: str) -> str:
+        msg_lower = user_message.lower()
+        if "loan products" in msg_lower or "offer" in msg_lower:
+            return "We offer several mortgage products including 30-year fixed, 15-year fixed, FHA loans, VA loans, and adjustable rate mortgages (ARMs)."
+        elif "fha" in msg_lower:
+            return "FHA loans are government-backed mortgages with lower down payment requirements, typically 3.5% for qualified borrowers."
+        elif "va" in msg_lower:
+            return "VA loans are available to eligible veterans and military service members, often with no down payment required."
+        elif "fixed" in msg_lower and "adjustable" in msg_lower:
+            return "Fixed rate mortgages have consistent payments, while ARMs have rates that adjust periodically based on market conditions."
+        elif "afford" in msg_lower:
+            return "Based on your income of $100,000 and monthly debts, you could potentially afford a loan amount of approximately $350,000 with monthly payments around $2,200."
+        elif "payment" in msg_lower and "300,000" in msg_lower:
+            return "On a $300,000 loan at 6.5% for 30 years, your estimated monthly payment would be approximately $1,896 for principal and interest."
+        else:
+            return "I can help you with information about our mortgage products, affordability calculations, and loan options."
+
+    # -------------------------------------------------------------------------
+    # Setup MLflow and configure LLM
+    # -------------------------------------------------------------------------
+    mlflow.set_tracking_uri(mlflow_tracking_uri)
+    mlflow.set_experiment(experiment_name)
+
+    os.environ["OPENAI_API_BASE"] = llm_base_url
+    os.environ["OPENAI_BASE_URL"] = llm_base_url
+    judge_model = f"openai:/{llm_model}"
+    print(f"Judge model: {judge_model}")
+
+    from mlflow.genai.datasets import get_dataset
+    dataset = get_dataset(name=dataset_name)
+
+    # -------------------------------------------------------------------------
+    # Build scorers
+    # -------------------------------------------------------------------------
+    guidelines = Guidelines(
+        name="public_assistant_guidelines",
+        guidelines=[
+            "The response should be helpful and informative about mortgage products",
+            "The response should NOT promise specific rates or pre-approval",
+            "The response should use professional, clear language",
+        ],
+        model=judge_model,
+    )
+
+    scorers = [
+        # Custom deterministic scorers
+        contains_expected,
+        has_numeric_result,
+        response_length,
+        # LLM-as-a-judge scorers
+        ToolCallCorrectness(model=judge_model, should_exact_match=True),
+        ToolCallEfficiency(model=judge_model),
+        RelevanceToQuery(model=judge_model),
+        Safety(model=judge_model),
+        guidelines,
+    ]
+
+    # -------------------------------------------------------------------------
+    # Run evaluation
+    # -------------------------------------------------------------------------
+    print(f"\nRunning LLM-as-a-Judge Evaluation")
+    print(f"Scorers: {len(scorers)} (5 LLM judges)")
+
+    result = mlflow.genai.evaluate(
+        data=dataset,
+        predict_fn=predict_fn,
+        scorers=scorers,
+    )
+
+    # Extract metrics
+    metrics = {}
+    if hasattr(result, "metrics") and result.metrics:
+        for metric, value in result.metrics.items():
+            if isinstance(value, float):
+                metrics[metric] = round(value, 4)
+            else:
+                metrics[metric] = value
+
+    print(f"\nResults: {metrics}")
+    return metrics
+
+
+# =============================================================================
+# Step 4: Report Results
+# =============================================================================
+@component(
+    base_image=BASE_IMAGE,
+    packages_to_install=["pydantic>=2.0.0"],
+)
+def report_results_op(
+    metrics: dict,
+    mlflow_tracking_uri: str,
+    experiment_name: str,
+    mode: str,
+) -> str:
+    """Generate evaluation report.
+
+    Args:
+        metrics: Evaluation metrics from previous step
+        mlflow_tracking_uri: MLflow server URL
+        experiment_name: Experiment name
+        mode: Evaluation mode (simple or llm-judge)
+
+    Returns:
+        Report summary string
+    """
+    print("=" * 60)
+    print(f"EVALUATION REPORT - {mode.upper()} MODE")
+    print("=" * 60)
+
+    print("\nMetrics:")
+    for metric, value in sorted(metrics.items()):
+        if isinstance(value, float):
+            print(f"  {metric}: {value:.2%}")
+        else:
+            print(f"  {metric}: {value}")
+
+    print(f"\nView results in MLflow UI:")
+    print(f"  {mlflow_tracking_uri}/#/experiments")
+    print("\nClick on your run, then enable 'All Assessments' in the Columns dropdown")
+
+    # Generate summary
+    summary = f"Evaluation completed in {mode} mode. "
+    summary += f"Metrics: {len(metrics)} recorded. "
+    summary += f"View at: {mlflow_tracking_uri}"
+
+    return summary
+
+
+# =============================================================================
+# Pipeline: Simple Evaluation (Multi-Step)
+# =============================================================================
+@dsl.pipeline(
+    name="Agent Simple Evaluation Pipeline",
+    description="Multi-step evaluation pipeline without LLM judges"
+)
+def simple_eval_pipeline(
+    mlflow_tracking_uri: str,
+    mlflow_workspace: str,
+    mlflow_experiment_name: str = "multi-agent-loan-origination",
+    agent_name: str = "public-assistant",
+    dataset_name: str = "public_assistant_eval_simple",
+    mlflow_secret_name: str = "mlflow-credentials",
+):
+    """Pipeline for simple evaluation (no LLM judge).
+
+    Steps:
+    1. Setup MLflow tracking
+    2. Create evaluation dataset
+    3. Run simple evaluation
+    4. Report results
+    """
+
+    # Step 1: Setup MLflow
+    setup_task = setup_mlflow_op(
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        mlflow_experiment_name=mlflow_experiment_name,
+        mlflow_workspace=mlflow_workspace,
+    )
+    kubernetes.use_secret_as_env(
+        setup_task,
+        secret_name=mlflow_secret_name,
+        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
+    )
+
+    # Step 2: Create dataset
+    dataset_task = create_dataset_op(
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        experiment_name=setup_task.output,
+        dataset_name=dataset_name,
+        agent_name=agent_name,
+        mlflow_workspace=mlflow_workspace,
+    )
+    kubernetes.use_secret_as_env(
+        dataset_task,
+        secret_name=mlflow_secret_name,
+        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
+    )
+
+    # Step 3: Run simple evaluation
+    eval_task = run_simple_eval_op(
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        experiment_name=setup_task.output,
+        dataset_name=dataset_name,
+        mlflow_workspace=mlflow_workspace,
+    )
+    eval_task.after(dataset_task)
+    kubernetes.use_secret_as_env(
+        eval_task,
+        secret_name=mlflow_secret_name,
+        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
+    )
+
+    # Step 4: Report results
+    report_task = report_results_op(
+        metrics=eval_task.output,
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        experiment_name=setup_task.output,
+        mode="simple",
+    )
+
+
+# =============================================================================
+# Pipeline: LLM-as-a-Judge Evaluation (Multi-Step)
+# =============================================================================
+@dsl.pipeline(
+    name="Agent LLM-Judge Evaluation Pipeline",
+    description="Multi-step evaluation pipeline with LLM judges"
+)
+def llm_judge_eval_pipeline(
+    mlflow_tracking_uri: str,
+    mlflow_workspace: str,
+    llm_base_url: str,
+    llm_model: str = "qwen3-14b",
+    mlflow_experiment_name: str = "multi-agent-loan-origination",
+    agent_name: str = "public-assistant",
+    dataset_name: str = "public_assistant_eval_llm_judge",
+    mlflow_secret_name: str = "mlflow-credentials",
+    llm_secret_name: str = "llm-credentials",
+):
+    """Pipeline for full LLM-as-a-Judge evaluation.
+
+    Steps:
+    1. Setup MLflow tracking
+    2. Create evaluation dataset
+    3. Run LLM-as-a-Judge evaluation
+    4. Report results
+    """
+
+    # Step 1: Setup MLflow
+    setup_task = setup_mlflow_op(
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        mlflow_experiment_name=mlflow_experiment_name,
+        mlflow_workspace=mlflow_workspace,
+    )
+    kubernetes.use_secret_as_env(
+        setup_task,
+        secret_name=mlflow_secret_name,
+        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
+    )
+
+    # Step 2: Create dataset
+    dataset_task = create_dataset_op(
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        experiment_name=setup_task.output,
+        dataset_name=dataset_name,
+        agent_name=agent_name,
+        mlflow_workspace=mlflow_workspace,
+    )
+    kubernetes.use_secret_as_env(
+        dataset_task,
+        secret_name=mlflow_secret_name,
+        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
+    )
+
+    # Step 3: Run LLM-as-a-Judge evaluation
+    eval_task = run_llm_judge_eval_op(
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        experiment_name=setup_task.output,
+        dataset_name=dataset_name,
+        llm_base_url=llm_base_url,
+        llm_model=llm_model,
+        mlflow_workspace=mlflow_workspace,
+    )
+    eval_task.after(dataset_task)
+    kubernetes.use_secret_as_env(
+        eval_task,
+        secret_name=mlflow_secret_name,
+        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
+    )
+    kubernetes.use_secret_as_env(
+        eval_task,
+        secret_name=llm_secret_name,
+        secret_key_to_env={"OPENAI_API_KEY": "LLM_API_KEY"},
+    )
+
+    # Step 4: Report results
+    report_task = report_results_op(
+        metrics=eval_task.output,
+        mlflow_tracking_uri=mlflow_tracking_uri,
+        experiment_name=setup_task.output,
+        mode="llm-judge",
+    )
+
+
+# =============================================================================
+# Main: Compile pipelines
+# =============================================================================
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Agent Evaluation KFP Pipeline"
+    )
+    parser.add_argument(
+        "--compile",
+        action="store_true",
+        help="Compile pipeline to YAML",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["simple", "llm-judge", "both"],
+        default="both",
+        help="Which pipeline to compile (default: both)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="pipelines_gen",
+        help="Output directory for YAML files (default: pipelines_gen)",
+    )
+
+    args = parser.parse_args()
+
+    if args.compile:
+        from kfp import compiler
+        from pathlib import Path
+
+        # Get directory of this script for relative paths
+        script_dir = Path(__file__).parent
+        output_dir = script_dir / args.output_dir
+        output_dir.mkdir(exist_ok=True)
+
+        if args.mode in ["simple", "both"]:
+            output_file = output_dir / "simple_eval_pipeline.yaml"
+            compiler.Compiler().compile(
+                pipeline_func=simple_eval_pipeline,
+                package_path=str(output_file),
+            )
+            print(f"Simple pipeline compiled to: {output_file}")
+
+        if args.mode in ["llm-judge", "both"]:
+            output_file = output_dir / "llm_judge_eval_pipeline.yaml"
+            compiler.Compiler().compile(
+                pipeline_func=llm_judge_eval_pipeline,
+                package_path=str(output_file),
+            )
+            print(f"LLM-judge pipeline compiled to: {output_file}")
+    else:
+        print("Usage:")
+        print("  Compile both pipelines:     python kfp_eval_pipeline.py --compile")
+        print("  Compile simple only:        python kfp_eval_pipeline.py --compile --mode simple")
+        print("  Compile llm-judge only:     python kfp_eval_pipeline.py --compile --mode llm-judge")
+        print("  Custom output directory:    python kfp_eval_pipeline.py --compile --output-dir /path/to/dir")
