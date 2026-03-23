@@ -74,4 +74,4 @@ site/
 *.sqlite
 
 # Generated KFP pipelines
-evaluations/pipelines_gen/
+#evaluations/pipelines_gen/

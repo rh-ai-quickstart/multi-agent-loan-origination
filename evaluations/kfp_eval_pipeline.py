@@ -22,6 +22,8 @@ Environment variables (from secrets in OpenShift):
     LLM_MODEL_CAPABLE: Model name for judge
 """
 
+from typing import NamedTuple
+
 import kfp
 from kfp import dsl
 from kfp.dsl import component, Output, Input, Artifact, Dataset
@@ -49,6 +51,7 @@ AGENT_PACKAGES = COMMON_PACKAGES + [
 
 LLM_JUDGE_PACKAGES = AGENT_PACKAGES + [
     "openai>=1.0.0",
+    "litellm>=1.50.0",
 ]
 
 
@@ -108,7 +111,7 @@ def create_dataset_op(
     dataset_name: str,
     agent_name: str,
     mlflow_workspace: str,
-) -> str:
+) -> NamedTuple("DatasetOutput", [("experiment_name", str), ("dataset_id", str)]):
     """Create evaluation dataset in MLflow.
 
     Args:
@@ -119,8 +122,9 @@ def create_dataset_op(
         mlflow_workspace: MLflow workspace (namespace) for RHOAI
 
     Returns:
-        Dataset ID
+        NamedTuple with experiment_name and dataset_id
     """
+    from typing import NamedTuple
     import logging
     import mlflow
     from mlflow.genai.datasets import create_dataset
@@ -203,7 +207,11 @@ def create_dataset_op(
     print(f"Dataset created: {dataset.dataset_id}")
     print(f"Test cases: {len(test_cases)}")
 
-    return dataset.dataset_id
+    # Return both experiment_name and dataset_id for pipeline chaining
+    DatasetOutput = NamedTuple(
+        "DatasetOutput", [("experiment_name", str), ("dataset_id", str)]
+    )
+    return DatasetOutput(experiment_name=experiment_name, dataset_id=dataset.dataset_id)
 
 
 # =============================================================================
@@ -216,7 +224,7 @@ def create_dataset_op(
 def run_simple_eval_op(
     mlflow_tracking_uri: str,
     experiment_name: str,
-    dataset_name: str,
+    dataset_id: str,
     mlflow_workspace: str,
 ) -> dict:
     """Run simple evaluation without LLM judge.
@@ -229,7 +237,7 @@ def run_simple_eval_op(
     Args:
         mlflow_tracking_uri: MLflow server URL
         experiment_name: Experiment name
-        dataset_name: Name of the dataset to use
+        dataset_id: MLflow dataset ID to load
         mlflow_workspace: MLflow workspace (namespace) for RHOAI
 
     Returns:
@@ -243,6 +251,7 @@ def run_simple_eval_op(
 
     import mlflow
     from mlflow.genai.scorers import scorer
+    from mlflow.genai.datasets import get_dataset
 
     logging.getLogger("mlflow").setLevel(logging.ERROR)
 
@@ -299,13 +308,15 @@ def run_simple_eval_op(
             return "I can help you with information about our mortgage products, affordability calculations, and loan options."
 
     # -------------------------------------------------------------------------
-    # Setup MLflow and load dataset
+    # Setup MLflow
     # -------------------------------------------------------------------------
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     mlflow.set_experiment(experiment_name)
 
-    from mlflow.genai.datasets import get_dataset
-    dataset = get_dataset(name=dataset_name)
+    # Load dataset from MLflow using dataset_id
+    print(f"Loading dataset: {dataset_id}")
+    dataset = get_dataset(dataset_id=dataset_id)
+    print(f"Dataset loaded: {dataset.name} with {len(dataset.to_df())} records")
 
     # -------------------------------------------------------------------------
     # Run evaluation
@@ -344,7 +355,7 @@ def run_simple_eval_op(
 def run_llm_judge_eval_op(
     mlflow_tracking_uri: str,
     experiment_name: str,
-    dataset_name: str,
+    dataset_id: str,
     llm_base_url: str,
     llm_model: str,
     mlflow_workspace: str,
@@ -359,7 +370,7 @@ def run_llm_judge_eval_op(
     Args:
         mlflow_tracking_uri: MLflow server URL
         experiment_name: Experiment name
-        dataset_name: Name of the dataset to use
+        dataset_id: MLflow dataset ID to load
         llm_base_url: LLM endpoint URL
         llm_model: Model name for judge
         mlflow_workspace: MLflow workspace (namespace) for RHOAI
@@ -374,6 +385,11 @@ def run_llm_judge_eval_op(
 
     warnings.filterwarnings("ignore")
 
+    # Set OpenAI env vars BEFORE importing mlflow to ensure proper client config
+    os.environ["OPENAI_API_BASE"] = llm_base_url
+    os.environ["OPENAI_BASE_URL"] = llm_base_url
+    print(f"DEBUG: Set OPENAI_API_BASE={os.environ.get('OPENAI_API_BASE')}")
+
     import mlflow
     from mlflow.genai.scorers import (
         scorer,
@@ -383,6 +399,7 @@ def run_llm_judge_eval_op(
         ToolCallCorrectness,
         ToolCallEfficiency,
     )
+    from mlflow.genai.datasets import get_dataset
 
     logging.getLogger("mlflow").setLevel(logging.ERROR)
 
@@ -444,13 +461,14 @@ def run_llm_judge_eval_op(
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     mlflow.set_experiment(experiment_name)
 
-    os.environ["OPENAI_API_BASE"] = llm_base_url
-    os.environ["OPENAI_BASE_URL"] = llm_base_url
     judge_model = f"openai:/{llm_model}"
     print(f"Judge model: {judge_model}")
+    print(f"LLM base URL: {llm_base_url}")
 
-    from mlflow.genai.datasets import get_dataset
-    dataset = get_dataset(name=dataset_name)
+    # Load dataset from MLflow using dataset_id
+    print(f"Loading dataset: {dataset_id}")
+    dataset = get_dataset(dataset_id=dataset_id)
+    print(f"Dataset loaded: {dataset.name} with {len(dataset.to_df())} records")
 
     # -------------------------------------------------------------------------
     # Build scorers
@@ -513,7 +531,6 @@ def run_llm_judge_eval_op(
 def report_results_op(
     metrics: dict,
     mlflow_tracking_uri: str,
-    experiment_name: str,
     mode: str,
 ) -> str:
     """Generate evaluation report.
@@ -521,7 +538,6 @@ def report_results_op(
     Args:
         metrics: Evaluation metrics from previous step
         mlflow_tracking_uri: MLflow server URL
-        experiment_name: Experiment name
         mode: Evaluation mode (simple or llm-judge)
 
     Returns:
@@ -603,11 +619,10 @@ def simple_eval_pipeline(
     # Step 3: Run simple evaluation
     eval_task = run_simple_eval_op(
         mlflow_tracking_uri=mlflow_tracking_uri,
-        experiment_name=setup_task.output,
-        dataset_name=dataset_name,
+        experiment_name=dataset_task.outputs["experiment_name"],
+        dataset_id=dataset_task.outputs["dataset_id"],
         mlflow_workspace=mlflow_workspace,
     )
-    eval_task.after(dataset_task)
     kubernetes.use_secret_as_env(
         eval_task,
         secret_name=mlflow_secret_name,
@@ -615,10 +630,9 @@ def simple_eval_pipeline(
     )
 
     # Step 4: Report results
-    report_task = report_results_op(
+    report_results_op(
         metrics=eval_task.output,
         mlflow_tracking_uri=mlflow_tracking_uri,
-        experiment_name=setup_task.output,
         mode="simple",
     )
 
@@ -679,13 +693,12 @@ def llm_judge_eval_pipeline(
     # Step 3: Run LLM-as-a-Judge evaluation
     eval_task = run_llm_judge_eval_op(
         mlflow_tracking_uri=mlflow_tracking_uri,
-        experiment_name=setup_task.output,
-        dataset_name=dataset_name,
+        experiment_name=dataset_task.outputs["experiment_name"],
+        dataset_id=dataset_task.outputs["dataset_id"],
         llm_base_url=llm_base_url,
         llm_model=llm_model,
         mlflow_workspace=mlflow_workspace,
     )
-    eval_task.after(dataset_task)
     kubernetes.use_secret_as_env(
         eval_task,
         secret_name=mlflow_secret_name,
@@ -694,14 +707,13 @@ def llm_judge_eval_pipeline(
     kubernetes.use_secret_as_env(
         eval_task,
         secret_name=llm_secret_name,
-        secret_key_to_env={"OPENAI_API_KEY": "LLM_API_KEY"},
+        secret_key_to_env={"OPENAI_API_KEY": "OPENAI_API_KEY"},
     )
 
     # Step 4: Report results
-    report_task = report_results_op(
+    report_results_op(
         metrics=eval_task.output,
         mlflow_tracking_uri=mlflow_tracking_uri,
-        experiment_name=setup_task.output,
         mode="llm-judge",
     )
 
