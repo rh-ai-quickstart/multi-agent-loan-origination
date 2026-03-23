@@ -12,6 +12,7 @@ out/
 
 agent-memory/
 .serena/
+.tests/
 
 # Environment variables
 .env
@@ -19,6 +20,7 @@ agent-memory/
 .env.development.local
 .env.test.local
 .env.production.local
+
 
 # Logs
 npm-debug.log*
@@ -70,3 +72,6 @@ site/
 # Database
 *.db
 *.sqlite
+
+# Generated KFP pipelines
+#evaluations/pipelines_gen/

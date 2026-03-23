@@ -63,10 +63,12 @@ secrets:
   SAFETY_ENDPOINT: ""
   SAFETY_API_KEY: ""
 
-  # Observability (LangFuse) -- leave blank to disable tracing
-  LANGFUSE_PUBLIC_KEY: ""
-  LANGFUSE_SECRET_KEY: ""
-  LANGFUSE_HOST: ""
+  # Observability (MLflow) -- leave blank to disable MLflow tracing
+  MLFLOW_TRACKING_URI: ""
+  MLFLOW_EXPERIMENT_NAME: ""
+  MLFLOW_WORKSPACE: ""
+  MLFLOW_TRACKING_TOKEN: ""
+  MLFLOW_TRACKING_INSECURE_TLS: "false"
 
   # Admin panel
   SQLADMIN_USER: "admin"
@@ -81,21 +83,6 @@ secrets:
   MINIO_ROOT_USER: "minio"
   MINIO_ROOT_PASSWORD: "miniosecret"
 
-  # LangFuse stack
-  NEXTAUTH_SECRET: "mysecret"
-  LANGFUSE_SALT: "mysalt"
-  LANGFUSE_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
-  LANGFUSE_INIT_ORG_ID: "mortgage-ai"
-  LANGFUSE_INIT_ORG_NAME: "Mortgage AI Demo"
-  LANGFUSE_INIT_PROJECT_ID: "mortgage-ai-dev"
-  LANGFUSE_INIT_PROJECT_NAME: "Mortgage AI Dev"
-  LANGFUSE_INIT_PROJECT_PUBLIC_KEY: "pk-lf-dev-public"
-  LANGFUSE_INIT_PROJECT_SECRET_KEY: "sk-lf-dev-secret"
-  LANGFUSE_INIT_USER_EMAIL: "admin@example.com"
-  LANGFUSE_INIT_USER_NAME: "Admin"
-  LANGFUSE_INIT_USER_PASSWORD: "password"
-  CLICKHOUSE_PASSWORD: "clickhouse"
-  REDIS_AUTH: "myredissecret"
 # OpenShift Routes configuration
 routes:
   enabled: true
@@ -214,31 +201,13 @@ minio:
       memory: "384Mi"
       cpu: "500m"
 
-# LangFuse observability stack (redis + clickhouse auto-enabled)
-langfuse:
-  enabled: false
-  web:
-    image:
-      repository: langfuse/langfuse
-      tag: "3"
-    resources:
-      requests:
-        memory: "512Mi"
-        cpu: "250m"
-      limits:
-        memory: "1Gi"
-        cpu: "1000m"
-  worker:
-    image:
-      repository: langfuse/langfuse-worker
-      tag: "3"
-    resources:
-      requests:
-        memory: "256Mi"
-        cpu: "100m"
-      limits:
-        memory: "512Mi"
-        cpu: "500m"
+# MLflow observability (RHOAI 3.4+)
+mlflow:
+  # RBAC resources for MLflow server access
+  rbac:
+    enabled: false  # Enable when deploying with RHOAI MLflow
+    # Creates: ClusterRole, ServiceAccount, ClusterRoleBinding
+    # The ServiceAccount can be used to generate tokens for MLflow auth
 
 # LlamaStack model serving
 llamastack:

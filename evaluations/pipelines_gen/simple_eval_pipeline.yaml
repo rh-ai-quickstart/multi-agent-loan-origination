@@ -1,0 +1,501 @@
+# PIPELINE DEFINITION
+# Name: agent-simple-evaluation-pipeline
+# Description: Multi-step evaluation pipeline without LLM judges
+# Inputs:
+#    agent_name: str [Default: 'public-assistant']
+#    dataset_name: str [Default: 'public_assistant_eval_simple']
+#    mlflow_experiment_name: str [Default: 'multi-agent-loan-origination']
+#    mlflow_secret_name: str [Default: 'mlflow-credentials']
+#    mlflow_tracking_uri: str
+#    mlflow_workspace: str
+components:
+  comp-create-dataset-op:
+    executorLabel: exec-create-dataset-op
+    inputDefinitions:
+      parameters:
+        agent_name:
+          description: Agent being evaluated
+          parameterType: STRING
+        dataset_name:
+          description: Name for the dataset
+          parameterType: STRING
+        experiment_name:
+          description: Experiment name
+          parameterType: STRING
+        mlflow_tracking_uri:
+          description: MLflow server URL
+          parameterType: STRING
+        mlflow_workspace:
+          description: MLflow workspace (namespace) for RHOAI
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        dataset_id:
+          parameterType: STRING
+        experiment_name:
+          parameterType: STRING
+  comp-report-results-op:
+    executorLabel: exec-report-results-op
+    inputDefinitions:
+      parameters:
+        metrics:
+          description: Evaluation metrics from previous step
+          parameterType: STRUCT
+        mlflow_tracking_uri:
+          description: MLflow server URL
+          parameterType: STRING
+        mode:
+          description: Evaluation mode (simple or llm-judge)
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+  comp-run-simple-eval-op:
+    executorLabel: exec-run-simple-eval-op
+    inputDefinitions:
+      parameters:
+        dataset_id:
+          description: MLflow dataset ID to load
+          parameterType: STRING
+        experiment_name:
+          description: Experiment name
+          parameterType: STRING
+        mlflow_tracking_uri:
+          description: MLflow server URL
+          parameterType: STRING
+        mlflow_workspace:
+          description: MLflow workspace (namespace) for RHOAI
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRUCT
+  comp-setup-mlflow-op:
+    executorLabel: exec-setup-mlflow-op
+    inputDefinitions:
+      parameters:
+        mlflow_experiment_name:
+          description: Base experiment name
+          parameterType: STRING
+        mlflow_tracking_uri:
+          description: MLflow server URL
+          parameterType: STRING
+        mlflow_workspace:
+          description: MLflow workspace (namespace) for RHOAI
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-create-dataset-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - create_dataset_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'mlflow>=2.15.0'\
+          \ 'python-dotenv>=1.0.0' 'nest-asyncio>=1.6.0' 'pydantic>=2.0.0' 'httpx>=0.27.0'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef create_dataset_op(\n    mlflow_tracking_uri: str,\n    experiment_name:\
+          \ str,\n    dataset_name: str,\n    agent_name: str,\n    mlflow_workspace:\
+          \ str,\n) -> NamedTuple(\"DatasetOutput\", [(\"experiment_name\", str),\
+          \ (\"dataset_id\", str)]):\n    \"\"\"Create evaluation dataset in MLflow.\n\
+          \n    Args:\n        mlflow_tracking_uri: MLflow server URL\n        experiment_name:\
+          \ Experiment name\n        dataset_name: Name for the dataset\n        agent_name:\
+          \ Agent being evaluated\n        mlflow_workspace: MLflow workspace (namespace)\
+          \ for RHOAI\n\n    Returns:\n        NamedTuple with experiment_name and\
+          \ dataset_id\n    \"\"\"\n    from typing import NamedTuple\n    import\
+          \ logging\n    import mlflow\n    from mlflow.genai.datasets import create_dataset\n\
+          \n    logging.getLogger(\"mlflow\").setLevel(logging.ERROR)\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
+          \    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API\n\
+          \    mlflow.set_experiment(experiment_name)\n\n    # Define test cases\n\
+          \    test_cases = [\n        {\n            \"inputs\": {\"user_message\"\
+          : \"What loan products do you offer?\"},\n            \"expectations\":\
+          \ {\n                \"expected_answer\": \"30-year\",\n               \
+          \ \"expected_tool_calls\": [{\"name\": \"product_info\"}],\n           \
+          \     \"expected_topics\": [\"fixed\", \"FHA\", \"VA\"],\n             \
+          \   \"forbidden_content\": [],\n            },\n        },\n        {\n\
+          \            \"inputs\": {\"user_message\": \"Tell me about FHA loans\"\
+          },\n            \"expectations\": {\n                \"expected_answer\"\
+          : \"FHA\",\n                \"expected_tool_calls\": [{\"name\": \"product_info\"\
+          }],\n                \"expected_topics\": [\"down payment\"],\n        \
+          \        \"forbidden_content\": [],\n            },\n        },\n      \
+          \  {\n            \"inputs\": {\"user_message\": \"What is a VA loan?\"\
+          },\n            \"expectations\": {\n                \"expected_answer\"\
+          : \"VA\",\n                \"expected_tool_calls\": [{\"name\": \"product_info\"\
+          }],\n                \"expected_topics\": [\"veteran\", \"military\"],\n\
+          \                \"forbidden_content\": [],\n            },\n        },\n\
+          \        {\n            \"inputs\": {\"user_message\": \"Compare fixed vs\
+          \ adjustable rate mortgages\"},\n            \"expectations\": {\n     \
+          \           \"expected_answer\": \"fixed\",\n                \"expected_tool_calls\"\
+          : [{\"name\": \"product_info\"}],\n                \"expected_topics\":\
+          \ [\"ARM\", \"rate\"],\n                \"forbidden_content\": [],\n   \
+          \         },\n        },\n        {\n            \"inputs\": {\n       \
+          \         \"user_message\": \"I make $100,000 a year with $500 monthly debts\
+          \ and $20,000 for down payment. How much house can I afford?\"\n       \
+          \     },\n            \"expectations\": {\n                \"expected_answer\"\
+          : \"afford\",\n                \"expected_tool_calls\": [{\"name\": \"affordability_calc\"\
+          }],\n                \"expected_topics\": [\"loan\", \"payment\"],\n   \
+          \             \"forbidden_content\": [\"approved\", \"guaranteed\"],\n \
+          \           },\n        },\n        {\n            \"inputs\": {\n     \
+          \           \"user_message\": \"What would my monthly payment be on a $300,000\
+          \ loan at 6.5% for 30 years?\"\n            },\n            \"expectations\"\
+          : {\n                \"expected_answer\": \"payment\",\n               \
+          \ \"expected_tool_calls\": [{\"name\": \"affordability_calc\"}],\n     \
+          \           \"expected_topics\": [\"monthly\", \"interest\"],\n        \
+          \        \"forbidden_content\": [],\n            },\n        },\n    ]\n\
+          \n    # Create dataset\n    dataset = create_dataset(\n        name=dataset_name,\n\
+          \        tags={\"stage\": \"validation\", \"version\": \"1\", \"agent\"\
+          : agent_name},\n    )\n    dataset = dataset.merge_records(test_cases)\n\
+          \n    print(f\"Dataset created: {dataset.dataset_id}\")\n    print(f\"Test\
+          \ cases: {len(test_cases)}\")\n\n    # Return both experiment_name and dataset_id\
+          \ for pipeline chaining\n    DatasetOutput = NamedTuple(\n        \"DatasetOutput\"\
+          , [(\"experiment_name\", str), (\"dataset_id\", str)]\n    )\n    return\
+          \ DatasetOutput(experiment_name=experiment_name, dataset_id=dataset.dataset_id)\n\
+          \n"
+        image: python:3.11-slim
+    exec-report-results-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - report_results_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pydantic>=2.0.0'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef report_results_op(\n    metrics: dict,\n    mlflow_tracking_uri:\
+          \ str,\n    mode: str,\n) -> str:\n    \"\"\"Generate evaluation report.\n\
+          \n    Args:\n        metrics: Evaluation metrics from previous step\n  \
+          \      mlflow_tracking_uri: MLflow server URL\n        mode: Evaluation\
+          \ mode (simple or llm-judge)\n\n    Returns:\n        Report summary string\n\
+          \    \"\"\"\n    print(\"=\" * 60)\n    print(f\"EVALUATION REPORT - {mode.upper()}\
+          \ MODE\")\n    print(\"=\" * 60)\n\n    print(\"\\nMetrics:\")\n    for\
+          \ metric, value in sorted(metrics.items()):\n        if isinstance(value,\
+          \ float):\n            print(f\"  {metric}: {value:.2%}\")\n        else:\n\
+          \            print(f\"  {metric}: {value}\")\n\n    print(f\"\\nView results\
+          \ in MLflow UI:\")\n    print(f\"  {mlflow_tracking_uri}/#/experiments\"\
+          )\n    print(\"\\nClick on your run, then enable 'All Assessments' in the\
+          \ Columns dropdown\")\n\n    # Generate summary\n    summary = f\"Evaluation\
+          \ completed in {mode} mode. \"\n    summary += f\"Metrics: {len(metrics)}\
+          \ recorded. \"\n    summary += f\"View at: {mlflow_tracking_uri}\"\n\n \
+          \   return summary\n\n"
+        image: python:3.11-slim
+    exec-run-simple-eval-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - run_simple_eval_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'mlflow>=2.15.0'\
+          \ 'python-dotenv>=1.0.0' 'nest-asyncio>=1.6.0' 'pydantic>=2.0.0' 'httpx>=0.27.0'\
+          \ 'langchain-core>=0.3.0' 'langchain-openai>=0.2.0' 'langgraph>=0.2.0' \
+          \ &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef run_simple_eval_op(\n    mlflow_tracking_uri: str,\n    experiment_name:\
+          \ str,\n    dataset_id: str,\n    mlflow_workspace: str,\n) -> dict:\n \
+          \   \"\"\"Run simple evaluation without LLM judge.\n\n    Uses deterministic\
+          \ scorers:\n    - contains_expected: Check if expected keyword appears\n\
+          \    - has_numeric_result: Check for numeric values\n    - response_length:\
+          \ Ensure adequate response length\n\n    Args:\n        mlflow_tracking_uri:\
+          \ MLflow server URL\n        experiment_name: Experiment name\n        dataset_id:\
+          \ MLflow dataset ID to load\n        mlflow_workspace: MLflow workspace\
+          \ (namespace) for RHOAI\n\n    Returns:\n        Dictionary with evaluation\
+          \ metrics\n    \"\"\"\n    import re\n    import logging\n    import warnings\n\
+          \n    warnings.filterwarnings(\"ignore\")\n\n    import mlflow\n    from\
+          \ mlflow.genai.scorers import scorer\n    from mlflow.genai.datasets import\
+          \ get_dataset\n\n    logging.getLogger(\"mlflow\").setLevel(logging.ERROR)\n\
+          \n    # Allow nested event loops\n    try:\n        import nest_asyncio\n\
+          \        nest_asyncio.apply()\n    except ImportError:\n        pass\n\n\
+          \    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API\n\
+          \n    # -------------------------------------------------------------------------\n\
+          \    # Define scorers\n    # -------------------------------------------------------------------------\n\
+          \    @scorer\n    def contains_expected(inputs: dict, outputs: str, expectations:\
+          \ dict) -> bool:\n        expected = expectations.get(\"expected_answer\"\
+          , \"\")\n        if not expected:\n            return True\n        return\
+          \ str(expected).lower() in str(outputs).lower()\n\n    @scorer\n    def\
+          \ has_numeric_result(outputs: str) -> bool:\n        patterns = [r\"\\$[\\\
+          d,]+\", r\"\\d+%\", r\"\\d{1,3}(,\\d{3})+\"]\n        for pattern in patterns:\n\
+          \            if re.search(pattern, str(outputs)):\n                return\
+          \ True\n        return False\n\n    @scorer\n    def response_length(outputs:\
+          \ str) -> float:\n        length = len(str(outputs))\n        return 1.0\
+          \ if length >= 50 else 0.5\n\n    # -------------------------------------------------------------------------\n\
+          \    # Define mock predictor\n    # -------------------------------------------------------------------------\n\
+          \    def predict_fn(user_message: str) -> str:\n        msg_lower = user_message.lower()\n\
+          \        if \"loan products\" in msg_lower or \"offer\" in msg_lower:\n\
+          \            return \"We offer several mortgage products including 30-year\
+          \ fixed, 15-year fixed, FHA loans, VA loans, and adjustable rate mortgages\
+          \ (ARMs).\"\n        elif \"fha\" in msg_lower:\n            return \"FHA\
+          \ loans are government-backed mortgages with lower down payment requirements,\
+          \ typically 3.5% for qualified borrowers.\"\n        elif \"va\" in msg_lower:\n\
+          \            return \"VA loans are available to eligible veterans and military\
+          \ service members, often with no down payment required.\"\n        elif\
+          \ \"fixed\" in msg_lower and \"adjustable\" in msg_lower:\n            return\
+          \ \"Fixed rate mortgages have consistent payments, while ARMs have rates\
+          \ that adjust periodically based on market conditions.\"\n        elif \"\
+          afford\" in msg_lower:\n            return \"Based on your income of $100,000\
+          \ and monthly debts, you could potentially afford a loan amount of approximately\
+          \ $350,000 with monthly payments around $2,200.\"\n        elif \"payment\"\
+          \ in msg_lower and \"300,000\" in msg_lower:\n            return \"On a\
+          \ $300,000 loan at 6.5% for 30 years, your estimated monthly payment would\
+          \ be approximately $1,896 for principal and interest.\"\n        else:\n\
+          \            return \"I can help you with information about our mortgage\
+          \ products, affordability calculations, and loan options.\"\n\n    # -------------------------------------------------------------------------\n\
+          \    # Setup MLflow\n    # -------------------------------------------------------------------------\n\
+          \    mlflow.set_tracking_uri(mlflow_tracking_uri)\n    mlflow.set_experiment(experiment_name)\n\
+          \n    # Load dataset from MLflow using dataset_id\n    print(f\"Loading\
+          \ dataset: {dataset_id}\")\n    dataset = get_dataset(dataset_id=dataset_id)\n\
+          \    print(f\"Dataset loaded: {dataset.name} with {len(dataset.to_df())}\
+          \ records\")\n\n    # -------------------------------------------------------------------------\n\
+          \    # Run evaluation\n    # -------------------------------------------------------------------------\n\
+          \    scorers = [contains_expected, has_numeric_result, response_length]\n\
+          \n    print(f\"\\nRunning Simple Evaluation\")\n    print(f\"Scorers: {len(scorers)}\"\
+          )\n\n    result = mlflow.genai.evaluate(\n        data=dataset,\n      \
+          \  predict_fn=predict_fn,\n        scorers=scorers,\n    )\n\n    # Extract\
+          \ metrics\n    metrics = {}\n    if hasattr(result, \"metrics\") and result.metrics:\n\
+          \        for metric, value in result.metrics.items():\n            if isinstance(value,\
+          \ float):\n                metrics[metric] = round(value, 4)\n         \
+          \   else:\n                metrics[metric] = value\n\n    print(f\"\\nResults:\
+          \ {metrics}\")\n    return metrics\n\n"
+        image: python:3.11-slim
+    exec-setup-mlflow-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - setup_mlflow_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'mlflow>=2.15.0'\
+          \ 'python-dotenv>=1.0.0' 'nest-asyncio>=1.6.0' 'pydantic>=2.0.0' 'httpx>=0.27.0'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef setup_mlflow_op(\n    mlflow_tracking_uri: str,\n    mlflow_experiment_name:\
+          \ str,\n    mlflow_workspace: str,\n) -> str:\n    \"\"\"Configure MLflow\
+          \ tracking and return experiment name.\n\n    Args:\n        mlflow_tracking_uri:\
+          \ MLflow server URL\n        mlflow_experiment_name: Base experiment name\n\
+          \        mlflow_workspace: MLflow workspace (namespace) for RHOAI\n\n  \
+          \  Returns:\n        Full experiment name (with -eval suffix)\n    \"\"\"\
+          \n    import logging\n    import mlflow\n\n    logging.getLogger(\"mlflow\"\
+          ).setLevel(logging.ERROR)\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
+          \    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API\n\
+          \n    experiment_name = mlflow_experiment_name\n    if not experiment_name.endswith(\"\
+          -eval\"):\n        experiment_name = f\"{experiment_name}-eval\"\n\n   \
+          \ mlflow.set_experiment(experiment_name)\n\n    print(f\"MLflow configured:\
+          \ {mlflow_tracking_uri}\")\n    print(f\"Workspace: {mlflow_workspace}\"\
+          )\n    print(f\"Experiment: {experiment_name}\")\n\n    return experiment_name\n\
+          \n"
+        image: python:3.11-slim
+pipelineInfo:
+  description: Multi-step evaluation pipeline without LLM judges
+  name: agent-simple-evaluation-pipeline
+root:
+  dag:
+    tasks:
+      create-dataset-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-create-dataset-op
+        dependentTasks:
+        - setup-mlflow-op
+        inputs:
+          parameters:
+            agent_name:
+              componentInputParameter: agent_name
+            dataset_name:
+              componentInputParameter: dataset_name
+            experiment_name:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: setup-mlflow-op
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            mlflow_workspace:
+              componentInputParameter: mlflow_workspace
+        taskInfo:
+          name: create-dataset-op
+      report-results-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-report-results-op
+        dependentTasks:
+        - run-simple-eval-op
+        inputs:
+          parameters:
+            metrics:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: run-simple-eval-op
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            mode:
+              runtimeValue:
+                constant: simple
+        taskInfo:
+          name: report-results-op
+      run-simple-eval-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-run-simple-eval-op
+        dependentTasks:
+        - create-dataset-op
+        inputs:
+          parameters:
+            dataset_id:
+              taskOutputParameter:
+                outputParameterKey: dataset_id
+                producerTask: create-dataset-op
+            experiment_name:
+              taskOutputParameter:
+                outputParameterKey: experiment_name
+                producerTask: create-dataset-op
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            mlflow_workspace:
+              componentInputParameter: mlflow_workspace
+        taskInfo:
+          name: run-simple-eval-op
+      setup-mlflow-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-setup-mlflow-op
+        inputs:
+          parameters:
+            mlflow_experiment_name:
+              componentInputParameter: mlflow_experiment_name
+            mlflow_tracking_uri:
+              componentInputParameter: mlflow_tracking_uri
+            mlflow_workspace:
+              componentInputParameter: mlflow_workspace
+        taskInfo:
+          name: setup-mlflow-op
+  inputDefinitions:
+    parameters:
+      agent_name:
+        defaultValue: public-assistant
+        isOptional: true
+        parameterType: STRING
+      dataset_name:
+        defaultValue: public_assistant_eval_simple
+        isOptional: true
+        parameterType: STRING
+      mlflow_experiment_name:
+        defaultValue: multi-agent-loan-origination
+        isOptional: true
+        parameterType: STRING
+      mlflow_secret_name:
+        defaultValue: mlflow-credentials
+        isOptional: true
+        parameterType: STRING
+      mlflow_tracking_uri:
+        parameterType: STRING
+      mlflow_workspace:
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.16.0
+---
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-create-dataset-op:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: MLFLOW_TRACKING_TOKEN
+              secretKey: MLFLOW_TRACKING_TOKEN
+            optional: false
+            secretNameParameter:
+              componentInputParameter: mlflow_secret_name
+        exec-run-simple-eval-op:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: MLFLOW_TRACKING_TOKEN
+              secretKey: MLFLOW_TRACKING_TOKEN
+            optional: false
+            secretNameParameter:
+              componentInputParameter: mlflow_secret_name
+        exec-setup-mlflow-op:
+          secretAsEnv:
+          - keyToEnv:
+            - envVar: MLFLOW_TRACKING_TOKEN
+              secretKey: MLFLOW_TRACKING_TOKEN
+            optional: false
+            secretNameParameter:
+              componentInputParameter: mlflow_secret_name

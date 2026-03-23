@@ -1,0 +1,65 @@
+# This project was developed with assistance from AI tools.
+{{- if .Values.mlflow.rbac.enabled }}
+---
+# MLflow integration ClusterRole for RHOAI 3.4+ MLflow server access.
+# This ClusterRole grants permissions to interact with MLflow CRDs
+# (experiments, datasets, registered models, gateway endpoints).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mortgage-ai.fullname" . }}-mlflow-integration
+  labels:
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - mlflow.kubeflow.org
+    resources:
+      - datasets
+      - experiments
+      - registeredmodels
+    verbs:
+      - get
+      - list
+      - create
+      - update
+  - apiGroups:
+      - mlflow.kubeflow.org
+    resources:
+      - gatewayendpoints
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - mlflow.kubeflow.org
+    resources:
+      - gatewayendpoints/use
+    verbs:
+      - create
+---
+# ServiceAccount for MLflow client operations.
+# Used by the API pod to authenticate with the MLflow server.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "mortgage-ai.fullname" . }}-mlflow-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
+---
+# ClusterRoleBinding to grant the mlflow-client ServiceAccount
+# the mlflow-integration ClusterRole permissions.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "mortgage-ai.fullname" . }}-mlflow-integration
+  labels:
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "mortgage-ai.fullname" . }}-mlflow-integration
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mortgage-ai.fullname" . }}-mlflow-client
+    namespace: {{ .Release.Namespace }}
+{{- end }}
