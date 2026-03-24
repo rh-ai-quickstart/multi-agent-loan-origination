@@ -177,7 +177,9 @@
       "Bash(curl * | sh *)",
       "Bash(wget * | sh *)",
       "Read(./.env)",
-      "Read(./.env.*)"
+      "Read(./.env.*)",
+      "Read(./deploy/helm/mortgage-ai/values.local.yaml)",
+      "Read(deploy/helm/mortgage-ai/values.local.yaml)"
     ]
   }
 }

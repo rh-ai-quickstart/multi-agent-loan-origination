@@ -1,0 +1,26 @@
+# This project was developed with assistance from AI tools.
+#
+# Local Helm values override -- copy to values.local.yaml and fill in.
+# This file is gitignored and automatically picked up by scripts/deploy.sh.
+#
+# Usage:
+#   cp values.local.yaml.example values.local.yaml
+#   # Edit values.local.yaml with your cluster-specific settings
+#   make deploy
+#
+
+secrets:
+  LLM_BASE_URL: ""
+  LLM_API_KEY: ""
+  LLM_MODEL_FAST: ""
+  LLM_MODEL_CAPABLE: ""
+  COMPANY_NAME: ""
+  # MLFLOW_TRACKING_URI: ""
+  # MLFLOW_EXPERIMENT_NAME: ""
+
+seed:
+  enabled: true
+
+routes:
+  # Set to: <project>-<namespace>.apps.<cluster-domain>
+  sharedHost: ""

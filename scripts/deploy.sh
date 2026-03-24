@@ -96,9 +96,11 @@ add_if_set secrets.EMBEDDING_API_KEY EMBEDDING_API_KEY
 add_if_set secrets.SAFETY_MODEL SAFETY_MODEL
 add_if_set secrets.SAFETY_ENDPOINT SAFETY_ENDPOINT
 add_if_set secrets.SAFETY_API_KEY SAFETY_API_KEY
-add_if_set secrets.LANGFUSE_PUBLIC_KEY LANGFUSE_PUBLIC_KEY
-add_if_set secrets.LANGFUSE_SECRET_KEY LANGFUSE_SECRET_KEY
-add_if_set secrets.LANGFUSE_HOST LANGFUSE_HOST
+add_if_set secrets.MLFLOW_TRACKING_URI MLFLOW_TRACKING_URI
+add_if_set secrets.MLFLOW_EXPERIMENT_NAME MLFLOW_EXPERIMENT_NAME
+add_if_set secrets.MLFLOW_WORKSPACE MLFLOW_WORKSPACE
+add_if_set secrets.MLFLOW_TRACKING_TOKEN MLFLOW_TRACKING_TOKEN
+add_if_set secrets.MLFLOW_TRACKING_INSECURE_TLS MLFLOW_TRACKING_INSECURE_TLS
 add_if_set secrets.SQLADMIN_USER SQLADMIN_USER
 add_if_set secrets.SQLADMIN_PASSWORD SQLADMIN_PASSWORD
 add_if_set secrets.SQLADMIN_SECRET_KEY SQLADMIN_SECRET_KEY
@@ -110,13 +112,22 @@ add_if_set secrets.MINIO_ROOT_PASSWORD MINIO_ROOT_PASSWORD
 # Feature toggles (these have safe defaults so always pass)
 SET_ARGS+=(--set "keycloak.enabled=${KEYCLOAK_ENABLED:-true}")
 SET_ARGS+=(--set "llamastack.enabled=${LLAMASTACK_ENABLED:-false}")
-SET_ARGS+=(--set "langfuse.enabled=${LANGFUSE_ENABLED:-false}")
+SET_ARGS+=(--set "seed.enabled=${SEED_ENABLED:-true}")
+
+# Load local values override if present (gitignored, cluster-specific settings)
+VALUES_LOCAL="./deploy/helm/$PROJECT_NAME/values.local.yaml"
+VALUES_FILE_ARGS=()
+if [ -f "$VALUES_LOCAL" ]; then
+    echo "Loading local values from: $VALUES_LOCAL"
+    VALUES_FILE_ARGS+=(-f "$VALUES_LOCAL")
+fi
 
 helm upgrade --install "$PROJECT_NAME" "./deploy/helm/$PROJECT_NAME" \
     --namespace "$NAMESPACE" \
     --timeout "$HELM_TIMEOUT" \
     --wait \
     --wait-for-jobs \
+    "${VALUES_FILE_ARGS[@]}" \
     "${SET_ARGS[@]}" \
     "$@" \
     $HELM_EXTRA_ARGS \

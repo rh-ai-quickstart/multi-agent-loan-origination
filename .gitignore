@@ -21,6 +21,9 @@ agent-memory/
 .env.test.local
 .env.production.local
 
+# Helm local overrides
+values.local.yaml
+
 
 # Logs
 npm-debug.log*
