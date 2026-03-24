@@ -323,16 +323,16 @@ class TestGetModelMonitoringSummary:
     """Tests for get_model_monitoring_summary."""
 
     @pytest.mark.asyncio
-    async def test_should_return_demo_data_when_langfuse_not_configured(self):
-        """When LangFuse is not configured, return demo metrics with langfuse_available=False."""
+    async def test_should_return_demo_data_when_mlflow_not_configured(self):
+        """When MLFlow is not configured, return demo metrics with mlflow_available=False."""
         with patch(
-            "src.services.model_monitoring.fetch_observations", new_callable=AsyncMock
+            "src.services.model_monitoring.fetch_traces", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = None
             result = await get_model_monitoring_summary(hours=24)
 
         assert isinstance(result, ModelMonitoringSummary)
-        assert result.langfuse_available is False
+        assert result.mlflow_available is False
         assert result.latency is not None
         assert result.token_usage is not None
         assert result.errors is not None
@@ -341,15 +341,15 @@ class TestGetModelMonitoringSummary:
 
     @pytest.mark.asyncio
     async def test_should_return_metrics_when_observations_available(self):
-        """When LangFuse returns data, all metric panels are populated."""
+        """When MLFlow returns data, all metric panels are populated."""
         obs = _make_observations(5)
         with patch(
-            "src.services.model_monitoring.fetch_observations", new_callable=AsyncMock
+            "src.services.model_monitoring.fetch_traces", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = obs
             result = await get_model_monitoring_summary(hours=24)
 
-        assert result.langfuse_available is True
+        assert result.mlflow_available is True
         assert result.latency is not None
         assert result.token_usage is not None
         assert result.errors is not None
@@ -357,9 +357,9 @@ class TestGetModelMonitoringSummary:
 
     @pytest.mark.asyncio
     async def test_should_pass_model_filter_to_fetch(self):
-        """Model filter is forwarded to fetch_observations."""
+        """Model filter is forwarded to fetch_traces."""
         with patch(
-            "src.services.model_monitoring.fetch_observations", new_callable=AsyncMock
+            "src.services.model_monitoring.fetch_traces", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.return_value = []
             await get_model_monitoring_summary(hours=24, model="gpt-4o")
@@ -369,11 +369,11 @@ class TestGetModelMonitoringSummary:
 
     @pytest.mark.asyncio
     async def test_should_raise_on_http_error(self):
-        """HTTP errors from LangFuse are propagated."""
+        """HTTP errors from MLFlow are propagated."""
         import httpx
 
         with patch(
-            "src.services.model_monitoring.fetch_observations", new_callable=AsyncMock
+            "src.services.model_monitoring.fetch_traces", new_callable=AsyncMock
         ) as mock_fetch:
             mock_fetch.side_effect = httpx.HTTPStatusError(
                 "Internal Server Error",
@@ -391,6 +391,12 @@ class TestGetModelMonitoringSummary:
 
 class TestModelMonitoringEndpoints:
     """Tests for /api/analytics/model-monitoring route layer."""
+
+    @pytest.fixture(autouse=True)
+    def _disable_auth(self, monkeypatch):
+        from src.core.config import settings
+
+        monkeypatch.setattr(settings, "AUTH_DISABLED", True)
 
     def test_should_reject_invalid_hours(self, client):
         """GET /api/analytics/model-monitoring?hours=0 returns 422."""
@@ -424,9 +430,9 @@ class TestModelMonitoringErrorHandling:
         configure_app_for_persona(app, ceo(), make_mock_session())
         return TestClient(app)
 
-    @patch("src.services.model_monitoring.fetch_observations", new_callable=AsyncMock)
-    def test_should_return_503_on_langfuse_http_error(self, mock_fetch):
-        """GET /api/analytics/model-monitoring returns 503 when LangFuse is down."""
+    @patch("src.services.model_monitoring.fetch_traces", new_callable=AsyncMock)
+    def test_should_return_503_on_mlflow_http_error(self, mock_fetch):
+        """GET /api/analytics/model-monitoring returns 503 when MLFlow is down."""
         import httpx
 
         mock_fetch.side_effect = httpx.HTTPStatusError(
@@ -440,9 +446,9 @@ class TestModelMonitoringErrorHandling:
 
         assert response.status_code == 503
 
-    @patch("src.services.model_monitoring.fetch_observations", new_callable=AsyncMock)
+    @patch("src.services.model_monitoring.fetch_traces", new_callable=AsyncMock)
     def test_should_return_503_on_connection_error(self, mock_fetch):
-        """GET /api/analytics/model-monitoring returns 503 when LangFuse unreachable."""
+        """GET /api/analytics/model-monitoring returns 503 when MLFlow unreachable."""
         import httpx
 
         mock_fetch.side_effect = httpx.ConnectError("Connection refused")
@@ -452,9 +458,9 @@ class TestModelMonitoringErrorHandling:
 
         assert response.status_code == 503
 
-    @patch("src.services.model_monitoring.fetch_observations", new_callable=AsyncMock)
-    def test_should_return_demo_latency_when_langfuse_unconfigured(self, mock_fetch):
-        """GET /api/analytics/model-monitoring/latency returns demo data when LangFuse not configured."""
+    @patch("src.services.model_monitoring.fetch_traces", new_callable=AsyncMock)
+    def test_should_return_demo_latency_when_mlflow_unconfigured(self, mock_fetch):
+        """GET /api/analytics/model-monitoring/latency returns demo data when MLFlow not configured."""
         mock_fetch.return_value = None
         client = self._make_client()
 

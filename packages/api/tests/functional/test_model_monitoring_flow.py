@@ -62,7 +62,7 @@ class TestModelMonitoringRoleGating:
 class TestCeoModelMonitoringAccess:
     """CEO can access model monitoring and gets correct response shapes."""
 
-    @patch("src.services.model_monitoring.fetch_observations", new_callable=AsyncMock)
+    @patch("src.services.model_monitoring.fetch_traces", new_callable=AsyncMock)
     def test_ceo_gets_summary(self, mock_fetch, make_client):
         """CEO gets 200 with correct response shape on summary endpoint."""
         mock_fetch.return_value = None
@@ -72,16 +72,16 @@ class TestCeoModelMonitoringAccess:
 
         assert resp.status_code == 200
         body = resp.json()
-        assert "langfuse_available" in body
+        assert "mlflow_available" in body
         assert "latency" in body
         assert "token_usage" in body
         assert "errors" in body
         assert "routing" in body
         assert "time_range_hours" in body
 
-    @patch("src.services.model_monitoring.fetch_observations", new_callable=AsyncMock)
+    @patch("src.services.model_monitoring.fetch_traces", new_callable=AsyncMock)
     def test_ceo_gets_sub_endpoints(self, mock_fetch, make_client):
-        """CEO gets 200 on all sub-endpoints when LangFuse has data."""
+        """CEO gets 200 on all sub-endpoints when MLFlow has data."""
         from datetime import UTC, datetime, timedelta
 
         obs = [

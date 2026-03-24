@@ -373,6 +373,12 @@ class TestLOPerformance:
 class TestAnalyticsEndpoints:
     """Tests for /api/analytics/* route layer."""
 
+    @pytest.fixture(autouse=True)
+    def _disable_auth(self, monkeypatch):
+        from src.core.config import settings
+
+        monkeypatch.setattr(settings, "AUTH_DISABLED", True)
+
     def test_should_reject_invalid_days(self, client):
         """GET /api/analytics/pipeline?days=0 returns 422."""
         response = client.get("/api/analytics/pipeline", params={"days": 0})
