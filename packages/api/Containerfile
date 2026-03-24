@@ -17,8 +17,14 @@ COPY packages/db/ ./packages/db/
 # Change to API directory for installation
 WORKDIR /app/packages/api
 
-# Install dependencies
-RUN uv pip install --system -e .[dev] || uv pip install --system -e .
+# Install dependencies -- use CPU-only PyTorch to avoid shipping ~25GB of
+# unused CUDA libraries.  The embedding model runs on CPU in the container.
+RUN uv pip install --system \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -e .[dev] \
+    || uv pip install --system \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -e .
 
 # Stage 2: Runtime
 FROM python:3.11-slim AS runtime
