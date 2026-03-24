@@ -6,6 +6,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _disable_auth(monkeypatch):
+    """These tests verify routing/validation, not auth -- disable JWT checks."""
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "AUTH_DISABLED", True)
+
+
 @pytest.fixture()
 def _mock_decisions():
     """Patch get_decisions to return synthetic data."""
