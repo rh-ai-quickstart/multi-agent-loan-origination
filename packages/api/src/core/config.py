@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     # -- App --
     APP_NAME: str = "mortgage-ai"
     COMPANY_NAME: str = "Acme FinTech Company"
+    AGENT_NAME: str = ""
     DEBUG: bool = False
 
     # -- CORS --

@@ -38,6 +38,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: COMPANY_NAME
+            - name: AGENT_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: AGENT_NAME
             {{- if .Values.keycloak.enabled }}
             - name: KEYCLOAK_EXTERNAL
               value: "https://keycloak-{{ .Values.routes.sharedHost }}"

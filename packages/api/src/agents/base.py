@@ -362,6 +362,13 @@ def build_agent_graph(
 
     system_prompt = config.get("system_prompt", "You are a helpful mortgage assistant.")
 
+    # Inject agent name awareness when AGENT_NAME is set
+    from ..core.config import Settings
+
+    agent_name = Settings().AGENT_NAME
+    if agent_name:
+        system_prompt = f"Your name is {agent_name}.\n\n{system_prompt}"
+
     tool_allowed_roles: dict[str, list[str]] = {}
     for tool_cfg in config.get("tools", []):
         name = tool_cfg.get("name")

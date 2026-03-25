@@ -7,6 +7,7 @@ import { useChat } from '@/hooks/use-chat';
 import { useAuth } from '@/contexts/auth-context';
 import { ChatBubble } from '@/components/atoms/chat-bubble/chat-bubble';
 import { cn } from '@/lib/utils';
+import { AGENT_NAME } from '@/lib/company';
 
 function useCurrentAppId(): string | undefined {
     const location = useLocation();
@@ -14,26 +15,28 @@ function useCurrentAppId(): string | undefined {
     return match?.[1];
 }
 
+const _heading = AGENT_NAME ? `Hi, I'm ${AGENT_NAME}. How can I help?` : 'How can I help?';
+
 const ROLE_WELCOME: Record<string, { heading: string; subtext: string }> = {
     borrower: {
-        heading: 'How can I help?',
+        heading: _heading,
         subtext: 'Ask about your application, documents, or next steps.',
     },
     loan_officer: {
-        heading: 'How can I help?',
+        heading: _heading,
         subtext: 'Ask about your pipeline, borrower status, or compliance questions.',
     },
     underwriter: {
-        heading: 'How can I help?',
+        heading: _heading,
         subtext: 'Ask about risk assessment, conditions, or compliance checks.',
     },
     ceo: {
-        heading: 'How can I help?',
+        heading: _heading,
         subtext: 'Ask about portfolio health, denial trends, or operational metrics.',
     },
 };
 
-const DEFAULT_WELCOME = { heading: 'How can I help?', subtext: 'Ask me anything.' };
+const DEFAULT_WELCOME = { heading: _heading, subtext: 'Ask me anything.' };
 
 export function ChatSidebar() {
     const { chatPath, historyPath, user, token } = useAuth();

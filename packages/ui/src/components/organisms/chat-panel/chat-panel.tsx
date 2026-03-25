@@ -6,6 +6,7 @@ import { useChat } from '@/hooks/use-chat';
 import { useChatContext } from '@/contexts/chat-context';
 import { ChatBubble } from '@/components/atoms/chat-bubble/chat-bubble';
 import { cn } from '@/lib/utils';
+import { AGENT_NAME } from '@/lib/company';
 
 export function ChatPanel() {
     const { isOpen, closeChat, initialMessage, clearInitialMessage } = useChatContext();
@@ -108,7 +109,7 @@ export function ChatPanel() {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-foreground">
-                                How can I help you today?
+                                {AGENT_NAME ? `Hi, I'm ${AGENT_NAME}. How can I help you today?` : 'How can I help you today?'}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
                                 I can help with loan products, rate comparisons, pre-qualification,
@@ -203,7 +204,7 @@ export function ChatFab({ onClick }: { onClick: () => void }) {
                     onClick={handleClick}
                     className="relative mb-2 animate-fade-in rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-[#1e3a5f] shadow-lg transition-transform hover:scale-105 dark:bg-slate-800 dark:text-blue-300"
                 >
-                    How can I help?
+                    {AGENT_NAME ? `Hi, I'm ${AGENT_NAME}. How can I help?` : 'How can I help?'}
                     <span className="absolute -right-1.5 bottom-2.5 h-3 w-3 rotate-45 bg-white shadow-lg dark:bg-slate-800" />
                 </button>
             )}
