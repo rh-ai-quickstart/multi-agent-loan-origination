@@ -26,8 +26,10 @@ helm install mortgage-ai ./deploy/helm/mortgage-ai -n mortgage-ai --create-names
 |-----------|-------------|---------|
 | `secrets.LLM_BASE_URL` | OpenAI-compatible endpoint | `http://vllm:8000/v1` |
 | `secrets.LLM_API_KEY` | API key for LLM endpoint | `not-needed` |
-| `secrets.LLM_MODEL_FAST` | Fast tier model name | `gpt-4o-mini` |
-| `secrets.LLM_MODEL_CAPABLE` | Capable tier model name | `gpt-4o-mini` |
+| `secrets.LLM_MODEL` | Primary model name | `gpt-4o-mini` |
+| `secrets.VISION_MODEL` | Vision model name (optional, falls back to LLM_MODEL) | `""` |
+| `secrets.VISION_BASE_URL` | Vision model endpoint (optional, falls back to LLM_BASE_URL) | `""` |
+| `secrets.VISION_API_KEY` | Vision model API key (optional, falls back to LLM_API_KEY) | `""` |
 
 ### MLflow Observability (RHOAI 3.4+)
 

@@ -93,8 +93,7 @@ Edit `.env` to point to your LLM endpoint. For LM Studio running locally:
 ```env
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_API_KEY=not-needed
-LLM_MODEL_FAST=qwen3-30b-a3b
-LLM_MODEL_CAPABLE=qwen3-30b-a3b
+LLM_MODEL=qwen3-30b-a3b
 ```
 
 Start the development environment:
@@ -248,8 +247,7 @@ Copy `.env.example` to `.env` and configure for your environment. Key settings t
 # LLM endpoint (LM Studio, vLLM, or OpenAI)
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_API_KEY=not-needed
-LLM_MODEL_FAST=qwen3-30b-a3b
-LLM_MODEL_CAPABLE=qwen3-30b-a3b
+LLM_MODEL=qwen3-30b-a3b
 ```
 
 See `.env.example` for all available settings including database connection, authentication, safety shields, and MLflow observability.

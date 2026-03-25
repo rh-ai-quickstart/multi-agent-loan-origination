@@ -142,8 +142,8 @@ class TestConfigReloadResetsProvider:
 
         cfg = tmp_path / "models.yaml"
         cfg.write_text(
-            "routing:\n  default_tier: fast_small\n"
-            "models:\n  fast_small:\n    provider: openai_compatible\n"
+            "routing:\n  default_tier: llm\n"
+            "models:\n  llm:\n    provider: openai_compatible\n"
             "    model_name: m1\n    endpoint: http://a/v1\n"
             "  embedding:\n    provider: local\n"
             "    model_name: model-a\n    dimensions: 768\n"
@@ -161,8 +161,8 @@ class TestConfigReloadResetsProvider:
             # Rewrite config with a different model name
             time.sleep(0.05)
             cfg.write_text(
-                "routing:\n  default_tier: fast_small\n"
-                "models:\n  fast_small:\n    provider: openai_compatible\n"
+                "routing:\n  default_tier: llm\n"
+                "models:\n  llm:\n    provider: openai_compatible\n"
                 "    model_name: m1\n    endpoint: http://a/v1\n"
                 "  embedding:\n    provider: local\n"
                 "    model_name: model-b\n    dimensions: 768\n"

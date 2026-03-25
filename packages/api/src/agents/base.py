@@ -1,10 +1,8 @@
 # This project was developed with assistance from AI tools.
-"""Custom LangGraph graph with safety shields and rule-based model routing.
+"""Custom LangGraph graph with safety shields.
 
 Graph structure:
-    input_shield -> classify (rule-based) -> agent_fast / agent_capable
-         |                                          |
-         +-(blocked)-> END               tools <-> agent_capable -> output_shield -> END
+    input_shield -> agent -> tools <-> agent -> output_shield -> END
 
 The input_shield node calls Llama Guard on the user's message.  If unsafe, it
 short-circuits to END with a refusal message.  The output_shield node checks the
@@ -12,22 +10,9 @@ agent's completed response and replaces it with a refusal if unsafe.
 
 Shields are active when SAFETY_MODEL is configured; otherwise they are no-ops.
 On any safety-model error the check is skipped (fail-open).
-
-Rule-based routing with confidence escalation:
-  - The classify node uses keyword/pattern rules (no LLM call) to decide
-    SIMPLE vs COMPLEX routing.
-  - COMPLEX -> agent_capable directly (tool-calling with reliable model)
-  - SIMPLE  -> agent_fast (NO tools bound, text-only).  If the response
-    indicates low confidence (via logprobs or hedging phrases), discard
-    and escalate to agent_capable.
-
-The fast model never sees tools, so it can never attempt tool calls.
-Confidence escalation catches edge cases where a non-keyword query
-slips through to fast but gets a garbage response.
 """
 
 import logging
-import re
 import time
 from typing import Any
 
@@ -37,8 +22,6 @@ from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from ..core.metrics import (
-    agent_escalation_total,
-    agent_routing_total,
     llm_inference_duration_seconds,
     llm_tokens_total,
     tool_call_duration_seconds,
@@ -52,68 +35,11 @@ SAFETY_REFUSAL_MESSAGE = (
     "I'm not able to help with that request. Can I assist you with something else?"
 )
 
-# -- Confidence escalation --------------------------------------------------
-
-# Hedging phrases that indicate model uncertainty
-_HEDGING_PHRASES = [
-    "i'm not sure",
-    "i don't know",
-    "i cannot",
-    "i can't",
-    "you should consult",
-    "please check",
-    "i'd recommend asking",
-    "beyond my",
-    "outside my",
-    "not certain",
-]
-
-# Logprob thresholds (calibrate against your model + quantization)
-_LOGPROB_ESCALATION_THRESHOLD = -1.5  # mean logprob below this -> escalate
-_HEDGING_ESCALATION_COUNT = 2  # 2+ hedging phrases -> escalate
-
-
-def _low_confidence(response: AIMessage) -> bool:
-    """Check if a fast model response indicates low confidence.
-
-    Uses token logprobs (primary) and hedging phrase detection (secondary).
-    Logprobs are a direct window into model uncertainty -- unlike self-reported
-    confidence which is unreliable for small models.
-
-    If logprobs are unavailable (model/backend doesn't support them), falls
-    through to hedging detection only -- graceful degradation.
-    """
-    content = response.content or ""
-
-    # Strip <think>...</think> blocks (reasoning models emit these)
-    text = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-
-    # Signal 1: Token logprobs (primary -- 0-latency, from same API call)
-    logprobs_data = (response.response_metadata or {}).get("logprobs")
-    if logprobs_data and logprobs_data.get("content"):
-        token_logprobs = [
-            t["logprob"] for t in logprobs_data["content"] if t.get("logprob") is not None
-        ]
-        if token_logprobs:
-            mean_logprob = sum(token_logprobs) / len(token_logprobs)
-            if mean_logprob < _LOGPROB_ESCALATION_THRESHOLD:
-                return True
-
-    # Signal 2: Hedging phrase detection (secondary -- regex, near-zero cost)
-    text_lower = text.lower()
-    hedge_count = sum(1 for phrase in _HEDGING_PHRASES if phrase in text_lower)
-    if hedge_count >= _HEDGING_ESCALATION_COUNT:
-        return True
-
-    return False
-
 
 class AgentState(MessagesState):
-    """Graph state extended with model routing, safety, and auth fields."""
+    """Graph state extended with safety and auth fields."""
 
-    model_tier: str
     safety_blocked: bool
-    escalated: bool
     user_role: str
     user_id: str
     user_email: str
@@ -122,29 +48,62 @@ class AgentState(MessagesState):
     decision_proposals: dict
 
 
-def build_routed_graph(
+def _record_token_usage(
+    response: AIMessage,
+    messages: list,
+    model_name: str,
+    persona: str,
+) -> None:
+    """Extract token usage from LLM response metadata and record prometheus metrics."""
+    metadata = response.response_metadata or {}
+    usage = metadata.get("token_usage") or metadata.get("usage") or {}
+    if not usage and "usage_metadata" in metadata:
+        usage = metadata["usage_metadata"]
+    if not usage and hasattr(response, "usage_metadata") and response.usage_metadata:
+        um = response.usage_metadata
+        usage = {
+            "input_tokens": getattr(um, "input_tokens", 0) or 0,
+            "output_tokens": getattr(um, "output_tokens", 0) or 0,
+        }
+    if usage:
+        input_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+        output_tokens = usage.get("completion_tokens") or usage.get("output_tokens") or 0
+    else:
+        input_text = "".join(m.content or "" for m in messages if hasattr(m, "content"))
+        output_text = response.content or ""
+        input_tokens = max(1, len(input_text) // 4)
+        output_tokens = max(1, len(output_text) // 4)
+    if input_tokens:
+        llm_tokens_total.labels(model=model_name, direction="input", persona=persona).inc(
+            input_tokens
+        )
+    if output_tokens:
+        llm_tokens_total.labels(model=model_name, direction="output", persona=persona).inc(
+            output_tokens
+        )
+
+
+def build_agent_graph_compiled(
     *,
     system_prompt: str,
     tools: list,
-    llms: dict[str, ChatOpenAI],
+    llm: ChatOpenAI,
     tool_allowed_roles: dict[str, list[str]] | None = None,
     checkpointer: Any | None = None,
 ) -> Any:
-    """Build a compiled LangGraph graph with safety shields and rule-based routing.
+    """Build a compiled LangGraph graph with safety shields.
 
     Args:
         system_prompt: The agent's system prompt (injected per LLM call).
         tools: LangChain tools available to the agent.
-        llms: Mapping of tier name to ChatOpenAI instance.
+        llm: ChatOpenAI instance for the primary LLM.
         tool_allowed_roles: Mapping of tool name to list of allowed role strings.
             When provided, a pre-tool authorization node checks the user's role
             before each tool invocation (RBAC Layer 3).
 
     Returns:
-        A compiled StateGraph with rule-based routing and confidence escalation.
+        A compiled StateGraph.
     """
-    fast_llm = llms["fast_small"]
-    capable_llm = llms["capable_large"]
 
     async def input_shield(state: AgentState) -> dict:
         """Check user input against Llama Guard safety categories."""
@@ -164,157 +123,25 @@ def build_routed_graph(
         return {"safety_blocked": False}
 
     def after_input_shield(state: AgentState) -> str:
-        """Route to END if input was blocked, otherwise continue to classify."""
+        """Route to END if input was blocked, otherwise continue to agent."""
         if state.get("safety_blocked"):
             return END
-        return "classify"
+        return "agent"
 
-    async def classify(state: AgentState) -> dict:
-        """Rule-based intent classifier -- picks the model tier (no LLM call)."""
-        from ..inference.router import classify_query
-
-        last_msg = state["messages"][-1]
-        tier = classify_query(last_msg.content)
-        logger.info("Routed to '%s' for: %s", tier, last_msg.content[:80])
-
-        # Record routing decision metric
-        complexity = "simple" if tier == "fast_small" else "complex"
-        persona = state.get("user_role", "unknown")
-        agent_routing_total.labels(persona=persona, complexity=complexity).inc()
-
-        return {"model_tier": tier}
-
-    def after_classify(state: AgentState) -> str:
-        """Route to agent_fast for SIMPLE, agent_capable for COMPLEX."""
-        tier = state.get("model_tier", "capable_large")
-        if tier == "fast_small":
-            return "agent_fast"
-        return "agent_capable"
-
-    async def agent_fast(state: AgentState) -> dict:
-        """Fast model pass (NO tools bound, text-only).
-
-        Requests logprobs for confidence scoring. If the response
-        indicates low confidence (low logprobs or hedging phrases),
-        the response is discarded and the graph escalates to
-        agent_capable.
-        """
-        # TODO: re-enable logprobs once LiteLLM proxy fixes MockValSer
-        # Pydantic serialization bug in streaming responses with logprobs.
-        # When re-enabling, also unskip test_fast_model_low_logprobs_escalates
-        # in tests/test_chat.py.
-        # llm_with_logprobs = fast_llm.bind(logprobs=True)
+    async def agent(state: AgentState) -> dict:
+        """Call the LLM with tools bound."""
+        bound_llm = llm.bind_tools(tools)
         messages = [SystemMessage(content=system_prompt), *state["messages"]]
 
         persona = state.get("user_role", "unknown")
-        model_name = fast_llm.model_name or "fast_small"
+        model_name = llm.model_name or "unknown"
 
-        # Record LLM inference duration
         start_time = time.perf_counter()
-        # response = await llm_with_logprobs.ainvoke(messages)
-        response = await fast_llm.ainvoke(messages)
+        response = await bound_llm.ainvoke(messages)
         duration = time.perf_counter() - start_time
         llm_inference_duration_seconds.labels(model=model_name, persona=persona).observe(duration)
 
-        # Record token usage from response metadata (check multiple key formats)
-        # LangChain stores usage in multiple places depending on provider
-        metadata = response.response_metadata or {}
-        usage = metadata.get("token_usage") or metadata.get("usage") or {}
-        # Check for OpenAI-style nested usage in metadata
-        if not usage and "usage_metadata" in metadata:
-            usage = metadata["usage_metadata"]
-        # Check for usage_metadata directly on the AIMessage (LangChain standard)
-        if not usage and hasattr(response, "usage_metadata") and response.usage_metadata:
-            um = response.usage_metadata
-            usage = {
-                "input_tokens": getattr(um, "input_tokens", 0) or 0,
-                "output_tokens": getattr(um, "output_tokens", 0) or 0,
-            }
-        if usage:
-            input_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-            output_tokens = usage.get("completion_tokens") or usage.get("output_tokens") or 0
-        else:
-            # Estimate tokens based on text length (roughly 4 chars per token for English)
-            # This is a fallback when the LLM provider doesn't return usage data
-            input_text = "".join(m.content or "" for m in messages if hasattr(m, "content"))
-            output_text = response.content or ""
-            input_tokens = max(1, len(input_text) // 4)
-            output_tokens = max(1, len(output_text) // 4)
-            logger.debug(
-                "Estimated tokens (fast): input=%d, output=%d", input_tokens, output_tokens
-            )
-        if input_tokens:
-            llm_tokens_total.labels(model=model_name, direction="input", persona=persona).inc(
-                input_tokens
-            )
-        if output_tokens:
-            llm_tokens_total.labels(model=model_name, direction="output", persona=persona).inc(
-                output_tokens
-            )
-
-        # if _low_confidence(response):
-        #     logger.info("Fast model low confidence, escalating to capable_large")
-        #     return {"escalated": True}
-
-        return {"messages": [response]}
-
-    def after_agent_fast(state: AgentState) -> str:
-        """Route to agent_capable if fast model response was low confidence."""
-        if state.get("escalated"):
-            persona = state.get("user_role", "unknown")
-            agent_escalation_total.labels(persona=persona, reason="low_confidence").inc()
-            return "agent_capable"
-        return "output_shield"
-
-    async def agent_capable(state: AgentState) -> dict:
-        """Call the capable LLM with tools bound (reliable tool-calling)."""
-        llm = capable_llm.bind_tools(tools)
-        messages = [SystemMessage(content=system_prompt), *state["messages"]]
-
-        persona = state.get("user_role", "unknown")
-        model_name = capable_llm.model_name or "capable_large"
-
-        # Record LLM inference duration
-        start_time = time.perf_counter()
-        response = await llm.ainvoke(messages)
-        duration = time.perf_counter() - start_time
-        llm_inference_duration_seconds.labels(model=model_name, persona=persona).observe(duration)
-
-        # Record token usage from response metadata (check multiple key formats)
-        # LangChain stores usage in multiple places depending on provider
-        metadata = response.response_metadata or {}
-        usage = metadata.get("token_usage") or metadata.get("usage") or {}
-        # Check for OpenAI-style nested usage in metadata
-        if not usage and "usage_metadata" in metadata:
-            usage = metadata["usage_metadata"]
-        # Check for usage_metadata directly on the AIMessage (LangChain standard)
-        if not usage and hasattr(response, "usage_metadata") and response.usage_metadata:
-            um = response.usage_metadata
-            usage = {
-                "input_tokens": getattr(um, "input_tokens", 0) or 0,
-                "output_tokens": getattr(um, "output_tokens", 0) or 0,
-            }
-        if usage:
-            input_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-            output_tokens = usage.get("completion_tokens") or usage.get("output_tokens") or 0
-        else:
-            # Estimate tokens based on text length (roughly 4 chars per token for English)
-            # This is a fallback when the LLM provider doesn't return usage data
-            input_text = "".join(m.content or "" for m in messages if hasattr(m, "content"))
-            output_text = response.content or ""
-            input_tokens = max(1, len(input_text) // 4)
-            output_tokens = max(1, len(output_text) // 4)
-            logger.debug(
-                "Estimated tokens (capable): input=%d, output=%d", input_tokens, output_tokens
-            )
-        if input_tokens:
-            llm_tokens_total.labels(model=model_name, direction="input", persona=persona).inc(
-                input_tokens
-            )
-        if output_tokens:
-            llm_tokens_total.labels(model=model_name, direction="output", persona=persona).inc(
-                output_tokens
-            )
+        _record_token_usage(response, messages, model_name, persona)
 
         return {"messages": [response]}
 
@@ -440,34 +267,18 @@ def build_routed_graph(
 
     graph = StateGraph(AgentState)
     graph.add_node("input_shield", input_shield)
-    graph.add_node("classify", classify)
-    graph.add_node("agent_fast", agent_fast)
-    graph.add_node("agent_capable", agent_capable)
+    graph.add_node("agent", agent)
     graph.add_node("tools", tools_with_metrics)
     graph.add_node("output_shield", output_shield)
 
     graph.set_entry_point("input_shield")
-    graph.add_conditional_edges(
-        "input_shield", after_input_shield, {END: END, "classify": "classify"}
-    )
-    graph.add_conditional_edges(
-        "classify",
-        after_classify,
-        {"agent_fast": "agent_fast", "agent_capable": "agent_capable"},
-    )
+    graph.add_conditional_edges("input_shield", after_input_shield, {END: END, "agent": "agent"})
 
-    # Fast model path: high confidence -> output_shield, low confidence -> agent_capable
-    graph.add_conditional_edges(
-        "agent_fast",
-        after_agent_fast,
-        {"output_shield": "output_shield", "agent_capable": "agent_capable"},
-    )
-
-    # Capable model path: tool calls -> auth/tools loop, text -> output_shield
+    # Agent path: tool calls -> auth/tools loop, text -> output_shield
     if tool_allowed_roles:
         graph.add_node("tool_auth", tool_auth)
         graph.add_conditional_edges(
-            "agent_capable",
+            "agent",
             should_continue,
             {"tool_auth": "tool_auth", "output_shield": "output_shield"},
         )
@@ -478,12 +289,12 @@ def build_routed_graph(
         )
     else:
         graph.add_conditional_edges(
-            "agent_capable",
+            "agent",
             should_continue,
             {"tools": "tools", "output_shield": "output_shield"},
         )
 
-    graph.add_edge("tools", "agent_capable")
+    graph.add_edge("tools", "agent")
     graph.add_edge("output_shield", END)
 
     return graph.compile(checkpointer=checkpointer)
@@ -498,9 +309,9 @@ def build_agent_graph(
     """Shared factory for building agent graphs from YAML config + tool list.
 
     Handles LLM initialization, tool_allowed_roles extraction, and
-    build_routed_graph invocation -- the boilerplate common to all agents.
+    graph invocation -- the boilerplate common to all agents.
     """
-    from ..inference.config import get_model_config, get_model_tiers
+    from ..inference.config import get_model_config
 
     system_prompt = config.get("system_prompt", "You are a helpful mortgage assistant.")
 
@@ -518,19 +329,17 @@ def build_agent_graph(
         if name and allowed:
             tool_allowed_roles[name] = allowed
 
-    llms: dict[str, ChatOpenAI] = {}
-    for tier in get_model_tiers():
-        model_cfg = get_model_config(tier)
-        llms[tier] = ChatOpenAI(
-            model=model_cfg["model_name"],
-            base_url=model_cfg["endpoint"],
-            api_key=model_cfg.get("api_key", "not-needed"),
-        )
+    model_cfg = get_model_config("llm")
+    llm = ChatOpenAI(
+        model=model_cfg["model_name"],
+        base_url=model_cfg["endpoint"],
+        api_key=model_cfg.get("api_key", "not-needed"),
+    )
 
-    return build_routed_graph(
+    return build_agent_graph_compiled(
         system_prompt=system_prompt,
         tools=tools,
-        llms=llms,
+        llm=llm,
         tool_allowed_roles=tool_allowed_roles,
         checkpointer=checkpointer,
     )
