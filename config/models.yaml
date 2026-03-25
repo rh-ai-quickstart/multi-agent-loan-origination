@@ -1,98 +1,26 @@
-# Model routing configuration for Mortgage AI.
+# Model configuration for Mortgage AI.
 #
-# Both tiers currently point to the same endpoint for local dev.
-# When two models are available, update endpoints/model_names independently.
 # Hot-reloaded per conversation via mtime check -- no restart required.
+#
+# The 'vision' tier is optional. When VISION_MODEL / VISION_BASE_URL are
+# unset or empty, vision calls fall back to the main 'llm' tier.
 
 routing:
-  default_tier: capable_large
-  classification:
-    strategy: rule_based
-    rules:
-      simple:
-        max_query_words: 10
-        patterns:
-          - "status"
-          - "when"
-          - "what is"
-          - "show me"
-          - "how much"
-          - "my application"
-          - "hello"
-          - "hi"
-          - "thanks"
-          - "thank you"
-      complex:
-        default: true
-        keywords:
-          - "compliance"
-          - "regulation"
-          - "regulatory"
-          - "dti"
-          - "debt-to-income"
-          - "calculate"
-          - "affordability"
-          - "document"
-          - "resubmit"
-          - "underwriting"
-          - "rate"
-          - "lock"
-          - "interest"
-          - "expire"
-          - "deadline"
-          - "acknowledge"
-          - "disclosure"
-          - "missing"
-          - "upload"
-          - "need to"
-          - "still need"
-          - "submit"
-          - "review"
-          - "application"
-          - "condition"
-          - "rate lock"
-          - "compare"
-          - "analyze"
-          - "draft"
-          - "communication"
-          - "knowledge base"
-          - "ecoa"
-          - "trid"
-          - "hmda"
-          - "fcra"
-          - "fha"
-          - "fannie"
-          - "freddie"
-          - "atr"
-          - "qualified mortgage"
-          - "appraisal"
-          - "fair lending"
-          - "pipeline"
-          - "denial"
-          - "performance"
-          - "loan officer"
-          - "pull-through"
-          - "turn time"
-          - "audit"
-          - "trace"
-          - "decision"
-          - "trend"
-          - "metric"
-          - "export"
+  default_tier: llm
 
 models:
-  fast_small:
+  llm:
     provider: openai_compatible
-    model_name: "${LLM_MODEL_FAST:-gpt-4o-mini}"
-    description: "Fast model for simple factual queries"
+    model_name: "${LLM_MODEL:-gpt-4o-mini}"
+    description: "Primary LLM for all agent interactions and tool use"
     endpoint: "${LLM_BASE_URL:-https://api.openai.com/v1}"
     api_key: "${LLM_API_KEY:-not-needed}"
-  capable_large:
+  vision:
     provider: openai_compatible
-    model_name: "${LLM_MODEL_CAPABLE:-gpt-4o-mini}"
-    description: "Capable model for complex reasoning and tool use"
-    endpoint: "${LLM_BASE_URL:-https://api.openai.com/v1}"
-    api_key: "${LLM_API_KEY:-not-needed}"
+    model_name: "${VISION_MODEL:-${LLM_MODEL:-gpt-4o-mini}}"
+    description: "Vision-capable model for document image extraction"
+    endpoint: "${VISION_BASE_URL:-${LLM_BASE_URL:-https://api.openai.com/v1}}"
+    api_key: "${VISION_API_KEY:-${LLM_API_KEY:-not-needed}}"
   embedding:
     provider: "${EMBEDDING_PROVIDER:-local}"
     model_name: "${EMBEDDING_MODEL:-nomic-ai/nomic-embed-text-v1.5}"

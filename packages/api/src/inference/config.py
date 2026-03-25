@@ -66,15 +66,13 @@ def _validate_config(config: dict[str, Any]) -> None:
     if not models or not isinstance(models, dict):
         raise ValueError("models.yaml must contain a 'models' section with at least one model")
 
-    routing = config.get("routing")
-    if not routing or not isinstance(routing, dict):
-        raise ValueError("models.yaml must contain a 'routing' section")
-
-    default_tier = routing.get("default_tier")
-    if default_tier and default_tier not in models:
-        raise ValueError(
-            f"routing.default_tier '{default_tier}' does not match any model in 'models'"
-        )
+    routing = config.get("routing", {})
+    if routing:
+        default_tier = routing.get("default_tier")
+        if default_tier and default_tier not in models:
+            raise ValueError(
+                f"routing.default_tier '{default_tier}' does not match any model in 'models'"
+            )
 
     for name, model in models.items():
         if not isinstance(model, dict):
@@ -140,19 +138,9 @@ def get_config(path: Path | None = None) -> dict[str, Any]:
 
 
 def get_model_config(tier: str, path: Path | None = None) -> dict[str, Any]:
-    """Return config for a specific model tier (e.g. 'fast_small', 'capable_large')."""
+    """Return config for a specific model tier (e.g. 'llm', 'vision', 'embedding')."""
     config = get_config(path)
     models = config["models"]
     if tier not in models:
         raise KeyError(f"Unknown model tier '{tier}'. Available: {list(models.keys())}")
     return models[tier]
-
-
-def get_model_tiers(path: Path | None = None) -> list[str]:
-    """Return the names of all configured model tiers."""
-    return list(get_config(path)["models"].keys())
-
-
-def get_routing_config(path: Path | None = None) -> dict[str, Any]:
-    """Return the routing section of config."""
-    return get_config(path)["routing"]

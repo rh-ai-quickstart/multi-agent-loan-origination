@@ -21,7 +21,7 @@ Environment variables (all read from .env):
     MLFLOW_TRACKING_TOKEN: Authentication token (required)
     LLM_BASE_URL: LLM endpoint URL (required for llm-judge mode)
     LLM_API_KEY: API key for LLM endpoint
-    LLM_MODEL_CAPABLE: Model to use for judge (required for llm-judge mode)
+    LLM_MODEL: Model to use for judge (required for llm-judge mode)
 """
 
 import logging
@@ -87,7 +87,7 @@ def configure_judge_model() -> str:
     # Read from environment
     base_url = os.environ.get("LLM_BASE_URL")
     api_key = os.environ.get("LLM_API_KEY", os.environ.get("MAAS_API_KEY", ""))
-    model = os.environ.get("LLM_MODEL_CAPABLE")
+    model = os.environ.get("LLM_MODEL")
 
     if not base_url:
         raise ValueError(
@@ -96,7 +96,7 @@ def configure_judge_model() -> str:
         )
     if not model:
         raise ValueError(
-            "LLM_MODEL_CAPABLE is required for llm-judge mode. "
+            "LLM_MODEL is required for llm-judge mode. "
             "Set it in your .env file or use --mode simple."
         )
 
@@ -392,7 +392,7 @@ def main():
         print("  MLFLOW_EXPERIMENT_NAME=<experiment-name>")
         if args.mode == "llm-judge":
             print("  LLM_BASE_URL=<llm-endpoint>")
-            print("  LLM_MODEL_CAPABLE=<model-name>")
+            print("  LLM_MODEL=<model-name>")
         sys.exit(1)
 
 

@@ -12,8 +12,11 @@
 secrets:
   LLM_BASE_URL: ""
   LLM_API_KEY: ""
-  LLM_MODEL_FAST: ""
-  LLM_MODEL_CAPABLE: ""
+  LLM_MODEL: ""
+  # Vision model (optional -- falls back to main LLM when empty)
+  # VISION_MODEL: ""
+  # VISION_BASE_URL: ""
+  # VISION_API_KEY: ""
   COMPANY_NAME: ""
   AGENT_NAME: ""
   # MLFLOW_TRACKING_URI: ""
