@@ -19,6 +19,7 @@ from ..schemas.document import (
     DocumentFilePathResponse,
     DocumentListResponse,
     DocumentResponse,
+    DocumentStatusUpdate,
     DocumentUploadResponse,
     ExtractionListResponse,
 )
@@ -227,6 +228,40 @@ async def get_completeness(
             detail="Application not found",
         )
     return result
+
+
+@router.patch(
+    "/applications/{application_id}/documents/{document_id}",
+    response_model=DocumentResponse,
+    dependencies=[
+        Depends(require_roles(UserRole.LOAN_OFFICER, UserRole.UNDERWRITER, UserRole.ADMIN))
+    ],
+)
+async def update_document(
+    application_id: int,
+    document_id: int,
+    body: DocumentStatusUpdate,
+    user: CurrentUser,
+    session: AsyncSession = Depends(get_db),
+) -> DocumentResponse:
+    """Update a document's status (accept, reject, flag for resubmission)."""
+    try:
+        doc = await doc_service.update_document_status(
+            session,
+            user,
+            application_id,
+            document_id,
+            body.status,
+            body.reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+    return DocumentResponse.model_validate(doc)
 
 
 @router.get(

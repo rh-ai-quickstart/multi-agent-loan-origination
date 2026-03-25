@@ -318,7 +318,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_value": Decimal("400000.00"),
         "assigned_to": JAMES_TORRES_ID,
         "created_at": _days_ago(14),
-        "updated_at": _days_ago(8),
+        "updated_at": _days_ago(0),
         "financials": {
             "gross_monthly_income": Decimal("8500.00"),
             "monthly_debts": Decimal("2400.00"),
@@ -369,7 +369,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 ],
             },
             {
-                "doc_type": DocumentType.ID,
+                "doc_type": DocumentType.DRIVERS_LICENSE,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": _id_extractions("Sarah Mitchell", expiration="2029-07-14"),
             },
@@ -430,7 +430,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 ],
             },
             {
-                "doc_type": DocumentType.ID,
+                "doc_type": DocumentType.DRIVERS_LICENSE,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": _id_extractions("Emily Rodriguez"),
             },
@@ -443,7 +443,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_address": "910 Pine Lane, Lakewood, CO 80226",
         "loan_amount": Decimal("200000.00"),
         "property_value": Decimal("260000.00"),
-        "assigned_to": JAMES_TORRES_ID,
+        "assigned_to": SARAH_PATEL_ID,
         "created_at": _days_ago(7),
         "updated_at": _days_ago(3),
         "financials": {
@@ -591,7 +591,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 ),
             },
             {
-                "doc_type": DocumentType.ID,
+                "doc_type": DocumentType.DRIVERS_LICENSE,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": _id_extractions("Robert Kim", expiration="2029-03-20"),
             },
@@ -700,7 +700,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 ],
             },
             {
-                "doc_type": DocumentType.ID,
+                "doc_type": DocumentType.DRIVERS_LICENSE,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": _id_extractions("Lisa Washington", expiration="2027-11-30"),
             },
@@ -798,7 +798,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 ],
             },
             {
-                "doc_type": DocumentType.ID,
+                "doc_type": DocumentType.DRIVERS_LICENSE,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": _id_extractions("Daniel Ramirez", expiration="2028-06-10"),
             },
@@ -866,7 +866,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 "extractions": _tax_return_extractions("Michael Johnson", "$210,500"),
             },
             {
-                "doc_type": DocumentType.ID,
+                "doc_type": DocumentType.DRIVERS_LICENSE,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": _id_extractions("Michael Johnson", expiration="2029-01-15"),
             },
@@ -938,7 +938,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 "extractions": _bank_statement_extractions("Alpine Bank", "$82,300.00"),
             },
             {
-                "doc_type": DocumentType.ID,
+                "doc_type": DocumentType.DRIVERS_LICENSE,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": _id_extractions("Thomas Nguyen", expiration="2028-04-22"),
             },
@@ -981,7 +981,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_address": "4567 Aspen Ridge, Highlands Ranch, CO 80129",
         "loan_amount": Decimal("425000.00"),
         "property_value": Decimal("510000.00"),
-        "assigned_to": SARAH_PATEL_ID,
+        "assigned_to": MARCUS_WILLIAMS_ID,
         "created_at": _days_ago(60),
         "updated_at": _days_ago(2),
         "financials": {
@@ -1015,7 +1015,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 "extractions": _tax_return_extractions("Sarah Mitchell", "$98,700"),
             },
             {
-                "doc_type": DocumentType.ID,
+                "doc_type": DocumentType.DRIVERS_LICENSE,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": _id_extractions("Sarah Mitchell", expiration="2030-02-28"),
             },
@@ -1050,7 +1050,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
                 ],
             },
             {
-                "doc_type": DocumentType.INSURANCE,
+                "doc_type": DocumentType.HOMEOWNERS_INSURANCE,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": [
                     {
@@ -1241,7 +1241,7 @@ for i in range(16):
                 {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
                 {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.ACCEPTED},
                 {"doc_type": DocumentType.BANK_STATEMENT, "status": DocumentStatus.ACCEPTED},
-                {"doc_type": DocumentType.ID, "status": DocumentStatus.ACCEPTED},
+                {"doc_type": DocumentType.DRIVERS_LICENSE, "status": DocumentStatus.ACCEPTED},
             ],
             "decisions": [
                 {
@@ -1343,7 +1343,7 @@ for i in range(12):
             "documents": [
                 {"doc_type": DocumentType.W2, "status": DocumentStatus.ACCEPTED},
                 {"doc_type": DocumentType.PAY_STUB, "status": DocumentStatus.ACCEPTED},
-                {"doc_type": DocumentType.ID, "status": DocumentStatus.ACCEPTED},
+                {"doc_type": DocumentType.DRIVERS_LICENSE, "status": DocumentStatus.ACCEPTED},
             ],
             "decisions": [
                 {

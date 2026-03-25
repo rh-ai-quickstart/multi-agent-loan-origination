@@ -27,6 +27,7 @@ import {
     X,
     Award,
 } from 'lucide-react';
+import { CameraCapture } from '@/components/camera-capture';
 import { useApplications } from '@/hooks/use-applications';
 import { useApplicationStatus } from '@/hooks/use-status';
 import { useDocuments, useCompleteness, useUploadDocument } from '@/hooks/use-documents';
@@ -358,6 +359,10 @@ function DocumentsCard({
                         {uploadMutation.isPending ? 'Uploading...' : 'Drop files here or click to upload'}
                     </p>
                 </div>
+            </div>
+
+            <div className="mt-2">
+                <CameraCapture onCapture={handleFileSelect} disabled={uploadMutation.isPending} />
             </div>
         </CardShell>
     );

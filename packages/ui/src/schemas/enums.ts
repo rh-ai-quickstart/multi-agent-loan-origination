@@ -76,9 +76,14 @@ export const DocumentTypeSchema = z.enum([
     'pay_stub',
     'tax_return',
     'bank_statement',
-    'id',
+    'drivers_license',
+    'passport',
     'property_appraisal',
-    'insurance',
+    'homeowners_insurance',
+    'title_insurance',
+    'flood_insurance',
+    'purchase_agreement',
+    'gift_letter',
     'other',
 ]);
 export type DocumentType = z.infer<typeof DocumentTypeSchema>;

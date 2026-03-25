@@ -27,7 +27,7 @@ async def test_borrower_sees_status_with_missing_docs(client_factory, seed_data)
     assert len(upload_actions) == 2
     descriptions = {a["description"] for a in upload_actions}
     assert "Upload Bank Statement" in descriptions
-    assert "Upload Government-Issued ID" in descriptions
+    assert "Upload Driver's License" in descriptions
     await client.aclose()
 
 
@@ -59,7 +59,7 @@ async def test_status_after_all_docs_uploaded(client_factory, seed_data):
     )
 
     with patch("src.routes.documents.asyncio.create_task"):
-        for doc_type in ("bank_statement", "id"):
+        for doc_type in ("bank_statement", "drivers_license"):
             resp = await client.post(
                 f"/api/applications/{app_id}/documents",
                 files={"file": ("doc.pdf", io.BytesIO(pdf), "application/pdf")},

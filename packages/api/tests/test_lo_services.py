@@ -44,10 +44,16 @@ class TestUpdateDocumentStatus:
 
         session = AsyncMock()
 
-        with patch(
-            "src.services.document.get_document",
-            new_callable=AsyncMock,
-            return_value=mock_doc,
+        with (
+            patch(
+                "src.services.document.get_document",
+                new_callable=AsyncMock,
+                return_value=mock_doc,
+            ),
+            patch(
+                "src.services.document.write_audit_event",
+                new_callable=AsyncMock,
+            ),
         ):
             result = await update_document_status(
                 session,

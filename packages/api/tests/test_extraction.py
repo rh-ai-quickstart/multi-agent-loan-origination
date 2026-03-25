@@ -21,6 +21,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from db.enums import DocumentType
 from openai import BadRequestError
 
 from src.services.extraction import ExtractionService, _strip_json_fences
@@ -669,7 +670,8 @@ class TestQualityFlags:
         assert "incomplete" in flags
 
     @pytest.mark.asyncio
-    async def test_document_type_mismatch_detected(self):
+    async def test_document_type_reclassified_on_mismatch(self):
+        """When LLM detects a different valid doc type, auto-reclassify."""
         svc = ExtractionService()
         mock_doc = _make_mock_doc()
 
@@ -686,11 +688,42 @@ class TestQualityFlags:
             patch("src.services.extraction.SessionLocal") as mock_session_cls,
             patch("src.services.extraction.get_storage_service", return_value=mock_storage),
             patch("src.services.extraction.get_completion", new_callable=AsyncMock) as mock_llm,
+            patch("src.services.extraction.write_audit_event", new_callable=AsyncMock),
         ):
             mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
             # Declared type is w2 but LLM detects pay_stub
             mock_llm.return_value = _llm_response(detected_doc_type="pay_stub")
+
+            await svc.process_document(1)
+
+        # Doc type should be reclassified, not flagged
+        assert mock_doc.doc_type == DocumentType.PAY_STUB
+
+    async def test_document_type_mismatch_flagged_for_unknown_type(self):
+        """When LLM detects a type that can't be normalized, flag mismatch."""
+        svc = ExtractionService()
+        mock_doc = _make_mock_doc()
+
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_doc
+        mock_session.execute = AsyncMock(return_value=mock_result)
+
+        mock_storage = MagicMock()
+        mock_storage.download_file = AsyncMock(return_value=_get_minimal_pdf())
+
+        with (
+            patch("src.services.extraction.SessionLocal") as mock_session_cls,
+            patch("src.services.extraction.get_storage_service", return_value=mock_storage),
+            patch("src.services.extraction.get_completion", new_callable=AsyncMock) as mock_llm,
+            patch("src.services.extraction.write_audit_event", new_callable=AsyncMock),
+        ):
+            mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+            # LLM detects a type that can't be normalized
+            mock_llm.return_value = _llm_response(detected_doc_type="unknown_xyz_doc")
 
             await svc.process_document(1)
 

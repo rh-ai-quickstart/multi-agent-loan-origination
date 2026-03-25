@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..schemas.auth import UserContext
+from ..services.audit import write_audit_event
 from ..services.scope import apply_data_scope
 from ..services.storage import get_storage_service
 
@@ -138,9 +139,25 @@ async def update_document_status(
                 f"Allowed: {sorted(s.value for s in _FLAGGABLE_STATUSES)}."
             )
 
+    old_status = doc.status.value
     doc.status = new_status
     if reason:
         doc.quality_flags = reason
+
+    await write_audit_event(
+        session,
+        event_type="document_status_changed",
+        user_id=user.user_id,
+        user_role=user.role.value if user.role else None,
+        application_id=application_id,
+        event_data={
+            "document_id": document_id,
+            "from_status": old_status,
+            "to_status": new_status.value,
+            "reason": reason,
+        },
+    )
+
     await session.commit()
     await session.refresh(doc)
     return doc
@@ -213,6 +230,22 @@ async def upload_document(
     # Update document with storage path and advance status
     doc.file_path = object_key
     doc.status = DocumentStatus.PROCESSING
+
+    await write_audit_event(
+        session,
+        event_type="document_uploaded",
+        user_id=user.user_id,
+        user_role=user.role.value if user.role else None,
+        application_id=application_id,
+        event_data={
+            "document_id": doc.id,
+            "doc_type": doc_type.value,
+            "filename": filename,
+            "content_type": content_type,
+            "size_bytes": len(file_data),
+        },
+    )
+
     await session.commit()
     await session.refresh(doc)
 

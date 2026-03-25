@@ -7,9 +7,14 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
     pay_stub: 'Pay Stub',
     tax_return: 'Tax Return',
     bank_statement: 'Bank Statement',
-    id: 'Photo ID',
+    drivers_license: "Driver's License",
+    passport: 'Passport',
     property_appraisal: 'Property Appraisal',
-    insurance: 'Insurance',
+    homeowners_insurance: "Homeowner's Insurance",
+    title_insurance: 'Title Insurance',
+    flood_insurance: 'Flood Insurance',
+    purchase_agreement: 'Purchase Agreement',
+    gift_letter: 'Gift Letter',
     other: 'Other Document',
 };
 

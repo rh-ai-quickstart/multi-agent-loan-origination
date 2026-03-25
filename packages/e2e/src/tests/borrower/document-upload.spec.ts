@@ -42,7 +42,7 @@ test.describe("Borrower Document Upload", () => {
             // Wait for upload to complete -- button text reverts from "Uploading..."
             // or a new document row appears
             await expect(
-                page.getByText("Drop files here or click to upload"),
+                page.getByText(/Drop files here/),
             ).toBeVisible({ timeout: 15_000 });
 
             // Verify document count increased or upload area is still usable

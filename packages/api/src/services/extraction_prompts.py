@@ -37,12 +37,61 @@ EXTRACTION_FIELDS: dict[str, list[str]] = {
         "total_tax",
         "taxable_income",
     ],
-    "id": [
+    "drivers_license": [
         "full_name",
         "date_of_birth",
-        "id_number_last4",
+        "license_number_last4",
         "expiration_date",
-        "issuing_authority",
+        "issuing_state",
+    ],
+    "passport": [
+        "full_name",
+        "date_of_birth",
+        "passport_number_last4",
+        "expiration_date",
+        "issuing_country",
+    ],
+    "homeowners_insurance": [
+        "insurer_name",
+        "policy_number",
+        "insured_name",
+        "property_address",
+        "coverage_amount",
+        "premium_amount",
+        "effective_date",
+        "expiration_date",
+    ],
+    "title_insurance": [
+        "insurer_name",
+        "policy_number",
+        "property_address",
+        "coverage_amount",
+        "effective_date",
+    ],
+    "flood_insurance": [
+        "insurer_name",
+        "policy_number",
+        "property_address",
+        "coverage_amount",
+        "premium_amount",
+        "effective_date",
+        "expiration_date",
+        "flood_zone",
+    ],
+    "purchase_agreement": [
+        "buyer_name",
+        "seller_name",
+        "property_address",
+        "purchase_price",
+        "earnest_money",
+        "closing_date",
+    ],
+    "gift_letter": [
+        "donor_name",
+        "recipient_name",
+        "gift_amount",
+        "relationship",
+        "date_signed",
     ],
 }
 
@@ -57,6 +106,22 @@ QUALITY_FLAGS = [
 
 # Only demographic fields that must be blocked from the lending path.
 # Non-demographic HMDA fields (income, DTI, etc.) flow through normally.
+VALID_DOC_TYPES = [
+    "w2",
+    "pay_stub",
+    "tax_return",
+    "bank_statement",
+    "drivers_license",
+    "passport",
+    "property_appraisal",
+    "homeowners_insurance",
+    "title_insurance",
+    "flood_insurance",
+    "purchase_agreement",
+    "gift_letter",
+    "other",
+]
+
 HMDA_DEMOGRAPHIC_KEYWORDS: set[str] = {
     "race",
     "ethnicity",
@@ -82,7 +147,7 @@ def build_extraction_prompt(doc_type: str, text: str) -> list[dict]:
         '"confidence": <0.0-1.0>, "source_page": <int>}\n'
         "  ],\n"
         f'  "quality_flags": [<zero or more of: {", ".join(QUALITY_FLAGS)}>],\n'
-        '  "detected_doc_type": "<actual document type detected>"\n'
+        f'  "detected_doc_type": "<one of: {", ".join(VALID_DOC_TYPES)}>"\n'
         "}\n\n"
         f"Expected document type: {doc_type}\n"
         f"Expected fields: {fields_csv}\n"
@@ -118,7 +183,7 @@ def build_image_extraction_prompt(doc_type: str) -> dict:
             '"confidence": <0.0-1.0>, "source_page": <int>}\n'
             "  ],\n"
             f'  "quality_flags": [<zero or more of: {", ".join(QUALITY_FLAGS)}>],\n'
-            '  "detected_doc_type": "<actual document type detected>"\n'
+            f'  "detected_doc_type": "<one of: {", ".join(VALID_DOC_TYPES)}>"\n'
             "}\n\n"
             f"Expected document type: {doc_type}\n"
             f"Expected fields: {fields_csv}\n"

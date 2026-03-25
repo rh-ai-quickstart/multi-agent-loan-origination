@@ -41,8 +41,18 @@ class DocumentUploadResponse(BaseModel):
     borrower_id: int | None = None
     doc_type: DocumentType
     status: DocumentStatus
+    quality_flags: str | None = None
+    uploaded_by: str | None = None
     file_path: str | None = None
     created_at: datetime
+    updated_at: datetime
+
+
+class DocumentStatusUpdate(BaseModel):
+    """Request body for updating a document's status."""
+
+    status: DocumentStatus
+    reason: str | None = None
 
 
 class DocumentFilePathResponse(BaseModel):

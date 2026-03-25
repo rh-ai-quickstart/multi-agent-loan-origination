@@ -78,6 +78,11 @@ def make_upload_client(app):
         patcher_extraction.start()
         patchers.append(patcher_extraction)
 
+        # Mock audit so upload tests don't need a full audit chain
+        patcher_audit = patch("src.services.document.write_audit_event", new_callable=AsyncMock)
+        patcher_audit.start()
+        patchers.append(patcher_audit)
+
         # Only mock create_task, not the entire asyncio module
         patcher_create_task = patch(
             "src.routes.documents.asyncio.create_task", new_callable=MagicMock
