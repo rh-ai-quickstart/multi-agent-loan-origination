@@ -17,7 +17,7 @@ async def test_borrower_sees_own_completeness(client_factory, seed_data):
 
     assert resp.status_code == 200
     data = resp.json()
-    # conventional_30 with no employment_status -> _default/_default -> W2, PAY_STUB, BANK_STATEMENT, ID
+    # conventional_30 with no employment_status -> _default/_default -> W2, PAY_STUB, BANK_STATEMENT, DRIVERS_LICENSE
     assert data["required_count"] == 4
     assert data["provided_count"] == 2
     assert data["is_complete"] is False
@@ -25,7 +25,7 @@ async def test_borrower_sees_own_completeness(client_factory, seed_data):
     provided = {r["doc_type"] for r in data["requirements"] if r["is_provided"]}
     missing = {r["doc_type"] for r in data["requirements"] if not r["is_provided"]}
     assert provided == {"w2", "pay_stub"}
-    assert missing == {"bank_statement", "id"}
+    assert missing == {"bank_statement", "drivers_license"}
     await client.aclose()
 
 
@@ -60,7 +60,7 @@ async def test_ceo_sees_any_app(client_factory, seed_data):
     resp = await client.get(f"/api/applications/{seed_data.michael_app.id}/completeness")
     assert resp.status_code == 200
     data = resp.json()
-    # VA app with no employment_status -> va/_default -> W2, PAY_STUB, BANK_STATEMENT, ID
+    # VA app with no employment_status -> va/_default -> W2, PAY_STUB, BANK_STATEMENT, DRIVERS_LICENSE
     assert data["required_count"] == 4
     # Michael has 0 docs uploaded
     assert data["provided_count"] == 0
@@ -76,7 +76,7 @@ async def test_fha_app_requires_tax_return(client_factory, seed_data):
     resp = await client.get(f"/api/applications/{seed_data.sarah_app2.id}/completeness")
     assert resp.status_code == 200
     data = resp.json()
-    # FHA _default -> W2, PAY_STUB, TAX_RETURN, BANK_STATEMENT, ID
+    # FHA _default -> W2, PAY_STUB, TAX_RETURN, BANK_STATEMENT, DRIVERS_LICENSE
     assert data["required_count"] == 5
     required_types = {r["doc_type"] for r in data["requirements"]}
     assert "tax_return" in required_types

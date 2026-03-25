@@ -27,7 +27,7 @@ async def test_borrower_sees_status_with_missing_docs(client_factory, seed_data)
     assert len(upload_actions) == 2
     descriptions = {a["description"] for a in upload_actions}
     assert "Upload Bank Statement" in descriptions
-    assert "Upload Government-Issued ID" in descriptions
+    assert "Upload Driver's License" in descriptions
     await client.aclose()
 
 
