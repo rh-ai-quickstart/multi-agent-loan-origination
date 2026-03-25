@@ -101,13 +101,23 @@ class Settings(BaseSettings):
         default="https://api.openai.com/v1",
         description="Base URL for OpenAI-compatible LLM endpoint.",
     )
-    LLM_MODEL_FAST: str = Field(
+    LLM_MODEL: str = Field(
         default="gpt-4o-mini",
-        description="Model name for the fast_small tier (simple queries).",
+        description="Model name for the primary LLM.",
     )
-    LLM_MODEL_CAPABLE: str = Field(
-        default="gpt-4o-mini",
-        description="Model name for the capable_large tier (complex reasoning + tools).",
+
+    # -- Vision model (optional, falls back to main LLM when unset) --
+    VISION_MODEL: str | None = Field(
+        default=None,
+        description="Vision-capable model name. Defaults to LLM_MODEL if not set.",
+    )
+    VISION_BASE_URL: str | None = Field(
+        default=None,
+        description="Vision model endpoint. Defaults to LLM_BASE_URL if not set.",
+    )
+    VISION_API_KEY: str | None = Field(
+        default=None,
+        description="Vision model API key. Defaults to LLM_API_KEY if not set.",
     )
 
     # -- Storage (S3 / MinIO) --

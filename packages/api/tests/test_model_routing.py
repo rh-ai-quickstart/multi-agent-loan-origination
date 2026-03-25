@@ -1,5 +1,5 @@
 # This project was developed with assistance from AI tools.
-"""Tests for model routing config loading and query classification."""
+"""Tests for model config loading and validation."""
 
 import textwrap
 from pathlib import Path
@@ -8,7 +8,6 @@ import pytest
 
 from src.inference import config as config_mod
 from src.inference.config import _resolve_env_vars, load_config
-from src.inference.router import classify_query
 
 
 @pytest.fixture(autouse=True)
@@ -29,27 +28,15 @@ def _write_standard_config(tmp_path: Path) -> None:
     cfg.write_text(
         textwrap.dedent("""\
         routing:
-          default_tier: capable_large
-          classification:
-            strategy: rule_based
-            rules:
-              simple:
-                max_query_words: 10
-                patterns: ["status", "when", "what is", "show me", "how much",
-                           "hello", "hi", "thanks", "thank you"]
-              complex:
-                default: true
-                keywords: ["compliance", "regulation", "dti", "debt-to-income",
-                           "calculate", "affordability", "document", "underwriting",
-                           "application", "ecoa", "trid", "hmda"]
+          default_tier: llm
         models:
-          fast_small:
+          llm:
             provider: openai_compatible
-            model_name: test-small
+            model_name: test-model
             endpoint: http://localhost:8000/v1
-          capable_large:
+          vision:
             provider: openai_compatible
-            model_name: test-large
+            model_name: test-vision
             endpoint: http://localhost:8000/v1
         """)
     )
@@ -65,9 +52,9 @@ def test_load_config_rejects_missing_model_fields(tmp_path):
     cfg.write_text(
         textwrap.dedent("""\
         routing:
-          default_tier: fast_small
+          default_tier: llm
         models:
-          fast_small:
+          llm:
             provider: openai_compatible
         """)
     )
@@ -81,9 +68,9 @@ def test_load_config_rejects_remote_model_without_endpoint(tmp_path):
     cfg.write_text(
         textwrap.dedent("""\
         routing:
-          default_tier: fast_small
+          default_tier: llm
         models:
-          fast_small:
+          llm:
             provider: openai_compatible
             model_name: test-model
         """)
@@ -98,9 +85,9 @@ def test_load_config_accepts_local_model_without_endpoint(tmp_path):
     cfg.write_text(
         textwrap.dedent("""\
         routing:
-          default_tier: fast_small
+          default_tier: llm
         models:
-          fast_small:
+          llm:
             provider: openai_compatible
             model_name: test-model
             endpoint: http://localhost:8000/v1
@@ -123,7 +110,7 @@ def test_load_config_rejects_bad_default_tier(tmp_path):
         routing:
           default_tier: nonexistent
         models:
-          fast_small:
+          llm:
             provider: openai_compatible
             model_name: test
             endpoint: http://localhost:8000/v1
@@ -157,38 +144,6 @@ def test_env_var_uses_default_when_empty(monkeypatch):
     assert result["model"] == "fallback-model"
 
 
-# -- Query classification --
-
-
-def test_classify_simple_pattern_routes_fast(tmp_path):
-    """Short query matching a simple pattern should route to fast_small."""
-    _write_standard_config(tmp_path)
-    assert classify_query("What is my rate?") == "fast_small"
-
-
-def test_classify_long_query_routes_complex(tmp_path):
-    """Query exceeding max_query_words should route to capable_large."""
-    _write_standard_config(tmp_path)
-    result = classify_query(
-        "I want to understand the full implications of refinancing my thirty year "
-        "fixed rate mortgage into a fifteen year adjustable rate product"
-    )
-    assert result == "capable_large"
-
-
-def test_classify_complex_keyword_routes_capable(tmp_path):
-    """Query containing a complex keyword should route to capable_large."""
-    _write_standard_config(tmp_path)
-    assert classify_query("What are the DTI requirements?") == "capable_large"
-
-
-def test_classify_complex_keyword_takes_precedence(tmp_path):
-    """Complex keyword should override short-query heuristic."""
-    _write_standard_config(tmp_path)
-    # "DTI limit?" is short (2 words) but contains complex keyword "dti"
-    assert classify_query("DTI limit?") == "capable_large"
-
-
 # -- Hot-reload --
 
 
@@ -198,7 +153,7 @@ def test_hot_reload_picks_up_mtime_change(tmp_path):
 
     _write_standard_config(tmp_path)
     cfg1 = get_config()
-    assert cfg1["models"]["fast_small"]["model_name"] == "test-small"
+    assert cfg1["models"]["llm"]["model_name"] == "test-model"
 
     # Rewrite with a different model name
     import time
@@ -208,21 +163,17 @@ def test_hot_reload_picks_up_mtime_change(tmp_path):
     cfg_path.write_text(
         textwrap.dedent("""\
         routing:
-          default_tier: capable_large
+          default_tier: llm
         models:
-          fast_small:
+          llm:
             provider: openai_compatible
-            model_name: updated-small
-            endpoint: http://localhost:8000/v1
-          capable_large:
-            provider: openai_compatible
-            model_name: test-large
+            model_name: updated-model
             endpoint: http://localhost:8000/v1
         """)
     )
 
     cfg2 = get_config()
-    assert cfg2["models"]["fast_small"]["model_name"] == "updated-small"
+    assert cfg2["models"]["llm"]["model_name"] == "updated-model"
 
 
 def test_hot_reload_keeps_cached_on_bad_yaml(tmp_path):
@@ -231,7 +182,7 @@ def test_hot_reload_keeps_cached_on_bad_yaml(tmp_path):
 
     _write_standard_config(tmp_path)
     cfg1 = get_config()
-    assert cfg1["models"]["fast_small"]["model_name"] == "test-small"
+    assert cfg1["models"]["llm"]["model_name"] == "test-model"
 
     # Overwrite with invalid YAML
     import time
@@ -241,7 +192,7 @@ def test_hot_reload_keeps_cached_on_bad_yaml(tmp_path):
 
     cfg2 = get_config()
     # Should still return the old valid config
-    assert cfg2["models"]["fast_small"]["model_name"] == "test-small"
+    assert cfg2["models"]["llm"]["model_name"] == "test-model"
 
 
 def test_hot_reload_recovers_after_fix(tmp_path):
@@ -263,21 +214,17 @@ def test_hot_reload_recovers_after_fix(tmp_path):
     config_mod._CONFIG_PATH.write_text(
         textwrap.dedent("""\
         routing:
-          default_tier: capable_large
+          default_tier: llm
         models:
-          fast_small:
+          llm:
             provider: openai_compatible
-            model_name: recovered-small
-            endpoint: http://localhost:8000/v1
-          capable_large:
-            provider: openai_compatible
-            model_name: test-large
+            model_name: recovered-model
             endpoint: http://localhost:8000/v1
         """)
     )
 
     cfg = get_config()
-    assert cfg["models"]["fast_small"]["model_name"] == "recovered-small"
+    assert cfg["models"]["llm"]["model_name"] == "recovered-model"
 
 
 def test_startup_fails_on_missing_config():

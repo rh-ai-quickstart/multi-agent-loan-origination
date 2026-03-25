@@ -37,7 +37,7 @@ def clear_client_cache() -> None:
 
 async def get_completion(
     messages: list[dict[str, str]],
-    tier: str = "capable_large",
+    tier: str = "llm",
     **kwargs: Any,
 ) -> str:
     """Get a non-streaming completion from the specified model tier."""
@@ -66,7 +66,7 @@ async def get_embeddings(texts: list[str], tier: str = "embedding") -> list[list
 
 async def get_streaming_completion(
     messages: list[dict[str, str]],
-    tier: str = "capable_large",
+    tier: str = "llm",
     **kwargs: Any,
 ) -> AsyncIterator[str]:
     """Get a streaming completion, yielding content deltas."""

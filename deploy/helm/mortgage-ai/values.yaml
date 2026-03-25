@@ -48,8 +48,12 @@ secrets:
   # LLM
   LLM_API_KEY: "not-needed"
   LLM_BASE_URL: "http://vllm:8000/v1"
-  LLM_MODEL_FAST: "gpt-4o-mini"
-  LLM_MODEL_CAPABLE: "gpt-4o-mini"
+  LLM_MODEL: "gpt-4o-mini"
+
+  # Vision model (optional -- falls back to main LLM when empty)
+  VISION_MODEL: ""
+  VISION_BASE_URL: ""
+  VISION_API_KEY: ""
   # Embedding model -- defaults to in-process sentence-transformers.
   # Leave these empty to use the built-in local provider (no external
   # service needed). To use a remote OpenAI-compatible endpoint instead,

@@ -19,7 +19,7 @@ Environment variables (from secrets in OpenShift):
     MLFLOW_TRACKING_TOKEN: Authentication token
     LLM_BASE_URL: LLM endpoint URL (for llm-judge mode)
     LLM_API_KEY: API key for LLM endpoint
-    LLM_MODEL_CAPABLE: Model name for judge
+    LLM_MODEL: Model name for judge
 """
 
 from typing import NamedTuple

@@ -886,57 +886,31 @@ async def ws_chat(path: str, agent: str, message: str,
     return result
 
 
-async def test_model_routing():
-    """Test that the rule-based router sends simple queries to fast_small
-    (no tools) and complex queries to capable_large (with tools).
+async def test_agent_responses():
+    """Test that agents respond with domain-relevant content.
 
-    The fast model path: classify -> agent_fast (NO tools bound) -> output_shield
-    The capable model path: classify -> agent_capable (tools bound) -> tool loop -> output_shield
-
-    We verify the fast path by confirming zero tool calls (the fast model
-    literally cannot call tools). For the capable path we verify the agent
-    responds with domain-relevant content (tools are bound but whether the
-    LLM invokes them depends on the model; the WS protocol doesn't expose
-    tool events to clients).
+    Verifies the agent processes both simple and complex queries,
+    with tools available for all interactions.
     """
-    section("Model Routing (fast_small vs capable_large)")
+    section("Agent Responses")
 
-    # Simple greeting -> fast_small path (no tools bound)
+    # Simple greeting
     await ws_chat(
-        "/api/chat", "Fast model (greeting)",
+        "/api/chat", "Greeting",
         "hello",
         ["hello", "hi", "welcome", "help", "summit", "mortgage", "assist"],
-        expect_tools=False,
     )
 
-    # Simple thanks -> fast_small path (no tools bound)
+    # Affordability query (may invoke tools)
     await ws_chat(
-        "/api/chat", "Fast model (thanks)",
-        "thanks",
-        ["welcome", "glad", "help", "anything", "assist", "happy"],
-        expect_tools=False,
-    )
-
-    # Short simple query matching patterns -> fast_small
-    await ws_chat(
-        "/api/chat", "Fast model (how much)",
-        "how much?",
-        ["need", "information", "help", "income", "tell", "more", "amount"],
-        expect_tools=False,
-    )
-
-    # Complex query with tool keyword -> capable_large path (tools bound)
-    # The capable model may or may not invoke tools depending on the LLM,
-    # but it MUST respond with domain-relevant content
-    await ws_chat(
-        "/api/chat", "Capable model (affordability tool)",
+        "/api/chat", "Affordability query",
         "Calculate my affordability if I make $100,000 a year with $500 in monthly debts and $20,000 down payment",
         ["afford", "loan", "payment", "amount", "$", "income", "dti"],
     )
 
-    # Complex query with regulation keywords -> capable_large path
+    # Compliance query
     await ws_chat(
-        "/api/underwriter/chat", "Capable model (compliance tool)",
+        "/api/underwriter/chat", "Compliance query",
         "Run a full ECOA and ATR/QM compliance check on the next application in my underwriting queue",
         ["compliance", "ecoa", "check", "pass", "fail", "regulation", "fair",
          "atr", "qualified", "lending"],
@@ -1257,7 +1231,7 @@ async def main():
             await test_audit_extended(c, detail_id)
 
     if run_chat:
-        await test_model_routing()
+        await test_agent_responses()
         async with httpx.AsyncClient(base_url=BASE, headers=HEADERS, timeout=15) as c2:
             await test_embedding_model(c2)
         await test_websocket_chats()

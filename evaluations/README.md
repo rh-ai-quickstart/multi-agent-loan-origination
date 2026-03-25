@@ -23,7 +23,7 @@ MLFLOW_EXPERIMENT_NAME=multi-agent-loan-origination
 
 # Required for llm-judge mode
 LLM_BASE_URL=https://your-llm-endpoint/v1
-LLM_MODEL_CAPABLE=your-model-name
+LLM_MODEL=your-model-name
 LLM_API_KEY=your-api-key
 ```
 

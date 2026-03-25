@@ -180,16 +180,26 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: LLM_BASE_URL
-            - name: LLM_MODEL_FAST
+            - name: LLM_MODEL
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: LLM_MODEL_FAST
-            - name: LLM_MODEL_CAPABLE
+                  key: LLM_MODEL
+            - name: VISION_MODEL
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: LLM_MODEL_CAPABLE
+                  key: VISION_MODEL
+            - name: VISION_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: VISION_BASE_URL
+            - name: VISION_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: VISION_API_KEY
             - name: EMBEDDING_MODEL
               valueFrom:
                 secretKeyRef:
