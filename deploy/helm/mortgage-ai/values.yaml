@@ -27,6 +27,7 @@ secrets:
   DEBUG: "false"
   ALLOWED_HOSTS: '["*"]'
   COMPANY_NAME: "Red Hat AI Quickstart Demo"
+  AGENT_NAME: ""
 
   # Auth (Keycloak) -- set AUTH_DISABLED=true to bypass for demo
   AUTH_DISABLED: "false"

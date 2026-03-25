@@ -60,6 +60,7 @@ ENV KEYCLOAK_EXTERNAL=""
 ENV KEYCLOAK_REALM=mortgage-ai
 ENV KEYCLOAK_CLIENT_ID=mortgage-ai-ui
 ENV COMPANY_NAME="Acme FinTech Company"
+ENV AGENT_NAME=""
 
 # Expose port
 EXPOSE 8080

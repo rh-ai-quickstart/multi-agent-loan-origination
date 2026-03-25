@@ -65,7 +65,7 @@ server {
     # --- Runtime config (injected at container start) ---
     location = /runtime-config.js {
         default_type application/javascript;
-        return 200 'window.__RUNTIME_CONFIG__={KEYCLOAK_URL:"${KEYCLOAK_EXTERNAL}",KEYCLOAK_REALM:"${KEYCLOAK_REALM}",KEYCLOAK_CLIENT_ID:"${KEYCLOAK_CLIENT_ID}",COMPANY_NAME:"${COMPANY_NAME}"};';
+        return 200 'window.__RUNTIME_CONFIG__={KEYCLOAK_URL:"${KEYCLOAK_EXTERNAL}",KEYCLOAK_REALM:"${KEYCLOAK_REALM}",KEYCLOAK_CLIENT_ID:"${KEYCLOAK_CLIENT_ID}",COMPANY_NAME:"${COMPANY_NAME}",AGENT_NAME:"${AGENT_NAME}"};';
     }
 
     # --- SPA client-side routing ---

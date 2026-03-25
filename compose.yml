@@ -75,6 +75,7 @@ services:
       MLFLOW_TRACKING_URI: "${MLFLOW_TRACKING_URI:-http://mlflow:5000}"
       MLFLOW_EXPERIMENT_NAME: "${MLFLOW_EXPERIMENT_NAME:-mortgage-ai}"
       COMPANY_NAME: "${COMPANY_NAME:-Acme FinTech Company}"
+      AGENT_NAME: "${AGENT_NAME:-}"
     volumes:
       - ./config:/app/config:ro
     healthcheck:
@@ -98,6 +99,7 @@ services:
       KEYCLOAK_REALM: mortgage-ai
       KEYCLOAK_CLIENT_ID: mortgage-ai-ui
       COMPANY_NAME: "${COMPANY_NAME:-Acme FinTech Company}"
+      AGENT_NAME: "${AGENT_NAME:-}"
     depends_on:
       mortgage-ai-api:
         condition: service_healthy
