@@ -19,6 +19,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, Sys
 from ..agents.registry import get_agent
 from ..core.auth import build_data_scope
 from ..core.config import settings
+from ..core.metrics import active_chat_sessions, chat_messages_total
 from ..middleware.auth import CurrentUser, _decode_token, _resolve_role, require_roles
 from ..middleware.pii import _mask_pii_recursive
 from ..observability import set_trace_context
@@ -128,6 +129,10 @@ async def run_agent_stream(
             before the first user message (e.g. application IDs).
     """
     from db.database import SessionLocal
+
+    # Track active session for metrics
+    persona = user_role or "public"
+    active_chat_sessions.labels(persona=persona).inc()
 
     async def _send(msg: dict) -> None:
         """Send a JSON message over WebSocket, applying PII masking if needed."""
@@ -273,6 +278,9 @@ async def run_agent_stream(
 
             user_text = data["content"]
 
+            # Record inbound message metric
+            chat_messages_total.labels(persona=persona, direction="inbound").inc()
+
             # Inject system context once on the first message of the conversation
             context_msgs: list = []
             if system_context:
@@ -344,6 +352,9 @@ async def run_agent_stream(
 
             await _send({"type": "done", "content": full_response})
 
+            # Record outbound message metric
+            chat_messages_total.labels(persona=persona, direction="outbound").inc()
+
     except Exception as exc:
         from fastapi import WebSocketDisconnect
 
@@ -353,7 +364,8 @@ async def run_agent_stream(
             logger.error("Unexpected error in chat handler", exc_info=True)
             raise
     finally:
-        pass  # MLFlow autolog flushes automatically
+        # Decrement active session counter
+        active_chat_sessions.labels(persona=persona).dec()
 
 
 async def _build_application_context(user: UserContext) -> str:

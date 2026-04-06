@@ -40,6 +40,7 @@ dependencies = [
     "mortgage-ai-db",
     "kfp>=2.16.0",
     "kfp-kubernetes>=2.16.0",
+    "prometheus-fastapi-instrumentator>=7.0.0",
 ]
 
 [project.optional-dependencies]
