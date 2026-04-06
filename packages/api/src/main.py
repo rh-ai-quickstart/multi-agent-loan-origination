@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .admin import setup_admin
@@ -85,6 +86,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Prometheus metrics instrumentation - exposes /metrics endpoint
+Instrumentator().instrument(app).expose(app)
 
 # Configure CORS
 app.add_middleware(

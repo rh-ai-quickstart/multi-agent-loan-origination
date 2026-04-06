@@ -16,6 +16,7 @@ spec:
     metadata:
       labels:
         {{- include "mortgage-ai.api.selectorLabels" . | nindent 8 }}
+        monitoring.opendatahub.io/scrape: 'true'
     spec:
       serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
       securityContext:

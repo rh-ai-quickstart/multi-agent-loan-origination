@@ -28,6 +28,7 @@ slips through to fast but gets a garbage response.
 
 import logging
 import re
+import time
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -35,6 +36,14 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
+from ..core.metrics import (
+    agent_escalation_total,
+    agent_routing_total,
+    llm_inference_duration_seconds,
+    llm_tokens_total,
+    tool_call_duration_seconds,
+    tool_calls_total,
+)
 from ..inference.safety import get_safety_checker
 
 logger = logging.getLogger(__name__)
@@ -167,6 +176,12 @@ def build_routed_graph(
         last_msg = state["messages"][-1]
         tier = classify_query(last_msg.content)
         logger.info("Routed to '%s' for: %s", tier, last_msg.content[:80])
+
+        # Record routing decision metric
+        complexity = "simple" if tier == "fast_small" else "complex"
+        persona = state.get("user_role", "unknown")
+        agent_routing_total.labels(persona=persona, complexity=complexity).inc()
+
         return {"model_tier": tier}
 
     def after_classify(state: AgentState) -> str:
@@ -190,8 +205,52 @@ def build_routed_graph(
         # in tests/test_chat.py.
         # llm_with_logprobs = fast_llm.bind(logprobs=True)
         messages = [SystemMessage(content=system_prompt), *state["messages"]]
+
+        persona = state.get("user_role", "unknown")
+        model_name = fast_llm.model_name or "fast_small"
+
+        # Record LLM inference duration
+        start_time = time.perf_counter()
         # response = await llm_with_logprobs.ainvoke(messages)
         response = await fast_llm.ainvoke(messages)
+        duration = time.perf_counter() - start_time
+        llm_inference_duration_seconds.labels(model=model_name, persona=persona).observe(duration)
+
+        # Record token usage from response metadata (check multiple key formats)
+        # LangChain stores usage in multiple places depending on provider
+        metadata = response.response_metadata or {}
+        usage = metadata.get("token_usage") or metadata.get("usage") or {}
+        # Check for OpenAI-style nested usage in metadata
+        if not usage and "usage_metadata" in metadata:
+            usage = metadata["usage_metadata"]
+        # Check for usage_metadata directly on the AIMessage (LangChain standard)
+        if not usage and hasattr(response, "usage_metadata") and response.usage_metadata:
+            um = response.usage_metadata
+            usage = {
+                "input_tokens": getattr(um, "input_tokens", 0) or 0,
+                "output_tokens": getattr(um, "output_tokens", 0) or 0,
+            }
+        if usage:
+            input_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+            output_tokens = usage.get("completion_tokens") or usage.get("output_tokens") or 0
+        else:
+            # Estimate tokens based on text length (roughly 4 chars per token for English)
+            # This is a fallback when the LLM provider doesn't return usage data
+            input_text = "".join(m.content or "" for m in messages if hasattr(m, "content"))
+            output_text = response.content or ""
+            input_tokens = max(1, len(input_text) // 4)
+            output_tokens = max(1, len(output_text) // 4)
+            logger.debug(
+                "Estimated tokens (fast): input=%d, output=%d", input_tokens, output_tokens
+            )
+        if input_tokens:
+            llm_tokens_total.labels(model=model_name, direction="input", persona=persona).inc(
+                input_tokens
+            )
+        if output_tokens:
+            llm_tokens_total.labels(model=model_name, direction="output", persona=persona).inc(
+                output_tokens
+            )
 
         # if _low_confidence(response):
         #     logger.info("Fast model low confidence, escalating to capable_large")
@@ -202,6 +261,8 @@ def build_routed_graph(
     def after_agent_fast(state: AgentState) -> str:
         """Route to agent_capable if fast model response was low confidence."""
         if state.get("escalated"):
+            persona = state.get("user_role", "unknown")
+            agent_escalation_total.labels(persona=persona, reason="low_confidence").inc()
             return "agent_capable"
         return "output_shield"
 
@@ -209,7 +270,52 @@ def build_routed_graph(
         """Call the capable LLM with tools bound (reliable tool-calling)."""
         llm = capable_llm.bind_tools(tools)
         messages = [SystemMessage(content=system_prompt), *state["messages"]]
+
+        persona = state.get("user_role", "unknown")
+        model_name = capable_llm.model_name or "capable_large"
+
+        # Record LLM inference duration
+        start_time = time.perf_counter()
         response = await llm.ainvoke(messages)
+        duration = time.perf_counter() - start_time
+        llm_inference_duration_seconds.labels(model=model_name, persona=persona).observe(duration)
+
+        # Record token usage from response metadata (check multiple key formats)
+        # LangChain stores usage in multiple places depending on provider
+        metadata = response.response_metadata or {}
+        usage = metadata.get("token_usage") or metadata.get("usage") or {}
+        # Check for OpenAI-style nested usage in metadata
+        if not usage and "usage_metadata" in metadata:
+            usage = metadata["usage_metadata"]
+        # Check for usage_metadata directly on the AIMessage (LangChain standard)
+        if not usage and hasattr(response, "usage_metadata") and response.usage_metadata:
+            um = response.usage_metadata
+            usage = {
+                "input_tokens": getattr(um, "input_tokens", 0) or 0,
+                "output_tokens": getattr(um, "output_tokens", 0) or 0,
+            }
+        if usage:
+            input_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
+            output_tokens = usage.get("completion_tokens") or usage.get("output_tokens") or 0
+        else:
+            # Estimate tokens based on text length (roughly 4 chars per token for English)
+            # This is a fallback when the LLM provider doesn't return usage data
+            input_text = "".join(m.content or "" for m in messages if hasattr(m, "content"))
+            output_text = response.content or ""
+            input_tokens = max(1, len(input_text) // 4)
+            output_tokens = max(1, len(output_text) // 4)
+            logger.debug(
+                "Estimated tokens (capable): input=%d, output=%d", input_tokens, output_tokens
+            )
+        if input_tokens:
+            llm_tokens_total.labels(model=model_name, direction="input", persona=persona).inc(
+                input_tokens
+            )
+        if output_tokens:
+            llm_tokens_total.labels(model=model_name, direction="output", persona=persona).inc(
+                output_tokens
+            )
+
         return {"messages": [response]}
 
     def should_continue(state: AgentState) -> str:
@@ -294,14 +400,50 @@ def build_routed_graph(
         logger.debug("Output shield: safe")
         return {}
 
-    tool_node = ToolNode(tools)
+    # Wrap the ToolNode to record metrics
+    _tool_node = ToolNode(tools)
+
+    async def tools_with_metrics(state: AgentState) -> dict:
+        """Execute tools and record metrics for each tool call."""
+        last_msg = state["messages"][-1]
+        persona = state.get("user_role", "unknown")
+
+        # Get tool names being called for metrics
+        tool_names = []
+        if isinstance(last_msg, AIMessage) and last_msg.tool_calls:
+            tool_names = [tc["name"] for tc in last_msg.tool_calls]
+
+        start_time = time.perf_counter()
+        try:
+            result = await _tool_node.ainvoke(state)
+            duration = time.perf_counter() - start_time
+
+            # Record success metrics for each tool
+            for tool_name in tool_names:
+                tool_calls_total.labels(
+                    tool_name=tool_name, persona=persona, status="success"
+                ).inc()
+                tool_call_duration_seconds.labels(tool_name=tool_name, persona=persona).observe(
+                    duration / len(tool_names) if tool_names else duration
+                )
+
+            return result
+        except Exception:
+            duration = time.perf_counter() - start_time
+            # Record error metrics for each tool
+            for tool_name in tool_names:
+                tool_calls_total.labels(tool_name=tool_name, persona=persona, status="error").inc()
+                tool_call_duration_seconds.labels(tool_name=tool_name, persona=persona).observe(
+                    duration / len(tool_names) if tool_names else duration
+                )
+            raise
 
     graph = StateGraph(AgentState)
     graph.add_node("input_shield", input_shield)
     graph.add_node("classify", classify)
     graph.add_node("agent_fast", agent_fast)
     graph.add_node("agent_capable", agent_capable)
-    graph.add_node("tools", tool_node)
+    graph.add_node("tools", tools_with_metrics)
     graph.add_node("output_shield", output_shield)
 
     graph.set_entry_point("input_shield")
