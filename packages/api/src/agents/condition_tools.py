@@ -26,7 +26,7 @@ from ..services.condition import (
     review_condition,
     waive_condition,
 )
-from .shared import format_enum_label, user_context_from_state
+from .shared import format_enum_label, resolve_app_id, user_context_from_state
 
 _SEVERITY_MAP = {s.value: s for s in ConditionSeverity}
 
@@ -55,6 +55,7 @@ async def uw_issue_condition(
             prior_to_funding. Defaults to prior_to_docs.
         due_date: Optional ISO-8601 date string for the condition deadline.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
 
     sev = _SEVERITY_MAP.get(severity.lower().strip())
@@ -105,6 +106,7 @@ async def uw_review_condition(
         application_id: The loan application ID.
         condition_id: The condition ID to review.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         result = await review_condition(session, user, application_id, condition_id)
@@ -135,6 +137,7 @@ async def uw_clear_condition(
         application_id: The loan application ID.
         condition_id: The condition ID to clear.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         result = await clear_condition(session, user, application_id, condition_id)
@@ -177,6 +180,7 @@ async def uw_waive_condition(
         condition_id: The condition ID to waive.
         rationale: Explanation for why this condition is being waived.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         result = await waive_condition(
@@ -215,6 +219,7 @@ async def uw_return_condition(
         condition_id: The condition ID to return.
         note: Explanation of what's missing or needs correction.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         result = await return_condition(
@@ -249,6 +254,7 @@ async def uw_condition_summary(
     Args:
         application_id: The loan application ID.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         result = await get_condition_summary(session, user, application_id)

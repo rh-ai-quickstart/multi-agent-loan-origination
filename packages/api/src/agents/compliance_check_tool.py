@@ -28,7 +28,7 @@ from ..services.compliance.checks import (
 )
 from ..services.compliance_result import create_compliance_result
 from ..services.document import list_documents
-from .shared import format_enum_label, user_context_from_state
+from .shared import format_enum_label, resolve_app_id, user_context_from_state
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,7 @@ async def compliance_check(
         application_id: The loan application ID to check.
         regulation_type: Which check to run -- "ECOA", "ATR_QM", "TRID", or "ALL".
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     regulation_type = regulation_type.upper().strip()
 

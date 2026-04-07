@@ -39,7 +39,7 @@ from .risk_tools import (
     compute_risk_factors,
     extract_borrower_info,
 )
-from .shared import format_enum_label, user_context_from_state
+from .shared import format_enum_label, resolve_app_id, user_context_from_state
 
 _URGENCY_ORDER = {
     UrgencyLevel.CRITICAL: 0,
@@ -269,6 +269,7 @@ async def uw_application_detail(
     Args:
         application_id: The loan application ID to inspect.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         app = await get_application(session, user, application_id)
@@ -314,6 +315,7 @@ async def uw_risk_assessment(
     Args:
         application_id: The loan application ID to assess.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         app = await get_application(session, user, application_id)
@@ -533,6 +535,7 @@ async def uw_preliminary_recommendation(
     Args:
         application_id: The loan application ID to evaluate.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         app = await get_application(session, user, application_id)

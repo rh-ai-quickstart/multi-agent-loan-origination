@@ -42,7 +42,7 @@ from ..services.prequalification import evaluate_prequalification
 from ..services.products import PRODUCTS
 from ..services.rate_lock import get_rate_lock_status
 from ..services.status import get_application_status
-from .shared import format_enum_label, user_context_from_state
+from .shared import format_enum_label, resolve_app_id, user_context_from_state
 
 _COMMUNICATION_TYPES = {
     "document_request",
@@ -147,6 +147,7 @@ async def lo_application_detail(
     Args:
         application_id: The loan application ID to review.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         app = await get_application(session, user, application_id)
@@ -204,6 +205,7 @@ async def lo_document_review(
     Args:
         application_id: The loan application ID.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         documents, total = await list_documents(session, user, application_id, limit=50)
@@ -241,6 +243,7 @@ async def lo_document_quality(
         application_id: The loan application ID.
         document_id: The document ID to inspect.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         doc = await get_document(session, user, document_id)
@@ -287,6 +290,7 @@ async def lo_completeness_check(
     Args:
         application_id: The loan application ID to check.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         result = await check_completeness(session, user, application_id)
@@ -330,6 +334,7 @@ async def lo_mark_resubmission(
         document_id: The document ID to flag.
         reason: Explanation of why the document needs resubmission.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         try:
@@ -379,6 +384,7 @@ async def lo_underwriting_readiness(
     Args:
         application_id: The loan application ID to check.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         result = await check_underwriting_readiness(session, user, application_id)
@@ -425,6 +431,7 @@ async def lo_submit_to_underwriting(
     Args:
         application_id: The loan application ID to submit.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         # Gate: check readiness
@@ -499,6 +506,7 @@ async def lo_draft_communication(
         communication_type: One of: document_request, condition_explanation,
             status_update, resubmission_notice.
     """
+    application_id = resolve_app_id(application_id, state)
     if communication_type not in _COMMUNICATION_TYPES:
         valid = ", ".join(sorted(_COMMUNICATION_TYPES))
         return f"Invalid communication type '{communication_type}'. Must be one of: {valid}"
@@ -624,6 +632,7 @@ async def lo_send_communication(
         subject: The subject line of the communication.
         recipient_name: The borrower's name.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         app = await get_application(session, user, application_id)
@@ -670,6 +679,7 @@ async def lo_pull_credit(
         application_id: The loan application ID.
         pull_type: "soft" or "hard".
     """
+    application_id = resolve_app_id(application_id, state)
     if pull_type not in ("soft", "hard"):
         return "Invalid pull_type. Must be 'soft' or 'hard'."
 
@@ -771,6 +781,7 @@ async def lo_prequalification_check(
     Args:
         application_id: The loan application ID.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         app = await get_application(session, user, application_id)
@@ -900,6 +911,7 @@ async def lo_issue_prequalification(
         max_amount: The maximum pre-qualified loan amount.
         notes: Optional notes from the loan officer.
     """
+    application_id = resolve_app_id(application_id, state)
     if product_id not in _VALID_PRODUCT_IDS:
         valid = ", ".join(sorted(_VALID_PRODUCT_IDS))
         return f"Invalid product_id '{product_id}'. Must be one of: {valid}"

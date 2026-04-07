@@ -105,6 +105,7 @@ async def run_agent_stream(
     user_id: str,
     user_email: str = "",
     user_name: str = "",
+    app_id: int = 0,
     use_checkpointer: bool,
     messages_fallback: list | None,
     pii_mask: bool = False,
@@ -180,6 +181,7 @@ async def run_agent_stream(
                 "user_id": user_id,
                 "user_email": user_email,
                 "user_name": user_name,
+                "app_id": app_id,
             },
             config=config,
             version="v2",
@@ -368,12 +370,33 @@ async def run_agent_stream(
         active_chat_sessions.labels(persona=persona).dec()
 
 
-async def _build_application_context(user: UserContext) -> str:
+async def _build_application_context(user: UserContext, app_id: int | None = None) -> str:
     """Look up the user's applications and return a context string for the agent."""
     from db.database import SessionLocal
 
-    from ..services.application import list_applications
+    from ..services.application import get_application, list_applications
 
+    # For non-borrower roles with an explicit app_id, inject it directly
+    if app_id and user.role != UserRole.BORROWER:
+        try:
+            async with SessionLocal() as session:
+                app = await get_application(session, user, app_id)
+        except Exception:
+            logger.warning("Failed to load app context for app_id=%s", app_id)
+            app = None
+
+        if app:
+            stage = app.stage.value.replace("_", " ").title()
+            loan = f"${app.loan_amount:,.0f}" if app.loan_amount else "amount not set"
+            return (
+                f"[System context] You are working on application #{app_id} "
+                f"({stage}, {loan}). "
+                f"Use application_id={app_id} for all tool calls unless "
+                "the user explicitly asks about a different application."
+            )
+        return f"[System context] Use application_id={app_id} for all tool calls."
+
+    # Borrower flow: look up their primary application
     try:
         async with SessionLocal() as session:
             apps, total = await list_applications(session, user, limit=5)
@@ -384,7 +407,6 @@ async def _build_application_context(user: UserContext) -> str:
     if not apps:
         return ""
 
-    # Only borrowers need dynamic app-ID injection; LOs/UWs/CEOs specify IDs themselves
     if user.role != UserRole.BORROWER:
         return ""
 
@@ -465,7 +487,7 @@ def create_authenticated_chat_router(
         messages_fallback: list | None = [] if not use_checkpointer else None
 
         # Build application context for authenticated agents
-        system_context = await _build_application_context(user)
+        system_context = await _build_application_context(user, app_id)
 
         await run_agent_stream(
             ws,
@@ -476,6 +498,7 @@ def create_authenticated_chat_router(
             user_id=user.user_id,
             user_email=user.email or "",
             user_name=user.name or "",
+            app_id=app_id or 0,
             use_checkpointer=use_checkpointer,
             messages_fallback=messages_fallback,
             pii_mask=getattr(user.data_scope, "pii_mask", False),

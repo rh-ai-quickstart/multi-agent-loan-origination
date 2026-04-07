@@ -38,6 +38,18 @@ def user_context_from_state(state: dict, *, default_role: str) -> UserContext:
     )
 
 
+def resolve_app_id(application_id: int, state: dict) -> int:
+    """Use app_id from agent state when available, falling back to LLM-provided value.
+
+    The WebSocket query param provides a reliable app_id; smaller LLMs
+    sometimes truncate IDs extracted from natural language.
+    """
+    state_app_id = state.get("app_id")
+    if state_app_id:
+        return state_app_id
+    return application_id
+
+
 def format_enum_label(value: str) -> str:
     """Convert a snake_case enum value to a Title Case label.
 

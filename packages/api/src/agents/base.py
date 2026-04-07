@@ -44,6 +44,7 @@ class AgentState(MessagesState):
     user_id: str
     user_email: str
     user_name: str
+    app_id: int
     tool_allowed_roles: dict[str, list[str]]
     decision_proposals: dict
 
@@ -69,8 +70,12 @@ def _record_token_usage(
         input_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
         output_tokens = usage.get("completion_tokens") or usage.get("output_tokens") or 0
     else:
-        input_text = "".join(m.content or "" for m in messages if hasattr(m, "content"))
-        output_text = response.content or ""
+        input_text = "".join(
+            m.content if isinstance(m.content, str) else ""
+            for m in messages
+            if hasattr(m, "content")
+        )
+        output_text = response.content if isinstance(response.content, str) else ""
         input_tokens = max(1, len(input_text) // 4)
         output_tokens = max(1, len(output_text) // 4)
     if input_tokens:

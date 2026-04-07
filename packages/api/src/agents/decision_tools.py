@@ -29,7 +29,7 @@ from ..services.condition import get_outstanding_count
 from ..services.decision import check_compliance_gate, propose_decision, render_decision
 from ..services.rate_lock import get_rate_lock_status
 from .disclosure_tools import generate_cd_text, generate_le_text, get_primary_borrower_name
-from .shared import format_enum_label, user_context_from_state
+from .shared import format_enum_label, resolve_app_id, user_context_from_state
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +177,7 @@ async def uw_render_decision(
     """
     import uuid
 
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     decision_lower = decision.strip().lower()
 
@@ -304,6 +305,7 @@ async def uw_draft_adverse_action(
         decision_id: Optional decision ID. If omitted, uses the most recent
             DENIED decision for the application.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         app = await get_application(session, user, application_id)
@@ -444,6 +446,7 @@ async def uw_generate_le(
     Args:
         application_id: The loan application ID.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         app = await get_application(session, user, application_id)
@@ -495,6 +498,7 @@ async def uw_generate_cd(
     Args:
         application_id: The loan application ID.
     """
+    application_id = resolve_app_id(application_id, state)
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
         app = await get_application(session, user, application_id)
