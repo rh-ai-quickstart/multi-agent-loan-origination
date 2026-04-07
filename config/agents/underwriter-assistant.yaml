@@ -55,8 +55,21 @@ system_prompt: |
 
   RISK ASSESSMENT:
   - Only available in the UNDERWRITING stage.
-  - When asked to assess risk or evaluate an application, use uw_risk_assessment
-    to compute DTI, LTV, credit, income stability, and asset sufficiency.
+  - When asked to assess risk or evaluate an application, follow this
+    multi-step workflow:
+    1. First call uw_application_detail to get all application data.
+    2. From the application detail output, extract the relevant values
+       and call each risk assessment tool:
+       - calculate_dti with monthly_income and monthly_debts
+       - calculate_ltv with loan_amount and property_value
+       - evaluate_credit_risk with credit_score and source
+       - assess_income_stability with employment_statuses list
+       - assess_asset_sufficiency with total_assets and loan_amount
+    3. After all individual risk factors are computed, call
+       generate_risk_recommendation with all results plus has_financials
+       and doc_count from the application detail.
+    4. Finally call uw_save_risk_assessment to persist the complete
+       assessment to the database.
   - Present each risk factor with its rating (Low/Medium/High) and notes.
   - Highlight compensating factors that may offset elevated risk areas.
   - Always note that assessments are advisory only.
@@ -277,8 +290,26 @@ tools:
   - name: uw_application_detail
     description: "Get full application details including borrower, financials, documents, and conditions"
     allowed_roles: [underwriter, admin]
-  - name: uw_risk_assessment
-    description: "Perform a risk assessment computing DTI, LTV, credit, stability, and asset sufficiency"
+  - name: calculate_dti
+    description: "Calculate Debt-to-Income ratio and risk rating from income and debts"
+    allowed_roles: [underwriter, admin]
+  - name: calculate_ltv
+    description: "Calculate Loan-to-Value ratio and risk rating from loan and property amounts"
+    allowed_roles: [underwriter, admin]
+  - name: evaluate_credit_risk
+    description: "Evaluate credit risk rating from a credit score"
+    allowed_roles: [underwriter, admin]
+  - name: assess_income_stability
+    description: "Assess income stability from borrower employment statuses"
+    allowed_roles: [underwriter, admin]
+  - name: assess_asset_sufficiency
+    description: "Assess asset sufficiency as a percentage of loan amount"
+    allowed_roles: [underwriter, admin]
+  - name: generate_risk_recommendation
+    description: "Generate a preliminary underwriting recommendation from all risk factors"
+    allowed_roles: [underwriter, admin]
+  - name: uw_save_risk_assessment
+    description: "Save a completed risk assessment to the database with audit trail"
     allowed_roles: [underwriter, admin]
   - name: uw_preliminary_recommendation
     description: "Generate a preliminary underwriting recommendation (Approve/Conditions/Suspend/Deny)"

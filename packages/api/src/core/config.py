@@ -128,6 +128,12 @@ class Settings(BaseSettings):
     S3_REGION: str = "us-east-1"
     UPLOAD_MAX_SIZE_MB: int = 50
 
+    # -- MCP --
+    MCP_RISK_SERVER_URL: str = Field(
+        default="http://localhost:8081/mcp",
+        description="URL of the MCP risk assessment server (Streamable HTTP endpoint).",
+    )
+
     # -- Observability (MLFlow) --
     MLFLOW_TRACKING_URI: str | None = Field(
         default=None,

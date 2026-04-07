@@ -2,8 +2,11 @@
 """LangGraph tools for the underwriter assistant agent.
 
 These wrap existing services so the underwriter agent can review the
-underwriting queue, inspect application details, perform risk assessments,
+underwriting queue, inspect application details, save risk assessments,
 and generate preliminary recommendations.
+
+Risk assessment *computation* is handled by MCP tools (see mcp_server.py).
+The uw_save_risk_assessment tool here handles DB persistence and audit only.
 
 Design note -- session-per-tool-call:
     Each tool opens its own ``SessionLocal()`` context rather than sharing
@@ -32,9 +35,6 @@ from ..services.rate_lock import get_rate_lock_status
 from ..services.risk_assessment import create_risk_assessment, update_recommendation
 from ..services.urgency import compute_urgency
 from .risk_tools import (
-    _RISK_HIGH,
-    _RISK_LOW,
-    _RISK_MEDIUM,
     compute_recommendation,
     compute_risk_factors,
     extract_borrower_info,
@@ -300,19 +300,52 @@ async def uw_application_detail(
 
 
 @tool
-async def uw_risk_assessment(
+async def uw_save_risk_assessment(
     application_id: int,
+    dti_value: float | None,
+    dti_rating: str | None,
+    ltv_value: float | None,
+    ltv_rating: str | None,
+    credit_value: int | None,
+    credit_rating: str | None,
+    credit_source: str,
+    income_stability_value: str | None,
+    income_stability_rating: str | None,
+    asset_sufficiency_value: float | None,
+    asset_sufficiency_rating: str | None,
+    overall_risk: str | None,
+    recommendation: str,
+    rationale: list[str] | None,
+    conditions: list[str] | None,
+    compensating_factors: list[str] | None,
+    warnings: list[str] | None,
     state: Annotated[dict, InjectedState],
 ) -> str:
-    """Perform a full risk assessment with preliminary recommendation.
+    """Save a completed risk assessment to the database.
 
-    Computes DTI ratio, LTV ratio, credit risk, income stability, and
-    asset sufficiency. Then derives a preliminary recommendation (Approve,
-    Approve with Conditions, Suspend, or Deny). This is an advisory
-    assessment only -- final decisions require human judgment.
+    Call this after computing all risk factors and the recommendation
+    using the individual MCP risk tools. Persists the assessment and
+    writes an audit event.
 
     Args:
-        application_id: The loan application ID to assess.
+        application_id: The loan application ID.
+        dti_value: Computed DTI percentage (or null if unavailable).
+        dti_rating: DTI risk rating (Low/Medium/High or null).
+        ltv_value: Computed LTV percentage (or null if unavailable).
+        ltv_rating: LTV risk rating (Low/Medium/High or null).
+        credit_value: Credit score used (or null if unavailable).
+        credit_rating: Credit risk rating (Low/Medium/High or null).
+        credit_source: 'bureau_hard_pull' or 'self_reported'.
+        income_stability_value: Employment status summary (or null).
+        income_stability_rating: Income stability rating (Low/Medium/High or null).
+        asset_sufficiency_value: Asset ratio percentage (or null).
+        asset_sufficiency_rating: Asset sufficiency rating (Low/Medium/High or null).
+        overall_risk: Overall risk rating (Low/Medium/High or null).
+        recommendation: Approve, Approve with Conditions, Suspend, or Deny.
+        rationale: List of reasons for the recommendation.
+        conditions: List of conditions (if Approve with Conditions).
+        compensating_factors: List of compensating factors found.
+        warnings: List of data quality warnings.
     """
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
@@ -329,83 +362,38 @@ async def uw_risk_assessment(
                 user_role=user.role.value,
                 application_id=application_id,
                 event_data={
-                    "tool": "uw_risk_assessment",
+                    "tool": "uw_save_risk_assessment",
                     "error": f"wrong_stage:{stage_val}",
                 },
             )
             await session.commit()
             return (
-                f"Risk assessment is only available for applications in the UNDERWRITING "
-                f"stage. Application #{application_id} is in "
+                f"Risk assessment save is only available for applications in the "
+                f"UNDERWRITING stage. Application #{application_id} is in "
                 f"{format_enum_label(stage_val)}."
             )
 
-        financials = await get_financials(session, application_id)
-
-        # Prefer bureau credit score from hard-pull CreditReport
-        bureau_score = None
-        cr_result = await session.execute(
-            select(CreditReport)
-            .where(
-                CreditReport.application_id == application_id,
-                CreditReport.pull_type == "hard",
-            )
-            .order_by(CreditReport.pulled_at.desc())
-            .limit(1)
-        )
-        hard_pull = cr_result.scalars().first()
-        if hard_pull:
-            bureau_score = hard_pull.credit_score
-
-        documents, doc_total = await list_documents(session, user, application_id, limit=50)
-        borrowers = extract_borrower_info(app)
-        risk = compute_risk_factors(app, financials, borrowers, bureau_credit_score=bureau_score)
-        rec = compute_recommendation(
-            risk,
-            borrowers,
-            has_financials=bool(financials),
-            doc_total=doc_total,
-        )
-
-        credit_source = "bureau_hard_pull" if bureau_score else "self_reported"
-
-        # Compute overall risk
-        ratings = [
-            risk.dti.get("rating"),
-            risk.ltv.get("rating"),
-            risk.credit.get("rating"),
-            risk.income_stability.get("rating"),
-            risk.asset_sufficiency.get("rating"),
-        ]
-        valid_ratings = [r for r in ratings if r is not None]
-        if valid_ratings:
-            risk_order = {_RISK_LOW: 0, _RISK_MEDIUM: 1, _RISK_HIGH: 2}
-            overall_risk = max(valid_ratings, key=lambda r: risk_order.get(r, 1))
-        else:
-            overall_risk = None
-
-        # Persist risk assessment with recommendation
         await create_risk_assessment(
             session,
             application_id=application_id,
-            dti_value=risk.dti.get("value"),
-            dti_rating=risk.dti.get("rating"),
-            ltv_value=risk.ltv.get("value"),
-            ltv_rating=risk.ltv.get("rating"),
-            credit_value=risk.credit.get("value"),
-            credit_rating=risk.credit.get("rating"),
+            dti_value=dti_value,
+            dti_rating=dti_rating,
+            ltv_value=ltv_value,
+            ltv_rating=ltv_rating,
+            credit_value=credit_value,
+            credit_rating=credit_rating,
             credit_source=credit_source,
-            income_stability_value=risk.income_stability.get("value"),
-            income_stability_rating=risk.income_stability.get("rating"),
-            asset_sufficiency_value=risk.asset_sufficiency.get("value"),
-            asset_sufficiency_rating=risk.asset_sufficiency.get("rating"),
-            compensating_factors=risk.compensating_factors or None,
-            warnings=risk.warnings or None,
+            income_stability_value=income_stability_value,
+            income_stability_rating=income_stability_rating,
+            asset_sufficiency_value=asset_sufficiency_value,
+            asset_sufficiency_rating=asset_sufficiency_rating,
+            compensating_factors=compensating_factors or None,
+            warnings=warnings or None,
             overall_risk=overall_risk,
             assessed_by=user.user_id,
-            recommendation=rec.recommendation,
-            recommendation_rationale=rec.rationale or None,
-            recommendation_conditions=rec.conditions or None,
+            recommendation=recommendation,
+            recommendation_rationale=rationale or None,
+            recommendation_conditions=conditions or None,
         )
 
         await write_audit_event(
@@ -415,108 +403,20 @@ async def uw_risk_assessment(
             user_role=user.role.value,
             application_id=application_id,
             event_data={
-                "tool": "uw_risk_assessment",
-                "dti": risk.dti.get("value"),
-                "ltv": risk.ltv.get("value"),
-                "credit": risk.credit.get("value"),
+                "tool": "uw_save_risk_assessment",
+                "dti": dti_value,
+                "ltv": ltv_value,
+                "credit": credit_value,
                 "credit_source": credit_source,
-                "recommendation": rec.recommendation,
+                "recommendation": recommendation,
             },
         )
         await session.commit()
 
-    # Format output
-    lines = [
-        f"Risk Assessment -- Application #{application_id}",
-        "",
-    ]
-
-    # DTI (Capacity)
-    dti = risk.dti
-    if dti["value"] is not None:
-        lines.append(f"CAPACITY (DTI): {dti['value']}% -- {dti['rating']} Risk")
-        if dti["value"] < 36:
-            lines.append("  Well within conventional guidelines")
-        elif dti["value"] <= 43:
-            lines.append("  Within QM safe harbor limits")
-        else:
-            lines.append("  Exceeds QM safe harbor; requires compensating factors or exception")
-    else:
-        lines.append("CAPACITY (DTI): Incomplete data")
-
-    # LTV (Collateral)
-    ltv = risk.ltv
-    lines.append("")
-    if ltv["value"] is not None:
-        lines.append(f"COLLATERAL (LTV): {ltv['value']}% -- {ltv['rating']} Risk")
-        if ltv["value"] > 80:
-            lines.append("  PMI likely required")
-    else:
-        lines.append("COLLATERAL (LTV): Incomplete data")
-
-    # Credit
-    cred = risk.credit
-    lines.append("")
-    if cred["value"] is not None:
-        lines.append(f"CREDIT: {cred['value']} (lowest) -- {cred['rating']} Risk")
-    else:
-        lines.append("CREDIT: No score available")
-
-    # Income stability
-    stab = risk.income_stability
-    lines.append("")
-    if stab["value"] is not None:
-        lines.append(f"STABILITY: {stab['value']} -- {stab['rating']} Risk")
-    else:
-        lines.append("STABILITY: No employment data")
-
-    # Asset sufficiency
-    assets = risk.asset_sufficiency
-    lines.append("")
-    if assets["value"] is not None:
-        lines.append(f"ASSET SUFFICIENCY: {assets['value']}% of loan -- {assets['rating']} Risk")
-    else:
-        lines.append("ASSET SUFFICIENCY: Incomplete data")
-
-    # Compensating factors
-    if risk.compensating_factors:
-        lines.append("")
-        lines.append("COMPENSATING FACTORS:")
-        for cf in risk.compensating_factors:
-            lines.append(f"  + {cf}")
-
-    # Warnings
-    if risk.warnings:
-        lines.append("")
-        lines.append("WARNINGS:")
-        for w in risk.warnings:
-            lines.append(f"  ! {w}")
-
-    # Overall risk
-    lines.append("")
-    if overall_risk:
-        lines.append(f"OVERALL RISK: {overall_risk}")
-    else:
-        lines.append("OVERALL RISK: Insufficient data for assessment")
-
-    # Recommendation
-    lines.append("")
-    lines.append(f"RECOMMENDATION: {rec.recommendation}")
-    if rec.rationale:
-        for r in rec.rationale:
-            lines.append(f"  - {r}")
-    if rec.conditions:
-        lines.append("CONDITIONS:")
-        for i, c in enumerate(rec.conditions, 1):
-            lines.append(f"  {i}. {c}")
-
-    lines.append("")
-    lines.append(
-        "DISCLAIMER: This is an advisory assessment only. All regulatory "
-        "information is simulated for demonstration purposes."
+    return (
+        f"Risk assessment saved for application #{application_id}. "
+        f"Recommendation: {recommendation}."
     )
-
-    return "\n".join(lines)
 
 
 @tool
@@ -576,7 +476,7 @@ async def uw_preliminary_recommendation(
         if hard_pull:
             bureau_score = hard_pull.credit_score
 
-        documents, doc_total = await list_documents(session, user, application_id, limit=50)
+        _documents, doc_total = await list_documents(session, user, application_id, limit=50)
         borrowers = extract_borrower_info(app)
         risk = compute_risk_factors(app, financials, borrowers, bureau_credit_score=bureau_score)
         rec = compute_recommendation(
