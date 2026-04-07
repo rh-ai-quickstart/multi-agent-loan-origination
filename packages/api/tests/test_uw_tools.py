@@ -3,7 +3,7 @@
 
 Focus: _user_context_from_state (underwriter scope), uw_queue_view
 (read + urgency sorting), uw_application_detail (multi-section output),
-uw_risk_assessment (DTI/LTV/credit computation), and
+uw_save_risk_assessment (persistence + audit), and
 uw_preliminary_recommendation (decision tree).
 """
 
@@ -18,7 +18,7 @@ from src.agents.underwriter_tools import (
     uw_application_detail,
     uw_preliminary_recommendation,
     uw_queue_view,
-    uw_risk_assessment,
+    uw_save_risk_assessment,
 )
 
 # ---------------------------------------------------------------------------
@@ -572,7 +572,7 @@ class TestComputeRiskFactors:
 
 
 # ---------------------------------------------------------------------------
-# uw_risk_assessment (tool tests)
+# uw_save_risk_assessment (tool tests)
 # ---------------------------------------------------------------------------
 
 
@@ -597,8 +597,30 @@ def _mock_session_with_fins(financials_rows):
     return mock_session
 
 
-class TestUwRiskAssessment:
-    """Tests for the uw_risk_assessment tool."""
+_SAVE_PARAMS = {
+    "application_id": 1,
+    "dti_value": 31.2,
+    "dti_rating": "Low",
+    "ltv_value": 77.8,
+    "ltv_rating": "Medium",
+    "credit_value": 720,
+    "credit_rating": "Low",
+    "credit_source": "self_reported",
+    "income_stability_value": "w2_employee",
+    "income_stability_rating": "Low",
+    "asset_sufficiency_value": 34.3,
+    "asset_sufficiency_rating": "Low",
+    "overall_risk": "Medium",
+    "recommendation": "Approve",
+    "rationale": None,
+    "conditions": None,
+    "compensating_factors": None,
+    "warnings": None,
+}
+
+
+class TestUwSaveRiskAssessment:
+    """Tests for the uw_save_risk_assessment tool."""
 
     @pytest.mark.asyncio
     async def test_rejects_non_underwriting_stage(self):
@@ -624,20 +646,17 @@ class TestUwRiskAssessment:
             mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            result = await uw_risk_assessment.ainvoke({"application_id": 1, "state": state})
+            result = await uw_save_risk_assessment.ainvoke({**_SAVE_PARAMS, "state": state})
 
         assert "only available for applications in the UNDERWRITING" in result
         mock_audit.assert_awaited_once()
         assert "wrong_stage" in mock_audit.call_args.kwargs["event_data"]["error"]
 
     @pytest.mark.asyncio
-    async def test_handles_missing_financials(self):
-        """Graceful response when no financials exist."""
+    async def test_saves_and_audits(self):
+        """Successful save persists assessment and writes audit event."""
         mock_app = MagicMock()
         mock_app.stage = ApplicationStage.UNDERWRITING
-        mock_app.loan_amount = 350000
-        mock_app.property_value = 450000
-        mock_app.application_borrowers = []
 
         state = {"user_id": "uw-maria", "user_role": "underwriter"}
 
@@ -648,89 +667,49 @@ class TestUwRiskAssessment:
                 return_value=mock_app,
             ),
             patch(
-                "src.agents.underwriter_tools.list_documents",
-                new_callable=AsyncMock,
-                return_value=([], 0),
-            ),
-            patch(
-                "src.agents.underwriter_tools.update_recommendation",
-                new_callable=AsyncMock,
-            ),
-            patch(
                 "src.agents.underwriter_tools.create_risk_assessment",
                 new_callable=AsyncMock,
-            ),
-            patch(
-                "src.agents.underwriter_tools.write_audit_event",
-                new_callable=AsyncMock,
-            ),
-            patch("src.agents.underwriter_tools.SessionLocal") as mock_session_cls,
-        ):
-            mock_session = _mock_session_with_fins([])
-            mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-            mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
-            result = await uw_risk_assessment.ainvoke({"application_id": 1, "state": state})
-
-        assert "Incomplete data" in result
-        assert "WARNINGS:" in result
-
-    @pytest.mark.asyncio
-    async def test_audits_assessment(self):
-        """Verify audit event is written with risk values."""
-        mock_borrower = MagicMock()
-        mock_borrower.first_name = "Sarah"
-        mock_borrower.last_name = "Johnson"
-        mock_borrower.employment_status = MagicMock(value="w2_employee")
-
-        mock_ab = MagicMock()
-        mock_ab.borrower = mock_borrower
-        mock_ab.is_primary = True
-
-        mock_app = MagicMock()
-        mock_app.stage = ApplicationStage.UNDERWRITING
-        mock_app.loan_amount = 350000
-        mock_app.property_value = 450000
-        mock_app.application_borrowers = [mock_ab]
-
-        mock_doc = MagicMock()
-        state = {"user_id": "uw-maria", "user_role": "underwriter"}
-
-        with (
-            patch(
-                "src.agents.underwriter_tools.get_application",
-                new_callable=AsyncMock,
-                return_value=mock_app,
-            ),
-            patch(
-                "src.agents.underwriter_tools.list_documents",
-                new_callable=AsyncMock,
-                return_value=([mock_doc], 1),
-            ),
-            patch(
-                "src.agents.underwriter_tools.update_recommendation",
-                new_callable=AsyncMock,
-            ),
-            patch(
-                "src.agents.underwriter_tools.create_risk_assessment",
-                new_callable=AsyncMock,
-            ),
+            ) as mock_create,
             patch(
                 "src.agents.underwriter_tools.write_audit_event",
                 new_callable=AsyncMock,
             ) as mock_audit,
             patch("src.agents.underwriter_tools.SessionLocal") as mock_session_cls,
         ):
-            mock_session = _mock_session_with_fins([_make_fin()])
+            mock_session = AsyncMock()
             mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
             mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
 
-            await uw_risk_assessment.ainvoke({"application_id": 1, "state": state})
+            result = await uw_save_risk_assessment.ainvoke({**_SAVE_PARAMS, "state": state})
 
+        assert "saved" in result.lower()
+        assert "Approve" in result
+        mock_create.assert_awaited_once()
         mock_audit.assert_awaited_once()
         audit_data = mock_audit.call_args.kwargs["event_data"]
-        assert audit_data["tool"] == "uw_risk_assessment"
-        assert audit_data["dti"] is not None
+        assert audit_data["tool"] == "uw_save_risk_assessment"
+        assert audit_data["dti"] == 31.2
+
+    @pytest.mark.asyncio
+    async def test_not_found(self):
+        """Application not found returns error."""
+        state = {"user_id": "uw-maria", "user_role": "underwriter"}
+
+        with (
+            patch(
+                "src.agents.underwriter_tools.get_application",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("src.agents.underwriter_tools.SessionLocal") as mock_session_cls,
+        ):
+            mock_session = AsyncMock()
+            mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await uw_save_risk_assessment.ainvoke({**_SAVE_PARAMS, "state": state})
+
+        assert "not found" in result.lower()
 
 
 # ---------------------------------------------------------------------------
