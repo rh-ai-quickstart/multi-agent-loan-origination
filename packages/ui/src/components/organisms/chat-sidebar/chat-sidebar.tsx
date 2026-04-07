@@ -219,7 +219,7 @@ export function ChatSidebar() {
         <>
             {/* Desktop: fixed right sidebar */}
             <aside
-                className="fixed bottom-0 right-0 top-[65px] hidden w-[320px] flex-col border-l border-border bg-white dark:bg-slate-900 lg:flex"
+                className="fixed bottom-0 right-0 top-[81px] hidden w-[320px] flex-col border-l border-border bg-white dark:bg-slate-900 lg:flex"
                 aria-label="Chat Assistant"
                 role="complementary"
             >
