@@ -322,8 +322,8 @@ async def lo_mark_resubmission(
     """Flag a document for resubmission by the borrower, with a reason.
 
     Only documents that have been processed (PROCESSING_COMPLETE, PENDING_REVIEW,
-    or ACCEPTED) can be flagged. The borrower will be notified to upload a
-    replacement.
+    ACCEPTED, or REJECTED) can be flagged. The borrower will be notified to upload
+    a replacement.
 
     Args:
         application_id: The loan application ID.

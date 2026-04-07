@@ -149,7 +149,10 @@ def build_extraction_prompt(doc_type: str, text: str) -> list[dict]:
         f'  "quality_flags": [<zero or more of: {", ".join(QUALITY_FLAGS)}>],\n'
         f'  "detected_doc_type": "<one of: {", ".join(VALID_DOC_TYPES)}>"\n'
         "}\n\n"
-        f"Expected document type: {doc_type}\n"
+        f"The uploader tagged this document as: {doc_type}\n"
+        "For detected_doc_type, classify based on the ACTUAL document content, "
+        "NOT the uploader's tag. If the content is clearly a different type, "
+        "use the correct type.\n"
         f"Expected fields: {fields_csv}\n"
         "IMPORTANT: If the document contains any demographic or government "
         "monitoring information (race, ethnicity, sex, gender, age), "
@@ -185,7 +188,10 @@ def build_image_extraction_prompt(doc_type: str) -> dict:
             f'  "quality_flags": [<zero or more of: {", ".join(QUALITY_FLAGS)}>],\n'
             f'  "detected_doc_type": "<one of: {", ".join(VALID_DOC_TYPES)}>"\n'
             "}\n\n"
-            f"Expected document type: {doc_type}\n"
+            f"The uploader tagged this document as: {doc_type}\n"
+            "For detected_doc_type, classify based on the ACTUAL document content, "
+            "NOT the uploader's tag. If the content is clearly a different type, "
+            "use the correct type.\n"
             f"Expected fields: {fields_csv}\n"
             "IMPORTANT: If the document contains any demographic or government "
             "monitoring information (race, ethnicity, sex, gender, age), "

@@ -50,9 +50,19 @@ def _substitute_env_vars(value: str) -> str:
 
 
 def _resolve_env_vars(obj: Any) -> Any:
-    """Recursively resolve env var placeholders in a config tree."""
+    """Recursively resolve env var placeholders in a config tree.
+
+    Runs substitution in a loop to handle nested references like
+    ``${VISION_BASE_URL:-${LLM_BASE_URL:-default}}``.
+    """
     if isinstance(obj, str):
-        return _substitute_env_vars(obj)
+        result = obj
+        for _ in range(3):  # max nesting depth
+            resolved = _substitute_env_vars(result)
+            if resolved == result:
+                break
+            result = resolved
+        return result
     if isinstance(obj, dict):
         return {k: _resolve_env_vars(v) for k, v in obj.items()}
     if isinstance(obj, list):
