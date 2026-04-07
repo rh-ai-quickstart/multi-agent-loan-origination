@@ -109,6 +109,7 @@ _FLAGGABLE_STATUSES = {
     DocumentStatus.PROCESSING_COMPLETE,
     DocumentStatus.PENDING_REVIEW,
     DocumentStatus.ACCEPTED,
+    DocumentStatus.REJECTED,
 }
 
 

@@ -50,7 +50,12 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
         setError(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' },
+                video: {
+                    facingMode: 'environment',
+                    width: { ideal: 2048 },
+                    height: { ideal: 1536 },
+                    advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet],
+                },
             });
             streamRef.current = stream;
             if (videoRef.current) {
@@ -222,14 +227,6 @@ export function CameraCapture({ onCapture, disabled }: CameraCaptureProps) {
                                     muted
                                     className="absolute inset-0 h-full w-full object-cover"
                                 />
-                                {state === 'streaming' && (
-                                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                                        <div className="aspect-[8.5/11] h-[70%] rounded-lg border-2 border-dashed border-white/50" />
-                                        <p className="mt-2 text-xs text-white/50">
-                                            Align document within the frame
-                                        </p>
-                                    </div>
-                                )}
                             </>
                         )}
                     </div>

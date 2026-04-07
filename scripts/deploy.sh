@@ -87,8 +87,10 @@ add_if_set secrets.S3_REGION S3_REGION
 add_if_set secrets.UPLOAD_MAX_SIZE_MB UPLOAD_MAX_SIZE_MB
 add_if_set secrets.LLM_API_KEY LLM_API_KEY
 add_if_set secrets.LLM_BASE_URL LLM_BASE_URL
-add_if_set secrets.LLM_MODEL_FAST LLM_MODEL_FAST
-add_if_set secrets.LLM_MODEL_CAPABLE LLM_MODEL_CAPABLE
+add_if_set secrets.LLM_MODEL LLM_MODEL
+add_if_set secrets.VISION_MODEL VISION_MODEL
+add_if_set secrets.VISION_BASE_URL VISION_BASE_URL
+add_if_set secrets.VISION_API_KEY VISION_API_KEY
 add_if_set secrets.EMBEDDING_MODEL EMBEDDING_MODEL
 add_if_set secrets.EMBEDDING_PROVIDER EMBEDDING_PROVIDER
 add_if_set secrets.EMBEDDING_BASE_URL EMBEDDING_BASE_URL

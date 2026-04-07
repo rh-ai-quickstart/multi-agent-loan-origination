@@ -981,7 +981,7 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "property_address": "4567 Aspen Ridge, Highlands Ranch, CO 80129",
         "loan_amount": Decimal("425000.00"),
         "property_value": Decimal("510000.00"),
-        "assigned_to": MARCUS_WILLIAMS_ID,
+        "assigned_to": JAMES_TORRES_ID,
         "created_at": _days_ago(60),
         "updated_at": _days_ago(2),
         "financials": {
@@ -1045,36 +1045,6 @@ ACTIVE_APPLICATIONS: list[dict] = [
                         "field_name": "effective_date",
                         "field_value": "2026-01-15",
                         "confidence": 0.97,
-                        "source_page": 1,
-                    },
-                ],
-            },
-            {
-                "doc_type": DocumentType.HOMEOWNERS_INSURANCE,
-                "status": DocumentStatus.ACCEPTED,
-                "extractions": [
-                    {
-                        "field_name": "provider",
-                        "field_value": "State Farm",
-                        "confidence": 0.98,
-                        "source_page": 1,
-                    },
-                    {
-                        "field_name": "policy_number",
-                        "field_value": "HO-2026-448921",
-                        "confidence": 0.91,
-                        "source_page": 1,
-                    },
-                    {
-                        "field_name": "annual_premium",
-                        "field_value": "$1,850",
-                        "confidence": 0.93,
-                        "source_page": 2,
-                    },
-                    {
-                        "field_name": "coverage_amount",
-                        "field_value": "$510,000",
-                        "confidence": 0.96,
                         "source_page": 1,
                     },
                 ],

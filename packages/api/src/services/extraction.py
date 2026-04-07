@@ -285,7 +285,7 @@ class ExtractionService:
         """Send text to LLM, get structured extractions + quality flags."""
         messages = build_extraction_prompt(doc_type, text)
         try:
-            raw = await get_completion(messages, tier="capable_large")
+            raw = await get_completion(messages, tier="llm")
             return json.loads(_strip_json_fences(raw))
         except json.JSONDecodeError:
             logger.error("LLM returned non-JSON for text extraction")
@@ -314,7 +314,7 @@ class ExtractionService:
             },
         ]
         try:
-            raw = await get_completion(messages, tier="capable_large")
+            raw = await get_completion(messages, tier="vision")
             return json.loads(_strip_json_fences(raw))
         except json.JSONDecodeError:
             logger.error("LLM returned non-JSON for image extraction")

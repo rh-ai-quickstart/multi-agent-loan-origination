@@ -69,9 +69,7 @@ def create_predict_fn(agent_name: str = "public-assistant") -> Callable[[str], s
                     "user_id": "eval-user-001",
                     "user_email": "evaluator@example.com",
                     "user_name": "Evaluation User",
-                    "model_tier": "fast_small",
                     "safety_blocked": False,
-                    "escalated": False,
                     "tool_allowed_roles": {},
                     "decision_proposals": {},
                 }

@@ -112,7 +112,7 @@ input -> input_shield -> classify (rule-based) -> agent_fast / agent_capable
 
 ### Key Integration Points
 
-- **LLM:** Any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_MODEL_FAST`, `LLM_MODEL_CAPABLE`)
+- **LLM:** Any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_MODEL`)
 - **Embeddings:** Local by default (`nomic-ai/nomic-embed-text-v1.5`); optional remote via `EMBEDDING_PROVIDER=openai_compatible`
 - **Auth:** Keycloak OIDC; bypass with `AUTH_DISABLED=true` for dev
 - **Storage:** MinIO S3-compatible for documents
@@ -148,8 +148,7 @@ Key `.env` variables (see `.env.example` for full list):
 ```bash
 # LLM (required)
 LLM_BASE_URL=http://localhost:1234/v1
-LLM_MODEL_FAST=qwen3-30b-a3b
-LLM_MODEL_CAPABLE=qwen3-30b-a3b
+LLM_MODEL=qwen3-30b-a3b
 
 # Database
 DATABASE_URL=postgresql+asyncpg://lending_app:lending_pass@localhost:5433/mortgage-ai

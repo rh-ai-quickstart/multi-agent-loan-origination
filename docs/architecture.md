@@ -172,31 +172,7 @@ The system includes five agents, each scoped to a user role:
 
 #### Rule-Based Routing
 
-Model tier selection happens **before** the LLM is invoked, using keyword/pattern matching:
-
-```python
-# Simplified from packages/api/src/inference/router.py
-def classify_query(user_message: str) -> str:
-    """Return 'fast_small' or 'capable_large' based on message patterns."""
-
-    # Tool-use signals → capable tier (tool calling requires reliable model)
-    if any(keyword in msg_lower for keyword in [
-        "application", "document", "upload", "submit", "status",
-        "condition", "underwriting", "compliance", "risk"
-    ]):
-        return "capable_large"
-
-    # Information queries → fast tier (simple retrieval, no side effects)
-    if any(keyword in msg_lower for keyword in [
-        "what is", "how do", "can you explain", "tell me about"
-    ]):
-        return "fast_small"
-
-    # Default to capable tier when uncertain
-    return "capable_large"
-```
-
-This approach is **cheaper** (no LLM inference for routing) and **more predictable** (classification logic is explicit, not learned) than using an LLM classifier. The trade-off: rules require maintenance as the tool set evolves.
+All agent interactions use a single LLM configured via `LLM_MODEL`. An optional vision-capable model (`VISION_MODEL`) can be configured separately for document image extraction; when unset, it falls back to the primary LLM.
 
 ### Tool System
 
@@ -581,7 +557,7 @@ Configuration follows the **12-factor app** pattern:
 |-------|----------|---------------|
 | Database | `DATABASE_URL`, `COMPLIANCE_DATABASE_URL` | `postgresql+asyncpg://user:password@localhost:5433/mortgage-ai` |
 | Auth | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `AUTH_DISABLED` | `http://localhost:8080`, `mortgage-ai`, `mortgage-ai-ui`, `true` |
-| LLM | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_FAST`, `LLM_MODEL_CAPABLE` | `https://api.openai.com/v1`, `not-needed`, `gpt-4o-mini`, `gpt-4o-mini` |
+| LLM | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | `https://api.openai.com/v1`, `not-needed`, `gpt-4o-mini` |
 | Storage | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | `http://localhost:9090`, `minio`, `miniosecret`, `documents` |
 | Observability | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` | (unset — tracing disabled) |
 
@@ -618,8 +594,8 @@ Replace the mock LlamaStack / LMStudio setup:
 
 1. Set `LLM_BASE_URL` to your provider's OpenAI-compatible endpoint (e.g., `https://api.together.ai/v1`).
 2. Set `LLM_API_KEY` to your API key.
-3. Set `LLM_MODEL_FAST` and `LLM_MODEL_CAPABLE` to model names from your provider.
-4. (Optional) Configure LlamaStack's `run.yaml` to route to multiple providers (OpenAI for fast, Groq for capable, etc.).
+3. Set `LLM_MODEL` to the model name from your provider.
+4. (Optional) Set `VISION_MODEL`, `VISION_BASE_URL`, `VISION_API_KEY` for a dedicated vision model.
 
 ## Summary
 

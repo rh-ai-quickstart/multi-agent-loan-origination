@@ -845,7 +845,12 @@ function PrequalificationCard({
 
 function BorrowerDashboard() {
     const applicationsQuery = useApplications();
-    const application = applicationsQuery.data?.data?.[0];
+    const applications = applicationsQuery.data?.data;
+    const application = applications?.length
+        ? [...applications].sort(
+              (a, b) => STAGE_ORDER.indexOf(b.stage) - STAGE_ORDER.indexOf(a.stage),
+          )[0]
+        : undefined;
     const appId = application?.id;
 
     const statusQuery = useApplicationStatus(appId);

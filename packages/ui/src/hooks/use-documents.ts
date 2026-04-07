@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchDocuments, fetchCompleteness, fetchExtractions, uploadDocument, updateDocumentStatus } from '@/services/documents';
 
-const PROCESSING_STATUSES = new Set(['uploaded', 'processing']);
+const PROCESSING_STATUSES = new Set(['uploaded', 'processing', 'processing_complete']);
 
 export function useDocuments(applicationId: number | undefined) {
     return useQuery({
