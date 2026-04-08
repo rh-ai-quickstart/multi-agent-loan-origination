@@ -14,8 +14,13 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Kubernetes ServiceAccount token path (auto-mounted by the kubelet)
+_SA_TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
 
 _autolog_enabled = False
 
@@ -27,16 +32,27 @@ def _is_configured() -> bool:
     return bool(settings.MLFLOW_TRACKING_URI)
 
 
-def init_mlflow_tracing() -> None:
-    """Initialize MLFlow autolog for LangChain/LangGraph tracing.
+def _read_sa_token() -> str | None:
+    """Read the Kubernetes ServiceAccount token if running in a pod.
 
-    Call once at application startup. When MLFLOW_TRACKING_URI is configured,
-    this enables automatic tracing of all LangChain operations via autolog.
+    When the API pod uses the mlflow-client ServiceAccount, the kubelet
+    auto-mounts a token at the standard path.  Reading it here removes the
+    need for an explicit MLFLOW_TRACKING_TOKEN env-var / secret.
     """
-    global _autolog_enabled
+    try:
+        if _SA_TOKEN_PATH.is_file():
+            token = _SA_TOKEN_PATH.read_text().strip()
+            if token:
+                logger.info("Using mounted ServiceAccount token for MLflow auth")
+                return token
+    except OSError:
+        logger.debug("Could not read SA token at %s", _SA_TOKEN_PATH, exc_info=True)
+    return None
 
-    if not _is_configured():
-        return
+
+def _do_mlflow_init() -> None:
+    """Perform the actual MLflow initialization (may block on HTTP calls)."""
+    global _autolog_enabled
 
     try:
         import mlflow
@@ -44,22 +60,42 @@ def init_mlflow_tracing() -> None:
 
         from .core.config import settings
 
-        # MLFlow reads auth settings from OS environment variables directly,
-        # so we must set them before calling any mlflow functions.
-        if settings.MLFLOW_TRACKING_TOKEN:
-            os.environ["MLFLOW_TRACKING_TOKEN"] = settings.MLFLOW_TRACKING_TOKEN
-        if settings.MLFLOW_WORKSPACE:
-            os.environ["MLFLOW_WORKSPACE"] = settings.MLFLOW_WORKSPACE
-        if settings.MLFLOW_TRACKING_INSECURE_TLS:
-            os.environ["MLFLOW_TRACKING_INSECURE_TLS"] = "true"
-
         mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
         mlflow.set_experiment(settings.MLFLOW_EXPERIMENT_NAME)
         mlflow.langchain.autolog()
         _autolog_enabled = True
-        logger.debug("MLFlow autolog initialized")
+        logger.info("MLFlow autolog initialized successfully")
     except Exception:
         logger.warning("Failed to initialize MLFlow tracing", exc_info=True)
+
+
+def init_mlflow_tracing() -> None:
+    """Initialize MLFlow autolog for LangChain/LangGraph tracing.
+
+    Call once at application startup. When MLFLOW_TRACKING_URI is configured,
+    this enables automatic tracing of all LangChain operations via autolog.
+
+    Runs in a background thread to avoid blocking app startup if the MLflow
+    server is slow or unreachable.
+    """
+    if not _is_configured():
+        return
+
+    from .core.config import settings
+
+    # Set env vars before spawning the thread -- mlflow reads these directly.
+    # Priority: explicit MLFLOW_TRACKING_TOKEN > mounted ServiceAccount token.
+    token = settings.MLFLOW_TRACKING_TOKEN or _read_sa_token()
+    if token:
+        os.environ["MLFLOW_TRACKING_TOKEN"] = token
+    if settings.MLFLOW_WORKSPACE:
+        os.environ["MLFLOW_WORKSPACE"] = settings.MLFLOW_WORKSPACE
+    if settings.MLFLOW_TRACKING_INSECURE_TLS:
+        os.environ["MLFLOW_TRACKING_INSECURE_TLS"] = "true"
+
+    thread = threading.Thread(target=_do_mlflow_init, daemon=True)
+    thread.start()
+    logger.info("MLFlow initialization started in background")
 
 
 def set_trace_context(

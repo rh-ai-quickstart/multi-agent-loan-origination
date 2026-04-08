@@ -139,7 +139,11 @@ class Settings(BaseSettings):
     )
     MLFLOW_TRACKING_TOKEN: str | None = Field(
         default=None,
-        description="Bearer token for MLFlow authentication (e.g., OpenShift OAuth token).",
+        description=(
+            "Bearer token for MLFlow authentication. "
+            "When unset, the mounted ServiceAccount token is used automatically "
+            "(requires the API pod to run with the mlflow-client ServiceAccount)."
+        ),
     )
     MLFLOW_WORKSPACE: str | None = Field(
         default=None,

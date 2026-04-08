@@ -19,8 +19,11 @@ secrets:
   # VISION_API_KEY: ""
   COMPANY_NAME: ""
   AGENT_NAME: ""
-  # MLFLOW_TRACKING_URI: ""
-  # MLFLOW_EXPERIMENT_NAME: ""
+  MLFLOW_TRACKING_URI: ""
+  MLFLOW_EXPERIMENT_NAME: ""        # e.g. "mortgage-ai"
+  MLFLOW_WORKSPACE: ""              # e.g. "mortgage-ai"
+  MLFLOW_TRACKING_INSECURE_TLS: ""
+  MLFLOW_TRACKING_TOKEN: ""
 
 seed:
   enabled: true
@@ -28,3 +31,13 @@ seed:
 routes:
   # Set to: <project>-<namespace>.apps.<cluster-domain>
   sharedHost: ""
+
+seed:
+  enabled: true
+
+mlflow:
+  rbac:
+    enabled: true
+
+  keycloak:                                                 
+    enabled: false

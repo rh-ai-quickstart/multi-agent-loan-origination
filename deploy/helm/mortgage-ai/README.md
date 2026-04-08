@@ -4,8 +4,33 @@ Helm chart for deploying the Multi-Agent Loan Origination application to OpenShi
 
 ## Installation
 
+### With values.local.yaml (recommended)
+
 ```bash
-helm install mortgage-ai ./deploy/helm/mortgage-ai -n mortgage-ai --create-namespace
+cp deploy/helm/mortgage-ai/values.local.yaml.example deploy/helm/mortgage-ai/values.local.yaml
+# Edit values.local.yaml with your cluster-specific settings
+helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
+  -n mortgage-ai --create-namespace \
+  -f deploy/helm/mortgage-ai/values.local.yaml
+```
+
+### Without values.local.yaml (inline --set)
+
+```bash
+helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
+  -n mortgage-ai --create-namespace \
+  --set secrets.LLM_BASE_URL=<llm-endpoint> \
+  --set secrets.LLM_API_KEY=<api-key> \
+  --set secrets.LLM_MODEL=<model> \
+  --set secrets.COMPANY_NAME="<company>" \
+  --set secrets.AUTH_DISABLED=true \
+  --set keycloak.enabled=false \
+  --set secrets.MLFLOW_TRACKING_URI=<mlflow-url> \
+  --set secrets.MLFLOW_EXPERIMENT_NAME=<experiment> \
+  --set secrets.MLFLOW_WORKSPACE=<workspace> \
+  --set secrets.MLFLOW_TRACKING_INSECURE_TLS=true \
+  --set mlflow.rbac.enabled=true \
+  --set seed.enabled=true
 ```
 
 ## Configuration

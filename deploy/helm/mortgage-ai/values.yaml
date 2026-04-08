@@ -127,7 +127,7 @@ api:
   healthCheck:
     enabled: true
     path: /health/
-    initialDelaySeconds: 30
+    initialDelaySeconds: 90
     periodSeconds: 10
 # UI configuration
 ui:
@@ -210,7 +210,7 @@ minio:
 mlflow:
   # RBAC resources for MLflow server access
   rbac:
-    enabled: enable  # Enable when deploying with RHOAI MLflow
+    enabled: true  # Enable when deploying with RHOAI MLflow
     # Creates: ClusterRole, ServiceAccount, ClusterRoleBinding
     # The ServiceAccount can be used to generate tokens for MLflow auth
 

@@ -8,6 +8,7 @@ import pytest
 from src.core.config import settings
 from src.observability import (
     _is_configured,
+    _read_sa_token,
     init_mlflow_tracing,
     log_observability_status,
     set_trace_context,
@@ -169,3 +170,81 @@ def test_log_status_when_configured(monkeypatch, reset_autolog, caplog):
 
     assert "http://localhost:5000" in caplog.text
     assert "test-exp" in caplog.text
+
+
+# -- _read_sa_token tests --
+
+
+def test_read_sa_token_returns_token_when_file_exists(tmp_path, monkeypatch):
+    """should return token content when SA token file exists."""
+    import src.observability as obs
+
+    token_file = tmp_path / "token"
+    token_file.write_text("eyJhbGciOiJSUzI1NiIs...\n")
+    monkeypatch.setattr(obs, "_SA_TOKEN_PATH", token_file)
+
+    assert _read_sa_token() == "eyJhbGciOiJSUzI1NiIs..."
+
+
+def test_read_sa_token_returns_none_when_file_missing(tmp_path, monkeypatch):
+    """should return None when SA token file does not exist."""
+    import src.observability as obs
+
+    monkeypatch.setattr(obs, "_SA_TOKEN_PATH", tmp_path / "nonexistent")
+
+    assert _read_sa_token() is None
+
+
+def test_read_sa_token_returns_none_when_file_empty(tmp_path, monkeypatch):
+    """should return None when SA token file is empty."""
+    import src.observability as obs
+
+    token_file = tmp_path / "token"
+    token_file.write_text("")
+    monkeypatch.setattr(obs, "_SA_TOKEN_PATH", token_file)
+
+    assert _read_sa_token() is None
+
+
+def test_init_tracing_uses_sa_token_when_no_explicit_token(monkeypatch, reset_autolog, tmp_path):
+    """should use SA token when MLFLOW_TRACKING_TOKEN is not set."""
+    import os
+
+    import src.observability as obs
+
+    token_file = tmp_path / "token"
+    token_file.write_text("sa-token-value")
+    monkeypatch.setattr(obs, "_SA_TOKEN_PATH", token_file)
+    monkeypatch.setattr(settings, "MLFLOW_TRACKING_URI", "http://mlflow:5000")
+    monkeypatch.setattr(settings, "MLFLOW_TRACKING_TOKEN", None)
+    monkeypatch.setattr(settings, "MLFLOW_WORKSPACE", None)
+    monkeypatch.setattr(settings, "MLFLOW_TRACKING_INSECURE_TLS", False)
+
+    with patch("threading.Thread"):
+        init_mlflow_tracing()
+
+    assert os.environ.get("MLFLOW_TRACKING_TOKEN") == "sa-token-value"
+    # Clean up
+    monkeypatch.delenv("MLFLOW_TRACKING_TOKEN", raising=False)
+
+
+def test_init_tracing_prefers_explicit_token_over_sa(monkeypatch, reset_autolog, tmp_path):
+    """should prefer explicit MLFLOW_TRACKING_TOKEN over SA token."""
+    import os
+
+    import src.observability as obs
+
+    token_file = tmp_path / "token"
+    token_file.write_text("sa-token-value")
+    monkeypatch.setattr(obs, "_SA_TOKEN_PATH", token_file)
+    monkeypatch.setattr(settings, "MLFLOW_TRACKING_URI", "http://mlflow:5000")
+    monkeypatch.setattr(settings, "MLFLOW_TRACKING_TOKEN", "explicit-token")
+    monkeypatch.setattr(settings, "MLFLOW_WORKSPACE", None)
+    monkeypatch.setattr(settings, "MLFLOW_TRACKING_INSECURE_TLS", False)
+
+    with patch("threading.Thread"):
+        init_mlflow_tracing()
+
+    assert os.environ.get("MLFLOW_TRACKING_TOKEN") == "explicit-token"
+    # Clean up
+    monkeypatch.delenv("MLFLOW_TRACKING_TOKEN", raising=False)
