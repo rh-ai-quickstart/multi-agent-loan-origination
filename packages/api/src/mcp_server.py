@@ -21,6 +21,16 @@ from .agents.risk_tools import (
 
 mcp = FastMCP("risk-assessment", host="0.0.0.0", port=8081)
 
+
+# Health endpoint for K8s probes (MCP's /mcp only accepts POST, returns 406 on GET)
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request):  # noqa: ARG001
+    """Liveness/readiness probe for K8s."""
+    from starlette.responses import JSONResponse
+
+    return JSONResponse({"status": "healthy"})
+
+
 # Threshold constants (mirrored from risk_tools.py for tool descriptions)
 _DTI_LOW = 36
 _DTI_MEDIUM = 43
