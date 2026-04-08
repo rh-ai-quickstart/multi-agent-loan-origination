@@ -152,6 +152,22 @@ app.kubernetes.io/component: minio
 {{- end }}
 
 {{/*
+MCP Risk Server labels
+*/}}
+{{- define "mortgage-ai.mcp-risk.labels" -}}
+{{ include "mortgage-ai.labels" . }}
+app.kubernetes.io/component: mcp-risk-server
+{{- end }}
+
+{{/*
+MCP Risk Server selector labels
+*/}}
+{{- define "mortgage-ai.mcp-risk.selectorLabels" -}}
+{{ include "mortgage-ai.selectorLabels" . }}
+app.kubernetes.io/component: mcp-risk-server
+{{- end }}
+
+{{/*
 LlamaStack labels
 */}}
 {{- define "mortgage-ai.llamastack.labels" -}}

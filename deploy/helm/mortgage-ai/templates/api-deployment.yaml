@@ -221,6 +221,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: EMBEDDING_API_KEY
+            - name: MCP_RISK_SERVER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: MCP_RISK_SERVER_URL
             - name: SAFETY_MODEL
               valueFrom:
                 secretKeyRef:

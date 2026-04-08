@@ -1,0 +1,117 @@
+# This project was developed with assistance from AI tools.
+#
+# Standalone MLFlow v3 deployment for testing.
+# NOT part of the helm chart -- temporary bridge until RHOAI ships MLFlow v3.
+#
+# Usage:
+#   oc apply -f deploy/mlflow-standalone.yaml -n mortgage-ai
+#   oc delete -f deploy/mlflow-standalone.yaml -n mortgage-ai
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-standalone
+  labels:
+    app: mlflow-standalone
+    app.kubernetes.io/part-of: mortgage-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow-standalone
+  template:
+    metadata:
+      labels:
+        app: mlflow-standalone
+    spec:
+      containers:
+        - name: mlflow
+          image: ghcr.io/mlflow/mlflow:v3.10.1
+          command:
+            - /bin/sh
+            - -c
+            - |
+              pip install --no-cache-dir --target /tmp/pylibs boto3 psycopg2-binary &&
+              export PYTHONPATH="/tmp/pylibs:$PYTHONPATH" &&
+              mlflow server \
+                --host 0.0.0.0 \
+                --port 5000 \
+                --backend-store-uri /tmp/mlflow-data \
+                --artifacts-destination s3://mlflow \
+                --serve-artifacts
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          env:
+            - name: MLFLOW_S3_ENDPOINT_URL
+              value: "http://minio:9000"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: mortgage-ai-secret
+                  key: S3_ACCESS_KEY
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mortgage-ai-secret
+                  key: S3_SECRET_KEY
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+            - name: AWS_CONFIG_FILE
+              value: "/dev/null"
+            - name: MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE
+              value: "true"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow-standalone
+  labels:
+    app: mlflow-standalone
+    app.kubernetes.io/part-of: mortgage-ai
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5000
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: mlflow-standalone
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: mlflow-standalone
+  labels:
+    app: mlflow-standalone
+    app.kubernetes.io/part-of: mortgage-ai
+spec:
+  to:
+    kind: Service
+    name: mlflow-standalone
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
