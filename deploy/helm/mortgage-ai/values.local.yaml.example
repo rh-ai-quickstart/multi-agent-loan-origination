@@ -20,10 +20,11 @@ secrets:
   COMPANY_NAME: ""
   AGENT_NAME: ""
   MLFLOW_TRACKING_URI: ""
-  MLFLOW_EXPERIMENT_NAME: ""        # e.g. "mortgage-ai"
-  MLFLOW_WORKSPACE: ""              # e.g. "mortgage-ai"
+  MLFLOW_TRACKING_AUTH: "kubernetes"  # RHOAI 3.4+: auto SA token auth (no manual token needed)
+  MLFLOW_EXPERIMENT_NAME: ""          # e.g. "mortgage-ai"
+  MLFLOW_WORKSPACE: ""                # e.g. "mortgage-ai" (auto-detected from pod namespace if empty)
   MLFLOW_TRACKING_INSECURE_TLS: ""
-  MLFLOW_TRACKING_TOKEN: ""
+  # MLFLOW_TRACKING_TOKEN: ""         # Not needed when MLFLOW_TRACKING_AUTH=kubernetes
 
 seed:
   enabled: true
@@ -32,12 +33,9 @@ routes:
   # Set to: <project>-<namespace>.apps.<cluster-domain>
   sharedHost: ""
 
-seed:
-  enabled: true
+keycloak:
+  enabled: false
 
 mlflow:
   rbac:
     enabled: true
-
-  keycloak:                                                 
-    enabled: false

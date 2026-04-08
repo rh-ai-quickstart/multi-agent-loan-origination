@@ -8,6 +8,14 @@ traced without requiring explicit callbacks.
 Design principle (mirrors safety.py): tracing is active when MLFLOW_TRACKING_URI
 is set, degrades gracefully (no-op + warning) when not configured, and never
 blocks the conversation on a tracing error.
+
+Authentication modes (in priority order):
+  1. MLFLOW_TRACKING_AUTH=kubernetes -- Red Hat RHOAI 3.4+ Kubernetes plugin.
+     Reads the mounted ServiceAccount token and namespace automatically.
+     No manual token generation needed.
+  2. MLFLOW_TRACKING_TOKEN -- explicit bearer token (manual or from secret).
+  3. Mounted SA token at /run/secrets/kubernetes.io/serviceaccount/token --
+     legacy fallback, reads the file directly.
 """
 
 from __future__ import annotations
@@ -19,8 +27,9 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Kubernetes ServiceAccount token path (auto-mounted by the kubelet)
-_SA_TOKEN_PATH = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+# Kubernetes ServiceAccount paths (auto-mounted by the kubelet)
+_SA_TOKEN_PATH = Path("/run/secrets/kubernetes.io/serviceaccount/token")
+_SA_NAMESPACE_PATH = Path("/run/secrets/kubernetes.io/serviceaccount/namespace")
 
 _autolog_enabled = False
 
@@ -32,22 +41,53 @@ def _is_configured() -> bool:
     return bool(settings.MLFLOW_TRACKING_URI)
 
 
-def _read_sa_token() -> str | None:
-    """Read the Kubernetes ServiceAccount token if running in a pod.
+def _configure_auth() -> None:
+    """Configure MLflow authentication from available sources.
 
-    When the API pod uses the mlflow-client ServiceAccount, the kubelet
-    auto-mounts a token at the standard path.  Reading it here removes the
-    need for an explicit MLFLOW_TRACKING_TOKEN env-var / secret.
+    Priority:
+      1. MLFLOW_TRACKING_AUTH=kubernetes (RHOAI 3.4+ plugin) -- handles
+         token and workspace automatically from the mounted ServiceAccount.
+      2. Explicit MLFLOW_TRACKING_TOKEN env var / setting.
+      3. Mounted ServiceAccount token file (legacy fallback).
     """
+    from .core.config import settings
+
+    # Mode 1: Kubernetes auth plugin (RHOAI 3.4+).
+    # When set, the Red Hat MLflow fork reads the SA token and derives
+    # the workspace from the pod namespace automatically.
+    if os.environ.get("MLFLOW_TRACKING_AUTH") == "kubernetes":
+        logger.info("MLflow auth: using Kubernetes plugin (MLFLOW_TRACKING_AUTH=kubernetes)")
+        # Auto-detect workspace from pod namespace if not explicitly set
+        if not settings.MLFLOW_WORKSPACE and _SA_NAMESPACE_PATH.is_file():
+            try:
+                namespace = _SA_NAMESPACE_PATH.read_text().strip()
+                if namespace:
+                    os.environ["MLFLOW_WORKSPACE"] = namespace
+                    logger.info("MLflow workspace auto-detected from pod namespace: %s", namespace)
+            except OSError:
+                logger.debug("Could not read namespace from %s", _SA_NAMESPACE_PATH)
+        return
+
+    # Mode 2: Explicit token from settings or env var.
+    if settings.MLFLOW_TRACKING_TOKEN:
+        os.environ["MLFLOW_TRACKING_TOKEN"] = settings.MLFLOW_TRACKING_TOKEN
+        logger.info("MLflow auth: using explicit MLFLOW_TRACKING_TOKEN")
+        return
+
+    # Mode 3: Read mounted ServiceAccount token directly (legacy).
     try:
         if _SA_TOKEN_PATH.is_file():
             token = _SA_TOKEN_PATH.read_text().strip()
             if token:
-                logger.info("Using mounted ServiceAccount token for MLflow auth")
-                return token
+                os.environ["MLFLOW_TRACKING_TOKEN"] = token
+                logger.info(
+                    "MLflow auth: using mounted ServiceAccount token from %s", _SA_TOKEN_PATH
+                )
+                return
     except OSError:
         logger.debug("Could not read SA token at %s", _SA_TOKEN_PATH, exc_info=True)
-    return None
+
+    logger.warning("MLflow auth: no credentials found -- requests may fail")
 
 
 def _do_mlflow_init() -> None:
@@ -83,11 +123,9 @@ def init_mlflow_tracing() -> None:
 
     from .core.config import settings
 
-    # Set env vars before spawning the thread -- mlflow reads these directly.
-    # Priority: explicit MLFLOW_TRACKING_TOKEN > mounted ServiceAccount token.
-    token = settings.MLFLOW_TRACKING_TOKEN or _read_sa_token()
-    if token:
-        os.environ["MLFLOW_TRACKING_TOKEN"] = token
+    # Configure auth before spawning the thread -- mlflow reads env vars directly.
+    _configure_auth()
+
     if settings.MLFLOW_WORKSPACE:
         os.environ["MLFLOW_WORKSPACE"] = settings.MLFLOW_WORKSPACE
     if settings.MLFLOW_TRACKING_INSECURE_TLS:
