@@ -51,7 +51,12 @@ describe('CameraCapture', () => {
 
         await waitFor(() => {
             expect(getUserMedia).toHaveBeenCalledWith({
-                video: { facingMode: 'environment' },
+                video: {
+                    facingMode: 'environment',
+                    width: { ideal: 2048 },
+                    height: { ideal: 1536 },
+                    advanced: [{ focusMode: 'continuous' }],
+                },
             });
         });
     });
