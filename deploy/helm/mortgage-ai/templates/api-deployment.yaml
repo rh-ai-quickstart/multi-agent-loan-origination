@@ -18,7 +18,11 @@ spec:
         {{- include "mortgage-ai.api.selectorLabels" . | nindent 8 }}
         monitoring.opendatahub.io/scrape: 'true'
     spec:
+      {{- if .Values.mlflow.rbac.enabled }}
+      serviceAccountName: {{ include "mortgage-ai.fullname" . }}-mlflow-client
+      {{- else }}
       serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
+      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
@@ -241,6 +245,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: MLFLOW_TRACKING_URI
+            - name: MLFLOW_TRACKING_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: MLFLOW_TRACKING_AUTH
             - name: MLFLOW_EXPERIMENT_NAME
               valueFrom:
                 secretKeyRef:
@@ -277,17 +286,21 @@ spec:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SQLADMIN_SECRET_KEY
           {{- if .Values.api.healthCheck.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.api.healthCheck.path }}
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: {{ .Values.api.healthCheck.path }}
               port: http
-            initialDelaySeconds: {{ .Values.api.healthCheck.initialDelaySeconds }}
             periodSeconds: {{ .Values.api.healthCheck.periodSeconds }}
           readinessProbe:
             httpGet:
               path: {{ .Values.api.healthCheck.path }}
               port: http
-            initialDelaySeconds: {{ .Values.api.healthCheck.initialDelaySeconds }}
             periodSeconds: {{ .Values.api.healthCheck.periodSeconds }}
           {{- end }}
           resources:

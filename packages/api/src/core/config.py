@@ -137,9 +137,20 @@ class Settings(BaseSettings):
         default="mortgage-ai",
         description="MLFlow experiment name for grouping traces.",
     )
+    MLFLOW_TRACKING_AUTH: str | None = Field(
+        default=None,
+        description=(
+            "MLflow auth mode. Set to 'kubernetes' on RHOAI 3.4+ to use the "
+            "Kubernetes auth plugin -- reads the mounted ServiceAccount token "
+            "and derives the workspace from the pod namespace automatically."
+        ),
+    )
     MLFLOW_TRACKING_TOKEN: str | None = Field(
         default=None,
-        description="Bearer token for MLFlow authentication (e.g., OpenShift OAuth token).",
+        description=(
+            "Bearer token for MLFlow authentication. "
+            "Not needed when MLFLOW_TRACKING_AUTH=kubernetes."
+        ),
     )
     MLFLOW_WORKSPACE: str | None = Field(
         default=None,

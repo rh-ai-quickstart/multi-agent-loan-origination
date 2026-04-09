@@ -8,14 +8,28 @@ traced without requiring explicit callbacks.
 Design principle (mirrors safety.py): tracing is active when MLFLOW_TRACKING_URI
 is set, degrades gracefully (no-op + warning) when not configured, and never
 blocks the conversation on a tracing error.
+
+Authentication modes (in priority order):
+  1. MLFLOW_TRACKING_AUTH=kubernetes -- Red Hat RHOAI 3.4+ Kubernetes plugin.
+     Reads the mounted ServiceAccount token and namespace automatically.
+     No manual token generation needed.
+  2. MLFLOW_TRACKING_TOKEN -- explicit bearer token (manual or from secret).
+  3. Mounted SA token at /run/secrets/kubernetes.io/serviceaccount/token --
+     legacy fallback, reads the file directly.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import threading
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Kubernetes ServiceAccount paths (auto-mounted by the kubelet)
+_SA_TOKEN_PATH = Path("/run/secrets/kubernetes.io/serviceaccount/token")
+_SA_NAMESPACE_PATH = Path("/run/secrets/kubernetes.io/serviceaccount/namespace")
 
 _autolog_enabled = False
 
@@ -27,16 +41,58 @@ def _is_configured() -> bool:
     return bool(settings.MLFLOW_TRACKING_URI)
 
 
-def init_mlflow_tracing() -> None:
-    """Initialize MLFlow autolog for LangChain/LangGraph tracing.
+def _configure_auth() -> None:
+    """Configure MLflow authentication from available sources.
 
-    Call once at application startup. When MLFLOW_TRACKING_URI is configured,
-    this enables automatic tracing of all LangChain operations via autolog.
+    Priority:
+      1. MLFLOW_TRACKING_AUTH=kubernetes (RHOAI 3.4+ plugin) -- handles
+         token and workspace automatically from the mounted ServiceAccount.
+      2. Explicit MLFLOW_TRACKING_TOKEN env var / setting.
+      3. Mounted ServiceAccount token file (legacy fallback).
     """
-    global _autolog_enabled
+    from .core.config import settings
 
-    if not _is_configured():
+    # Mode 1: Kubernetes auth plugin (RHOAI 3.4+).
+    # When set, the Red Hat MLflow fork reads the SA token and derives
+    # the workspace from the pod namespace automatically.
+    if os.environ.get("MLFLOW_TRACKING_AUTH") == "kubernetes":
+        logger.info("MLflow auth: using Kubernetes plugin (MLFLOW_TRACKING_AUTH=kubernetes)")
+        # Auto-detect workspace from pod namespace if not explicitly set
+        if not settings.MLFLOW_WORKSPACE and _SA_NAMESPACE_PATH.is_file():
+            try:
+                namespace = _SA_NAMESPACE_PATH.read_text().strip()
+                if namespace:
+                    os.environ["MLFLOW_WORKSPACE"] = namespace
+                    logger.info("MLflow workspace auto-detected from pod namespace: %s", namespace)
+            except OSError:
+                logger.debug("Could not read namespace from %s", _SA_NAMESPACE_PATH)
         return
+
+    # Mode 2: Explicit token from settings or env var.
+    if settings.MLFLOW_TRACKING_TOKEN:
+        os.environ["MLFLOW_TRACKING_TOKEN"] = settings.MLFLOW_TRACKING_TOKEN
+        logger.info("MLflow auth: using explicit MLFLOW_TRACKING_TOKEN")
+        return
+
+    # Mode 3: Read mounted ServiceAccount token directly (legacy).
+    try:
+        if _SA_TOKEN_PATH.is_file():
+            token = _SA_TOKEN_PATH.read_text().strip()
+            if token:
+                os.environ["MLFLOW_TRACKING_TOKEN"] = token
+                logger.info(
+                    "MLflow auth: using mounted ServiceAccount token from %s", _SA_TOKEN_PATH
+                )
+                return
+    except OSError:
+        logger.debug("Could not read SA token at %s", _SA_TOKEN_PATH, exc_info=True)
+
+    logger.warning("MLflow auth: no credentials found -- requests may fail")
+
+
+def _do_mlflow_init() -> None:
+    """Perform the actual MLflow initialization (may block on HTTP calls)."""
+    global _autolog_enabled
 
     try:
         import mlflow
@@ -44,22 +100,40 @@ def init_mlflow_tracing() -> None:
 
         from .core.config import settings
 
-        # MLFlow reads auth settings from OS environment variables directly,
-        # so we must set them before calling any mlflow functions.
-        if settings.MLFLOW_TRACKING_TOKEN:
-            os.environ["MLFLOW_TRACKING_TOKEN"] = settings.MLFLOW_TRACKING_TOKEN
-        if settings.MLFLOW_WORKSPACE:
-            os.environ["MLFLOW_WORKSPACE"] = settings.MLFLOW_WORKSPACE
-        if settings.MLFLOW_TRACKING_INSECURE_TLS:
-            os.environ["MLFLOW_TRACKING_INSECURE_TLS"] = "true"
-
         mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
         mlflow.set_experiment(settings.MLFLOW_EXPERIMENT_NAME)
         mlflow.langchain.autolog()
         _autolog_enabled = True
-        logger.debug("MLFlow autolog initialized")
+        logger.info("MLFlow autolog initialized successfully")
     except Exception:
         logger.warning("Failed to initialize MLFlow tracing", exc_info=True)
+
+
+def init_mlflow_tracing() -> None:
+    """Initialize MLFlow autolog for LangChain/LangGraph tracing.
+
+    Call once at application startup. When MLFLOW_TRACKING_URI is configured,
+    this enables automatic tracing of all LangChain operations via autolog.
+
+    Runs in a background thread to avoid blocking app startup if the MLflow
+    server is slow or unreachable.
+    """
+    if not _is_configured():
+        return
+
+    from .core.config import settings
+
+    # Configure auth before spawning the thread -- mlflow reads env vars directly.
+    _configure_auth()
+
+    if settings.MLFLOW_WORKSPACE:
+        os.environ["MLFLOW_WORKSPACE"] = settings.MLFLOW_WORKSPACE
+    if settings.MLFLOW_TRACKING_INSECURE_TLS:
+        os.environ["MLFLOW_TRACKING_INSECURE_TLS"] = "true"
+
+    thread = threading.Thread(target=_do_mlflow_init, daemon=True)
+    thread.start()
+    logger.info("MLFlow initialization started in background")
 
 
 def set_trace_context(
