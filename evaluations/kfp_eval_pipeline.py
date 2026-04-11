@@ -77,10 +77,19 @@ def setup_mlflow_op(
     Returns:
         Full experiment name (with -eval suffix)
     """
+    import os
     import logging
+    from pathlib import Path
     import mlflow
 
     logging.getLogger("mlflow").setLevel(logging.ERROR)
+
+    # Auto-detect Kubernetes SA token for MLflow auth
+    if not os.environ.get("MLFLOW_TRACKING_TOKEN"):
+        sa_token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        if sa_token_path.exists():
+            os.environ["MLFLOW_TRACKING_TOKEN"] = sa_token_path.read_text().strip()
+            print("Auto-detected Kubernetes SA token")
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
@@ -124,12 +133,20 @@ def create_dataset_op(
     Returns:
         NamedTuple with experiment_name and dataset_id
     """
+    import os
     from typing import NamedTuple
+    from pathlib import Path
     import logging
     import mlflow
     from mlflow.genai.datasets import create_dataset
 
     logging.getLogger("mlflow").setLevel(logging.ERROR)
+
+    # Auto-detect Kubernetes SA token for MLflow auth
+    if not os.environ.get("MLFLOW_TRACKING_TOKEN"):
+        sa_token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        if sa_token_path.exists():
+            os.environ["MLFLOW_TRACKING_TOKEN"] = sa_token_path.read_text().strip()
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
     mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
@@ -243,9 +260,11 @@ def run_simple_eval_op(
     Returns:
         Dictionary with evaluation metrics
     """
+    import os
     import re
     import logging
     import warnings
+    from pathlib import Path
 
     warnings.filterwarnings("ignore")
 
@@ -254,6 +273,12 @@ def run_simple_eval_op(
     from mlflow.genai.datasets import get_dataset
 
     logging.getLogger("mlflow").setLevel(logging.ERROR)
+
+    # Auto-detect Kubernetes SA token for MLflow auth
+    if not os.environ.get("MLFLOW_TRACKING_TOKEN"):
+        sa_token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        if sa_token_path.exists():
+            os.environ["MLFLOW_TRACKING_TOKEN"] = sa_token_path.read_text().strip()
 
     # Allow nested event loops
     try:
@@ -382,8 +407,15 @@ def run_llm_judge_eval_op(
     import re
     import logging
     import warnings
+    from pathlib import Path
 
     warnings.filterwarnings("ignore")
+
+    # Auto-detect Kubernetes SA token for MLflow auth
+    if not os.environ.get("MLFLOW_TRACKING_TOKEN"):
+        sa_token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+        if sa_token_path.exists():
+            os.environ["MLFLOW_TRACKING_TOKEN"] = sa_token_path.read_text().strip()
 
     # Set OpenAI env vars BEFORE importing mlflow to ensure proper client config
     os.environ["OPENAI_API_BASE"] = llm_base_url
@@ -579,9 +611,11 @@ def simple_eval_pipeline(
     mlflow_experiment_name: str = "multi-agent-loan-origination",
     agent_name: str = "public-assistant",
     dataset_name: str = "public_assistant_eval_simple",
-    mlflow_secret_name: str = "mlflow-credentials",
 ):
     """Pipeline for simple evaluation (no LLM judge).
+
+    Uses the pod's Kubernetes service account token for MLflow auth
+    (read from /var/run/secrets/kubernetes.io/serviceaccount/token).
 
     Steps:
     1. Setup MLflow tracking
@@ -596,11 +630,6 @@ def simple_eval_pipeline(
         mlflow_experiment_name=mlflow_experiment_name,
         mlflow_workspace=mlflow_workspace,
     )
-    kubernetes.use_secret_as_env(
-        setup_task,
-        secret_name=mlflow_secret_name,
-        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
-    )
 
     # Step 2: Create dataset
     dataset_task = create_dataset_op(
@@ -610,11 +639,6 @@ def simple_eval_pipeline(
         agent_name=agent_name,
         mlflow_workspace=mlflow_workspace,
     )
-    kubernetes.use_secret_as_env(
-        dataset_task,
-        secret_name=mlflow_secret_name,
-        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
-    )
 
     # Step 3: Run simple evaluation
     eval_task = run_simple_eval_op(
@@ -622,11 +646,6 @@ def simple_eval_pipeline(
         experiment_name=dataset_task.outputs["experiment_name"],
         dataset_id=dataset_task.outputs["dataset_id"],
         mlflow_workspace=mlflow_workspace,
-    )
-    kubernetes.use_secret_as_env(
-        eval_task,
-        secret_name=mlflow_secret_name,
-        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
     )
 
     # Step 4: Report results
@@ -652,10 +671,12 @@ def llm_judge_eval_pipeline(
     mlflow_experiment_name: str = "multi-agent-loan-origination",
     agent_name: str = "public-assistant",
     dataset_name: str = "public_assistant_eval_llm_judge",
-    mlflow_secret_name: str = "mlflow-credentials",
     llm_secret_name: str = "llm-credentials",
 ):
     """Pipeline for full LLM-as-a-Judge evaluation.
+
+    Uses the pod's Kubernetes service account token for MLflow auth
+    (read from /var/run/secrets/kubernetes.io/serviceaccount/token).
 
     Steps:
     1. Setup MLflow tracking
@@ -670,11 +691,6 @@ def llm_judge_eval_pipeline(
         mlflow_experiment_name=mlflow_experiment_name,
         mlflow_workspace=mlflow_workspace,
     )
-    kubernetes.use_secret_as_env(
-        setup_task,
-        secret_name=mlflow_secret_name,
-        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
-    )
 
     # Step 2: Create dataset
     dataset_task = create_dataset_op(
@@ -683,11 +699,6 @@ def llm_judge_eval_pipeline(
         dataset_name=dataset_name,
         agent_name=agent_name,
         mlflow_workspace=mlflow_workspace,
-    )
-    kubernetes.use_secret_as_env(
-        dataset_task,
-        secret_name=mlflow_secret_name,
-        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
     )
 
     # Step 3: Run LLM-as-a-Judge evaluation
@@ -698,11 +709,6 @@ def llm_judge_eval_pipeline(
         llm_base_url=llm_base_url,
         llm_model=llm_model,
         mlflow_workspace=mlflow_workspace,
-    )
-    kubernetes.use_secret_as_env(
-        eval_task,
-        secret_name=mlflow_secret_name,
-        secret_key_to_env={"MLFLOW_TRACKING_TOKEN": "MLFLOW_TRACKING_TOKEN"},
     )
     kubernetes.use_secret_as_env(
         eval_task,
@@ -745,9 +751,17 @@ if __name__ == "__main__":
         help="Output directory for YAML files (default: pipelines_gen)",
     )
 
+    parser.add_argument(
+        "--service-account",
+        type=str,
+        default="mortgage-ai",
+        help="Kubernetes service account for pipeline pods (default: mortgage-ai)",
+    )
+
     args = parser.parse_args()
 
     if args.compile:
+        import yaml as pyyaml
         from kfp import compiler
         from pathlib import Path
 
@@ -756,12 +770,47 @@ if __name__ == "__main__":
         output_dir = script_dir / args.output_dir
         output_dir.mkdir(exist_ok=True)
 
+        def inject_service_account(yaml_path: str, sa_name: str) -> None:
+            """Post-process compiled YAML to set serviceAccountName on all executors."""
+            with open(yaml_path) as f:
+                docs = list(pyyaml.safe_load_all(f))
+
+            # Find or create the platforms document
+            main_doc = docs[0]
+            platforms_doc = docs[1] if len(docs) > 1 else None
+
+            # Get executor names from the main document
+            executors = main_doc.get("deploymentSpec", {}).get("executors", {})
+
+            if platforms_doc is None:
+                platforms_doc = {"platforms": {"kubernetes": {"deploymentSpec": {"executors": {}}}}}
+
+            k8s_executors = (
+                platforms_doc
+                .setdefault("platforms", {})
+                .setdefault("kubernetes", {})
+                .setdefault("deploymentSpec", {})
+                .setdefault("executors", {})
+            )
+
+            # Add serviceAccountName to each executor
+            for executor_name in executors:
+                k8s_executors.setdefault(executor_name, {})["serviceAccountName"] = sa_name
+
+            with open(yaml_path, "w") as f:
+                pyyaml.dump(main_doc, f, default_flow_style=False, sort_keys=False)
+                f.write("---\n")
+                pyyaml.dump(platforms_doc, f, default_flow_style=False, sort_keys=False)
+
+            print(f"  Injected serviceAccountName: {sa_name}")
+
         if args.mode in ["simple", "both"]:
             output_file = output_dir / "simple_eval_pipeline.yaml"
             compiler.Compiler().compile(
                 pipeline_func=simple_eval_pipeline,
                 package_path=str(output_file),
             )
+            inject_service_account(str(output_file), args.service_account)
             print(f"Simple pipeline compiled to: {output_file}")
 
         if args.mode in ["llm-judge", "both"]:
@@ -770,6 +819,7 @@ if __name__ == "__main__":
                 pipeline_func=llm_judge_eval_pipeline,
                 package_path=str(output_file),
             )
+            inject_service_account(str(output_file), args.service_account)
             print(f"LLM-judge pipeline compiled to: {output_file}")
     else:
         print("Usage:")
@@ -777,3 +827,4 @@ if __name__ == "__main__":
         print("  Compile simple only:        python kfp_eval_pipeline.py --compile --mode simple")
         print("  Compile llm-judge only:     python kfp_eval_pipeline.py --compile --mode llm-judge")
         print("  Custom output directory:    python kfp_eval_pipeline.py --compile --output-dir /path/to/dir")
+        print("  Custom service account:     python kfp_eval_pipeline.py --compile --service-account my-sa")

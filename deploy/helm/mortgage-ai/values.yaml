@@ -10,7 +10,7 @@
 global:
   imageRegistry: quay.io
   imageRepository: rh-ai-quickstart
-  imageTag: latest
+  imageTag: "0.1.9"
   imagePullPolicy: Always
   storageClass: ""
 
