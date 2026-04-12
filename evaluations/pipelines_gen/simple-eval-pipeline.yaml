@@ -7,6 +7,7 @@
 #    mlflow_experiment_name: str [Default: 'multi-agent-loan-origination']
 #    mlflow_tracking_uri: str
 #    mlflow_workspace: str
+#    system_prompt_version: str [Default: 'v1']
 components:
   comp-create-dataset-op:
     executorLabel: exec-create-dataset-op
@@ -65,6 +66,17 @@ components:
           parameterType: STRING
         mlflow_workspace:
           description: MLflow workspace (namespace) for RHOAI
+          parameterType: STRING
+        system_prompt_version:
+          defaultValue: v1
+          description: 'Prompt version to use. "v1" (default) uses
+
+            the agent''s built-in prompt. Any other value (e.g. "v2") loads
+
+            the corresponding version from MLflow Prompt Registry and uses
+
+            degraded mock responses to simulate regression.'
+          isOptional: true
           parameterType: STRING
     outputDefinitions:
       parameters:
@@ -254,21 +266,25 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef run_simple_eval_op(\n    mlflow_tracking_uri: str,\n    experiment_name:\
-          \ str,\n    dataset_id: str,\n    mlflow_workspace: str,\n) -> dict:\n \
-          \   \"\"\"Run simple evaluation without LLM judge.\n\n    Uses deterministic\
-          \ scorers:\n    - contains_expected: Check if expected keyword appears\n\
-          \    - has_numeric_result: Check for numeric values\n    - response_length:\
-          \ Ensure adequate response length\n\n    Args:\n        mlflow_tracking_uri:\
-          \ MLflow server URL\n        experiment_name: Experiment name\n        dataset_id:\
-          \ MLflow dataset ID to load\n        mlflow_workspace: MLflow workspace\
-          \ (namespace) for RHOAI\n\n    Returns:\n        Dictionary with evaluation\
-          \ metrics\n    \"\"\"\n    import os\n    import re\n    import logging\n\
-          \    import warnings\n    from pathlib import Path\n\n    warnings.filterwarnings(\"\
-          ignore\")\n\n    import mlflow\n    from mlflow.genai.scorers import scorer\n\
-          \    from mlflow.genai.datasets import get_dataset\n\n    logging.getLogger(\"\
-          mlflow\").setLevel(logging.ERROR)\n\n    # Auto-detect Kubernetes SA token\
-          \ for MLflow auth\n    if not os.environ.get(\"MLFLOW_TRACKING_TOKEN\"):\n\
-          \        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
+          \ str,\n    dataset_id: str,\n    mlflow_workspace: str,\n    system_prompt_version:\
+          \ str = \"v1\",\n) -> dict:\n    \"\"\"Run simple evaluation without LLM\
+          \ judge.\n\n    Uses deterministic scorers:\n    - contains_expected: Check\
+          \ if expected keyword appears\n    - has_numeric_result: Check for numeric\
+          \ values\n    - response_length: Ensure adequate response length\n\n   \
+          \ Args:\n        mlflow_tracking_uri: MLflow server URL\n        experiment_name:\
+          \ Experiment name\n        dataset_id: MLflow dataset ID to load\n     \
+          \   mlflow_workspace: MLflow workspace (namespace) for RHOAI\n        system_prompt_version:\
+          \ Prompt version to use. \"v1\" (default) uses\n            the agent's\
+          \ built-in prompt. Any other value (e.g. \"v2\") loads\n            the\
+          \ corresponding version from MLflow Prompt Registry and uses\n         \
+          \   degraded mock responses to simulate regression.\n\n    Returns:\n  \
+          \      Dictionary with evaluation metrics\n    \"\"\"\n    import os\n \
+          \   import re\n    import logging\n    import warnings\n    from pathlib\
+          \ import Path\n\n    warnings.filterwarnings(\"ignore\")\n\n    import mlflow\n\
+          \    from mlflow.genai.scorers import scorer\n    from mlflow.genai.datasets\
+          \ import get_dataset\n\n    logging.getLogger(\"mlflow\").setLevel(logging.ERROR)\n\
+          \n    # Auto-detect Kubernetes SA token for MLflow auth\n    if not os.environ.get(\"\
+          MLFLOW_TRACKING_TOKEN\"):\n        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
           )\n        if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
           ] = sa_token_path.read_text().strip()\n\n    # Allow nested event loops\n\
           \    try:\n        import nest_asyncio\n        nest_asyncio.apply()\n \
@@ -285,27 +301,56 @@ deploymentSpec:
           \ True\n        return False\n\n    @scorer\n    def response_length(outputs:\
           \ str) -> float:\n        length = len(str(outputs))\n        return 1.0\
           \ if length >= 50 else 0.5\n\n    # -------------------------------------------------------------------------\n\
-          \    # Define mock predictor\n    # -------------------------------------------------------------------------\n\
-          \    def predict_fn(user_message: str) -> str:\n        msg_lower = user_message.lower()\n\
-          \        if \"loan products\" in msg_lower or \"offer\" in msg_lower:\n\
-          \            return \"We offer several mortgage products including 30-year\
+          \    # Define mock predictor (version-aware)\n    # -------------------------------------------------------------------------\n\
+          \    use_v1 = system_prompt_version.lower() == \"v1\"\n    print(f\"System\
+          \ prompt version: {system_prompt_version} ({'agent default' if use_v1 else\
+          \ 'regression test'})\")\n\n    def predict_fn(user_message: str) -> str:\n\
+          \        msg_lower = user_message.lower()\n\n        if use_v1:\n      \
+          \      # V1: Agent's built-in prompt \u2014 accurate, tool-sourced responses\n\
+          \            if \"loan products\" in msg_lower or \"offer\" in msg_lower:\n\
+          \                return \"We offer several mortgage products including 30-year\
           \ fixed, 15-year fixed, FHA loans, VA loans, and adjustable rate mortgages\
-          \ (ARMs).\"\n        elif \"fha\" in msg_lower:\n            return \"FHA\
-          \ loans are government-backed mortgages with lower down payment requirements,\
-          \ typically 3.5% for qualified borrowers.\"\n        elif \"va\" in msg_lower:\n\
-          \            return \"VA loans are available to eligible veterans and military\
-          \ service members, often with no down payment required.\"\n        elif\
-          \ \"fixed\" in msg_lower and \"adjustable\" in msg_lower:\n            return\
-          \ \"Fixed rate mortgages have consistent payments, while ARMs have rates\
-          \ that adjust periodically based on market conditions.\"\n        elif \"\
-          afford\" in msg_lower:\n            return \"Based on your income of $100,000\
-          \ and monthly debts, you could potentially afford a loan amount of approximately\
-          \ $350,000 with monthly payments around $2,200.\"\n        elif \"payment\"\
-          \ in msg_lower and \"300,000\" in msg_lower:\n            return \"On a\
-          \ $300,000 loan at 6.5% for 30 years, your estimated monthly payment would\
-          \ be approximately $1,896 for principal and interest.\"\n        else:\n\
-          \            return \"I can help you with information about our mortgage\
-          \ products, affordability calculations, and loan options.\"\n\n    # -------------------------------------------------------------------------\n\
+          \ (ARMs).\"\n            elif \"fha\" in msg_lower:\n                return\
+          \ \"FHA loans are government-backed mortgages with lower down payment requirements,\
+          \ typically 3.5% for qualified borrowers.\"\n            elif \"va\" in\
+          \ msg_lower:\n                return \"VA loans are available to eligible\
+          \ veterans and military service members, often with no down payment required.\"\
+          \n            elif \"fixed\" in msg_lower and \"adjustable\" in msg_lower:\n\
+          \                return \"Fixed rate mortgages have consistent payments,\
+          \ while ARMs have rates that adjust periodically based on market conditions.\"\
+          \n            elif \"afford\" in msg_lower:\n                return \"Based\
+          \ on your income of $100,000 and monthly debts, you could potentially afford\
+          \ a loan amount of approximately $350,000 with monthly payments around $2,200.\"\
+          \n            elif \"payment\" in msg_lower and \"300,000\" in msg_lower:\n\
+          \                return \"On a $300,000 loan at 6.5% for 30 years, your\
+          \ estimated monthly payment would be approximately $1,896 for principal\
+          \ and interest.\"\n            else:\n                return \"I can help\
+          \ you with information about our mortgage products, affordability calculations,\
+          \ and loan options.\"\n        else:\n            # V2+: Degraded responses\
+          \ \u2014 agent answering from \"general knowledge\"\n            # without\
+          \ calling tools. Simulates the regression caused by removing\n         \
+          \   # mandatory tool use from the system prompt.\n            if \"loan\
+          \ products\" in msg_lower or \"offer\" in msg_lower:\n                return\
+          \ \"We have various mortgage options available. You can choose between different\
+          \ loan types depending on your financial situation and goals.\"\n      \
+          \      elif \"fha\" in msg_lower:\n                return \"FHA loans are\
+          \ a type of government-backed mortgage. They can be a good option for first-time\
+          \ homebuyers who may have limited savings.\"\n            elif \"va\" in\
+          \ msg_lower:\n                return \"VA loans are mortgage loans for military\
+          \ service members. They typically offer favorable terms for eligible borrowers.\"\
+          \n            elif \"fixed\" in msg_lower and \"adjustable\" in msg_lower:\n\
+          \                return \"Fixed rate mortgages keep the same rate for the\
+          \ life of the loan, while adjustable rate mortgages can change over time\
+          \ based on market conditions.\"\n            elif \"afford\" in msg_lower:\n\
+          \                return \"Based on general guidelines, your housing costs\
+          \ should not exceed about 28% of your gross income. You should be able to\
+          \ find suitable options in your price range.\"\n            elif \"payment\"\
+          \ in msg_lower and \"300,000\" in msg_lower:\n                return \"\
+          Monthly payments depend on several factors including the loan amount, interest\
+          \ rate, and term length. I would recommend using a mortgage calculator for\
+          \ exact figures.\"\n            else:\n                return \"I can provide\
+          \ general information about mortgage products and help you understand your\
+          \ options.\"\n\n    # -------------------------------------------------------------------------\n\
           \    # Setup MLflow\n    # -------------------------------------------------------------------------\n\
           \    mlflow.set_tracking_uri(mlflow_tracking_uri)\n    mlflow.set_experiment(experiment_name)\n\
           \n    # Load dataset from MLflow using dataset_id\n    print(f\"Loading\
@@ -442,6 +487,8 @@ root:
               componentInputParameter: mlflow_tracking_uri
             mlflow_workspace:
               componentInputParameter: mlflow_workspace
+            system_prompt_version:
+              componentInputParameter: system_prompt_version
         taskInfo:
           name: run-simple-eval-op
       setup-mlflow-op:
@@ -476,6 +523,13 @@ root:
       mlflow_tracking_uri:
         parameterType: STRING
       mlflow_workspace:
+        parameterType: STRING
+      system_prompt_version:
+        defaultValue: v1
+        description: '"v1" uses the agent''s built-in prompt (default).
+
+          Set to "v2" or other to simulate a prompt regression.'
+        isOptional: true
         parameterType: STRING
 schemaVersion: 2.1.0
 sdkVersion: kfp-2.16.0

@@ -216,6 +216,9 @@ mlflow:
     enabled: true  # Enable when deploying with RHOAI MLflow
     # Creates: ClusterRole, ServiceAccount, ClusterRoleBinding
     # The ServiceAccount can be used to generate tokens for MLflow auth
+    pipelineRunner:
+      enabled: false  # Enable when DSPA is deployed in this namespace
+      serviceAccountName: pipeline-runner-dspa  # SA created by DSPA operator
 
 # LlamaStack model serving
 llamastack:

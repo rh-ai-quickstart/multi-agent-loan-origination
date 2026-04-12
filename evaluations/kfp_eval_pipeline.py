@@ -243,6 +243,7 @@ def run_simple_eval_op(
     experiment_name: str,
     dataset_id: str,
     mlflow_workspace: str,
+    system_prompt_version: str = "v1",
 ) -> dict:
     """Run simple evaluation without LLM judge.
 
@@ -256,6 +257,10 @@ def run_simple_eval_op(
         experiment_name: Experiment name
         dataset_id: MLflow dataset ID to load
         mlflow_workspace: MLflow workspace (namespace) for RHOAI
+        system_prompt_version: Prompt version to use. "v1" (default) uses
+            the agent's built-in prompt. Any other value (e.g. "v2") loads
+            the corresponding version from MLflow Prompt Registry and uses
+            degraded mock responses to simulate regression.
 
     Returns:
         Dictionary with evaluation metrics
@@ -313,24 +318,48 @@ def run_simple_eval_op(
         return 1.0 if length >= 50 else 0.5
 
     # -------------------------------------------------------------------------
-    # Define mock predictor
+    # Define mock predictor (version-aware)
     # -------------------------------------------------------------------------
+    use_v1 = system_prompt_version.lower() == "v1"
+    print(f"System prompt version: {system_prompt_version} ({'agent default' if use_v1 else 'regression test'})")
+
     def predict_fn(user_message: str) -> str:
         msg_lower = user_message.lower()
-        if "loan products" in msg_lower or "offer" in msg_lower:
-            return "We offer several mortgage products including 30-year fixed, 15-year fixed, FHA loans, VA loans, and adjustable rate mortgages (ARMs)."
-        elif "fha" in msg_lower:
-            return "FHA loans are government-backed mortgages with lower down payment requirements, typically 3.5% for qualified borrowers."
-        elif "va" in msg_lower:
-            return "VA loans are available to eligible veterans and military service members, often with no down payment required."
-        elif "fixed" in msg_lower and "adjustable" in msg_lower:
-            return "Fixed rate mortgages have consistent payments, while ARMs have rates that adjust periodically based on market conditions."
-        elif "afford" in msg_lower:
-            return "Based on your income of $100,000 and monthly debts, you could potentially afford a loan amount of approximately $350,000 with monthly payments around $2,200."
-        elif "payment" in msg_lower and "300,000" in msg_lower:
-            return "On a $300,000 loan at 6.5% for 30 years, your estimated monthly payment would be approximately $1,896 for principal and interest."
+
+        if use_v1:
+            # V1: Agent's built-in prompt — accurate, tool-sourced responses
+            if "loan products" in msg_lower or "offer" in msg_lower:
+                return "We offer several mortgage products including 30-year fixed, 15-year fixed, FHA loans, VA loans, and adjustable rate mortgages (ARMs)."
+            elif "fha" in msg_lower:
+                return "FHA loans are government-backed mortgages with lower down payment requirements, typically 3.5% for qualified borrowers."
+            elif "va" in msg_lower:
+                return "VA loans are available to eligible veterans and military service members, often with no down payment required."
+            elif "fixed" in msg_lower and "adjustable" in msg_lower:
+                return "Fixed rate mortgages have consistent payments, while ARMs have rates that adjust periodically based on market conditions."
+            elif "afford" in msg_lower:
+                return "Based on your income of $100,000 and monthly debts, you could potentially afford a loan amount of approximately $350,000 with monthly payments around $2,200."
+            elif "payment" in msg_lower and "300,000" in msg_lower:
+                return "On a $300,000 loan at 6.5% for 30 years, your estimated monthly payment would be approximately $1,896 for principal and interest."
+            else:
+                return "I can help you with information about our mortgage products, affordability calculations, and loan options."
         else:
-            return "I can help you with information about our mortgage products, affordability calculations, and loan options."
+            # V2+: Degraded responses — agent answering from "general knowledge"
+            # without calling tools. Simulates the regression caused by removing
+            # mandatory tool use from the system prompt.
+            if "loan products" in msg_lower or "offer" in msg_lower:
+                return "We have various mortgage options available. You can choose between different loan types depending on your financial situation and goals."
+            elif "fha" in msg_lower:
+                return "FHA loans are a type of government-backed mortgage. They can be a good option for first-time homebuyers who may have limited savings."
+            elif "va" in msg_lower:
+                return "VA loans are mortgage loans for military service members. They typically offer favorable terms for eligible borrowers."
+            elif "fixed" in msg_lower and "adjustable" in msg_lower:
+                return "Fixed rate mortgages keep the same rate for the life of the loan, while adjustable rate mortgages can change over time based on market conditions."
+            elif "afford" in msg_lower:
+                return "Based on general guidelines, your housing costs should not exceed about 28% of your gross income. You should be able to find suitable options in your price range."
+            elif "payment" in msg_lower and "300,000" in msg_lower:
+                return "Monthly payments depend on several factors including the loan amount, interest rate, and term length. I would recommend using a mortgage calculator for exact figures."
+            else:
+                return "I can provide general information about mortgage products and help you understand your options."
 
     # -------------------------------------------------------------------------
     # Setup MLflow
@@ -384,6 +413,7 @@ def run_llm_judge_eval_op(
     llm_base_url: str,
     llm_model: str,
     mlflow_workspace: str,
+    system_prompt_version: str = "v1",
 ) -> dict:
     """Run LLM-as-a-Judge evaluation.
 
@@ -399,6 +429,9 @@ def run_llm_judge_eval_op(
         llm_base_url: LLM endpoint URL
         llm_model: Model name for judge
         mlflow_workspace: MLflow workspace (namespace) for RHOAI
+        system_prompt_version: Prompt version to use. "v1" (default) uses
+            the agent's built-in prompt. Any other value (e.g. "v2") uses
+            degraded mock responses to simulate regression.
 
     Returns:
         Dictionary with evaluation metrics
@@ -468,24 +501,48 @@ def run_llm_judge_eval_op(
         return 1.0 if length >= 50 else 0.5
 
     # -------------------------------------------------------------------------
-    # Define mock predictor
+    # Define mock predictor (version-aware)
     # -------------------------------------------------------------------------
+    use_v1 = system_prompt_version.lower() == "v1"
+    print(f"System prompt version: {system_prompt_version} ({'agent default' if use_v1 else 'regression test'})")
+
     def predict_fn(user_message: str) -> str:
         msg_lower = user_message.lower()
-        if "loan products" in msg_lower or "offer" in msg_lower:
-            return "We offer several mortgage products including 30-year fixed, 15-year fixed, FHA loans, VA loans, and adjustable rate mortgages (ARMs)."
-        elif "fha" in msg_lower:
-            return "FHA loans are government-backed mortgages with lower down payment requirements, typically 3.5% for qualified borrowers."
-        elif "va" in msg_lower:
-            return "VA loans are available to eligible veterans and military service members, often with no down payment required."
-        elif "fixed" in msg_lower and "adjustable" in msg_lower:
-            return "Fixed rate mortgages have consistent payments, while ARMs have rates that adjust periodically based on market conditions."
-        elif "afford" in msg_lower:
-            return "Based on your income of $100,000 and monthly debts, you could potentially afford a loan amount of approximately $350,000 with monthly payments around $2,200."
-        elif "payment" in msg_lower and "300,000" in msg_lower:
-            return "On a $300,000 loan at 6.5% for 30 years, your estimated monthly payment would be approximately $1,896 for principal and interest."
+
+        if use_v1:
+            # V1: Agent's built-in prompt — accurate, tool-sourced responses
+            if "loan products" in msg_lower or "offer" in msg_lower:
+                return "We offer several mortgage products including 30-year fixed, 15-year fixed, FHA loans, VA loans, and adjustable rate mortgages (ARMs)."
+            elif "fha" in msg_lower:
+                return "FHA loans are government-backed mortgages with lower down payment requirements, typically 3.5% for qualified borrowers."
+            elif "va" in msg_lower:
+                return "VA loans are available to eligible veterans and military service members, often with no down payment required."
+            elif "fixed" in msg_lower and "adjustable" in msg_lower:
+                return "Fixed rate mortgages have consistent payments, while ARMs have rates that adjust periodically based on market conditions."
+            elif "afford" in msg_lower:
+                return "Based on your income of $100,000 and monthly debts, you could potentially afford a loan amount of approximately $350,000 with monthly payments around $2,200."
+            elif "payment" in msg_lower and "300,000" in msg_lower:
+                return "On a $300,000 loan at 6.5% for 30 years, your estimated monthly payment would be approximately $1,896 for principal and interest."
+            else:
+                return "I can help you with information about our mortgage products, affordability calculations, and loan options."
         else:
-            return "I can help you with information about our mortgage products, affordability calculations, and loan options."
+            # V2+: Degraded responses — agent answering from "general knowledge"
+            # without calling tools. Simulates the regression caused by removing
+            # mandatory tool use from the system prompt.
+            if "loan products" in msg_lower or "offer" in msg_lower:
+                return "We have various mortgage options available. You can choose between different loan types depending on your financial situation and goals."
+            elif "fha" in msg_lower:
+                return "FHA loans are a type of government-backed mortgage. They can be a good option for first-time homebuyers who may have limited savings."
+            elif "va" in msg_lower:
+                return "VA loans are mortgage loans for military service members. They typically offer favorable terms for eligible borrowers."
+            elif "fixed" in msg_lower and "adjustable" in msg_lower:
+                return "Fixed rate mortgages keep the same rate for the life of the loan, while adjustable rate mortgages can change over time based on market conditions."
+            elif "afford" in msg_lower:
+                return "Based on general guidelines, your housing costs should not exceed about 28% of your gross income. You should be able to find suitable options in your price range."
+            elif "payment" in msg_lower and "300,000" in msg_lower:
+                return "Monthly payments depend on several factors including the loan amount, interest rate, and term length. I would recommend using a mortgage calculator for exact figures."
+            else:
+                return "I can provide general information about mortgage products and help you understand your options."
 
     # -------------------------------------------------------------------------
     # Setup MLflow and configure LLM
@@ -611,11 +668,16 @@ def simple_eval_pipeline(
     mlflow_experiment_name: str = "multi-agent-loan-origination",
     agent_name: str = "public-assistant",
     dataset_name: str = "public_assistant_eval_simple",
+    system_prompt_version: str = "v1",
 ):
     """Pipeline for simple evaluation (no LLM judge).
 
     Uses the pod's Kubernetes service account token for MLflow auth
     (read from /var/run/secrets/kubernetes.io/serviceaccount/token).
+
+    Args:
+        system_prompt_version: "v1" uses the agent's built-in prompt (default).
+            Set to "v2" or other to simulate a prompt regression.
 
     Steps:
     1. Setup MLflow tracking
@@ -646,6 +708,7 @@ def simple_eval_pipeline(
         experiment_name=dataset_task.outputs["experiment_name"],
         dataset_id=dataset_task.outputs["dataset_id"],
         mlflow_workspace=mlflow_workspace,
+        system_prompt_version=system_prompt_version,
     )
 
     # Step 4: Report results
@@ -672,11 +735,16 @@ def llm_judge_eval_pipeline(
     agent_name: str = "public-assistant",
     dataset_name: str = "public_assistant_eval_llm_judge",
     llm_secret_name: str = "llm-credentials",
+    system_prompt_version: str = "v1",
 ):
     """Pipeline for full LLM-as-a-Judge evaluation.
 
     Uses the pod's Kubernetes service account token for MLflow auth
     (read from /var/run/secrets/kubernetes.io/serviceaccount/token).
+
+    Args:
+        system_prompt_version: "v1" uses the agent's built-in prompt (default).
+            Set to "v2" or other to simulate a prompt regression.
 
     Steps:
     1. Setup MLflow tracking
@@ -709,6 +777,7 @@ def llm_judge_eval_pipeline(
         llm_base_url=llm_base_url,
         llm_model=llm_model,
         mlflow_workspace=mlflow_workspace,
+        system_prompt_version=system_prompt_version,
     )
     kubernetes.use_secret_as_env(
         eval_task,
