@@ -1,3 +1,15 @@
+# PIPELINE DEFINITION
+# Name: agent-llm-judge-evaluation-pipeline
+# Description: Multi-step evaluation pipeline with LLM judges
+# Inputs:
+#    agent_name: str [Default: 'public-assistant']
+#    dataset_name: str [Default: 'public_assistant_eval_llm_judge']
+#    llm_base_url: str
+#    llm_model: str [Default: 'qwen3-14b']
+#    llm_secret_name: str [Default: 'llm-credentials']
+#    mlflow_experiment_name: str [Default: 'multi-agent-loan-origination']
+#    mlflow_tracking_uri: str
+#    mlflow_workspace: str
 components:
   comp-create-dataset-op:
     executorLabel: exec-create-dataset-op
@@ -524,10 +536,3 @@ platforms:
             optional: false
             secretNameParameter:
               componentInputParameter: llm_secret_name
-          serviceAccountName: mortgage-ai
-        exec-create-dataset-op:
-          serviceAccountName: mortgage-ai
-        exec-report-results-op:
-          serviceAccountName: mortgage-ai
-        exec-setup-mlflow-op:
-          serviceAccountName: mortgage-ai

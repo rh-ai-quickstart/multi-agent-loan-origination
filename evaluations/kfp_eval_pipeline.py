@@ -751,17 +751,9 @@ if __name__ == "__main__":
         help="Output directory for YAML files (default: pipelines_gen)",
     )
 
-    parser.add_argument(
-        "--service-account",
-        type=str,
-        default="mortgage-ai",
-        help="Kubernetes service account for pipeline pods (default: mortgage-ai)",
-    )
-
     args = parser.parse_args()
 
     if args.compile:
-        import yaml as pyyaml
         from kfp import compiler
         from pathlib import Path
 
@@ -770,56 +762,20 @@ if __name__ == "__main__":
         output_dir = script_dir / args.output_dir
         output_dir.mkdir(exist_ok=True)
 
-        def inject_service_account(yaml_path: str, sa_name: str) -> None:
-            """Post-process compiled YAML to set serviceAccountName on all executors."""
-            with open(yaml_path) as f:
-                docs = list(pyyaml.safe_load_all(f))
-
-            # Find or create the platforms document
-            main_doc = docs[0]
-            platforms_doc = docs[1] if len(docs) > 1 else None
-
-            # Get executor names from the main document
-            executors = main_doc.get("deploymentSpec", {}).get("executors", {})
-
-            if platforms_doc is None:
-                platforms_doc = {"platforms": {"kubernetes": {"deploymentSpec": {"executors": {}}}}}
-
-            k8s_executors = (
-                platforms_doc
-                .setdefault("platforms", {})
-                .setdefault("kubernetes", {})
-                .setdefault("deploymentSpec", {})
-                .setdefault("executors", {})
-            )
-
-            # Add serviceAccountName to each executor
-            for executor_name in executors:
-                k8s_executors.setdefault(executor_name, {})["serviceAccountName"] = sa_name
-
-            with open(yaml_path, "w") as f:
-                pyyaml.dump(main_doc, f, default_flow_style=False, sort_keys=False)
-                f.write("---\n")
-                pyyaml.dump(platforms_doc, f, default_flow_style=False, sort_keys=False)
-
-            print(f"  Injected serviceAccountName: {sa_name}")
-
         if args.mode in ["simple", "both"]:
-            output_file = output_dir / "simple_eval_pipeline.yaml"
+            output_file = output_dir / "simple-eval-pipeline.yaml"
             compiler.Compiler().compile(
                 pipeline_func=simple_eval_pipeline,
                 package_path=str(output_file),
             )
-            inject_service_account(str(output_file), args.service_account)
             print(f"Simple pipeline compiled to: {output_file}")
 
         if args.mode in ["llm-judge", "both"]:
-            output_file = output_dir / "llm_judge_eval_pipeline.yaml"
+            output_file = output_dir / "llm-judge-eval-pipeline.yaml"
             compiler.Compiler().compile(
                 pipeline_func=llm_judge_eval_pipeline,
                 package_path=str(output_file),
             )
-            inject_service_account(str(output_file), args.service_account)
             print(f"LLM-judge pipeline compiled to: {output_file}")
     else:
         print("Usage:")
@@ -827,4 +783,3 @@ if __name__ == "__main__":
         print("  Compile simple only:        python kfp_eval_pipeline.py --compile --mode simple")
         print("  Compile llm-judge only:     python kfp_eval_pipeline.py --compile --mode llm-judge")
         print("  Custom output directory:    python kfp_eval_pipeline.py --compile --output-dir /path/to/dir")
-        print("  Custom service account:     python kfp_eval_pipeline.py --compile --service-account my-sa")

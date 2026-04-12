@@ -1,3 +1,12 @@
+# PIPELINE DEFINITION
+# Name: agent-simple-evaluation-pipeline
+# Description: Multi-step evaluation pipeline without LLM judges
+# Inputs:
+#    agent_name: str [Default: 'public-assistant']
+#    dataset_name: str [Default: 'public_assistant_eval_simple']
+#    mlflow_experiment_name: str [Default: 'multi-agent-loan-origination']
+#    mlflow_tracking_uri: str
+#    mlflow_workspace: str
 components:
   comp-create-dataset-op:
     executorLabel: exec-create-dataset-op
@@ -470,16 +479,3 @@ root:
         parameterType: STRING
 schemaVersion: 2.1.0
 sdkVersion: kfp-2.16.0
----
-platforms:
-  kubernetes:
-    deploymentSpec:
-      executors:
-        exec-create-dataset-op:
-          serviceAccountName: mortgage-ai
-        exec-report-results-op:
-          serviceAccountName: mortgage-ai
-        exec-run-simple-eval-op:
-          serviceAccountName: mortgage-ai
-        exec-setup-mlflow-op:
-          serviceAccountName: mortgage-ai
