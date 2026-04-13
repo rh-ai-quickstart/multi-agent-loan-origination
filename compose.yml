@@ -79,6 +79,7 @@ services:
       MLFLOW_TRACKING_URI: "${MLFLOW_TRACKING_URI:-http://mlflow:5000}"
       MLFLOW_EXPERIMENT_NAME: "${MLFLOW_EXPERIMENT_NAME:-mortgage-ai}"
       MCP_RISK_SERVER_URL: http://mcp-risk-server:8081/mcp
+      PREDICTIVE_MODEL_MCP_URL: "${PREDICTIVE_MODEL_MCP_URL:-}"
       COMPANY_NAME: "${COMPANY_NAME:-Acme FinTech Company}"
       AGENT_NAME: "${AGENT_NAME:-}"
     volumes:

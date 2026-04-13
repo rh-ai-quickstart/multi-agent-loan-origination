@@ -133,6 +133,10 @@ class Settings(BaseSettings):
         default="http://localhost:8081/mcp",
         description="URL of the MCP risk assessment server (Streamable HTTP endpoint).",
     )
+    PREDICTIVE_MODEL_MCP_URL: str | None = Field(
+        default=None,
+        description="URL of external predictive model MCP server. When set, predictive loan approval tool is available.",
+    )
 
     # -- Observability (MLFlow) --
     MLFLOW_TRACKING_URI: str | None = Field(

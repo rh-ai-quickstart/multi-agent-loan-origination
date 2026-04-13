@@ -230,6 +230,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: MCP_RISK_SERVER_URL
+            - name: PREDICTIVE_MODEL_MCP_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: PREDICTIVE_MODEL_MCP_URL
             - name: SAFETY_MODEL
               valueFrom:
                 secretKeyRef:

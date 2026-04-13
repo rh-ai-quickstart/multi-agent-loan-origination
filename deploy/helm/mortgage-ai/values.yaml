@@ -66,6 +66,9 @@ secrets:
   # MCP Risk Server
   MCP_RISK_SERVER_URL: "http://mcp-risk-server:8081/mcp"
 
+  # Predictive Model MCP (optional -- external ML model for loan approval prediction)
+  PREDICTIVE_MODEL_MCP_URL: ""
+
   # Safety / Shields (optional)
   SAFETY_MODEL: ""
   SAFETY_ENDPOINT: ""

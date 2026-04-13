@@ -28,6 +28,8 @@ class RiskAssessmentResponse(BaseModel):
     recommendation: str | None = None
     recommendation_rationale: list[str] | None = None
     recommendation_conditions: list[str] | None = None
+    predictive_model_result: str | None = None
+    predictive_model_available: bool | None = None
     assessed_by: str | None = None
     created_at: datetime | None = None
 

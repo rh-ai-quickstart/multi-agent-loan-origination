@@ -16,6 +16,7 @@ from src.agents.risk_tools import compute_risk_factors
 from src.agents.underwriter_tools import (
     _user_context_from_state,
     uw_application_detail,
+    uw_predict_loan_approval,
     uw_preliminary_recommendation,
     uw_queue_view,
     uw_save_risk_assessment,
@@ -616,6 +617,8 @@ _SAVE_PARAMS = {
     "conditions": None,
     "compensating_factors": None,
     "warnings": None,
+    "predictive_model_result": None,
+    "predictive_model_available": None,
 }
 
 
@@ -1309,3 +1312,258 @@ class TestUwPreliminaryRecommendation:
         audit_data = mock_audit.call_args.kwargs["event_data"]
         assert audit_data["tool"] == "uw_preliminary_recommendation"
         assert audit_data["recommendation"] == "Approve"
+
+
+# ---------------------------------------------------------------------------
+# uw_predict_loan_approval (tool tests)
+# ---------------------------------------------------------------------------
+
+
+class TestUwPredictLoanApproval:
+    """Tests for the uw_predict_loan_approval wrapper tool."""
+
+    @pytest.mark.asyncio
+    async def test_returns_unavailable_when_model_not_configured(self):
+        """Model not configured returns unavailability message."""
+        state = {"user_id": "uw-maria", "user_role": "underwriter"}
+
+        with patch(
+            "src.agents.underwriter_tools.is_predictive_model_available",
+            return_value=False,
+        ):
+            result = await uw_predict_loan_approval.ainvoke({"application_id": 1, "state": state})
+
+        assert "not configured" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_maps_fields_and_invokes_tool(self):
+        """Verify correct field mapping from application data to ML model inputs."""
+        mock_borrower = MagicMock()
+        mock_borrower.first_name = "Sarah"
+        mock_borrower.last_name = "Johnson"
+        mock_borrower.employment_status = MagicMock(value="w2_employee")
+
+        mock_ab = MagicMock()
+        mock_ab.borrower = mock_borrower
+        mock_ab.is_primary = True
+
+        mock_app = MagicMock()
+        mock_app.stage = ApplicationStage.UNDERWRITING
+        mock_app.loan_type = MagicMock(value="conventional_30")
+        mock_app.loan_amount = 350000
+        mock_app.property_value = 450000
+        mock_app.application_borrowers = [mock_ab]
+
+        mock_fin = _make_fin(income=8000, debts=2500, assets=120000, credit=720)
+
+        mock_predictive_tool = MagicMock()
+        mock_predictive_tool.ainvoke = AsyncMock(return_value="Loan approved")
+
+        state = {"user_id": "uw-maria", "user_role": "underwriter"}
+
+        with (
+            patch(
+                "src.agents.underwriter_tools.is_predictive_model_available",
+                return_value=True,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_predictive_tool",
+                return_value=mock_predictive_tool,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_application",
+                new_callable=AsyncMock,
+                return_value=mock_app,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_financials",
+                new_callable=AsyncMock,
+                return_value=[mock_fin],
+            ),
+            patch(
+                "src.agents.underwriter_tools.write_audit_event",
+                new_callable=AsyncMock,
+            ),
+            patch("src.agents.underwriter_tools.SessionLocal") as mock_session_cls,
+        ):
+            mock_session = AsyncMock()
+            mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await uw_predict_loan_approval.ainvoke({"application_id": 1, "state": state})
+
+        assert "approved" in result.lower()
+
+        # Verify the invocation args
+        call_args = mock_predictive_tool.ainvoke.call_args[0][0]
+        assert call_args["income_annum"] == 8000 * 12
+        assert call_args["loan_amount"] == 350000
+        assert call_args["loan_term"] == 360
+        assert call_args["cibil_score"] == 720
+        assert call_args["self_employed"] is False
+        # Asset split should sum to total_assets
+        asset_sum = (
+            call_args["residential_assets_value"]
+            + call_args["commercial_assets_value"]
+            + call_args["luxury_assets_value"]
+            + call_args["bank_asset_value"]
+        )
+        assert asset_sum == pytest.approx(120000, abs=1)
+
+    @pytest.mark.asyncio
+    async def test_self_employed_flag(self):
+        """Self-employed borrower sets self_employed=True."""
+        mock_borrower = MagicMock()
+        mock_borrower.employment_status = MagicMock(value="self_employed")
+
+        mock_ab = MagicMock()
+        mock_ab.borrower = mock_borrower
+        mock_ab.is_primary = True
+
+        mock_app = MagicMock()
+        mock_app.stage = ApplicationStage.UNDERWRITING
+        mock_app.loan_type = MagicMock(value="conventional_15")
+        mock_app.loan_amount = 300000
+        mock_app.property_value = 400000
+        mock_app.application_borrowers = [mock_ab]
+
+        mock_predictive_tool = MagicMock()
+        mock_predictive_tool.ainvoke = AsyncMock(return_value="Loan rejected")
+
+        state = {"user_id": "uw-maria", "user_role": "underwriter"}
+
+        with (
+            patch(
+                "src.agents.underwriter_tools.is_predictive_model_available",
+                return_value=True,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_predictive_tool",
+                return_value=mock_predictive_tool,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_application",
+                new_callable=AsyncMock,
+                return_value=mock_app,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_financials",
+                new_callable=AsyncMock,
+                return_value=[_make_fin()],
+            ),
+            patch(
+                "src.agents.underwriter_tools.write_audit_event",
+                new_callable=AsyncMock,
+            ),
+            patch("src.agents.underwriter_tools.SessionLocal") as mock_session_cls,
+        ):
+            mock_session = AsyncMock()
+            mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await uw_predict_loan_approval.ainvoke({"application_id": 1, "state": state})
+
+        call_args = mock_predictive_tool.ainvoke.call_args[0][0]
+        assert call_args["self_employed"] is True
+        assert call_args["loan_term"] == 180
+        assert "rejected" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_handles_missing_financials(self):
+        """No financials defaults to zero values."""
+        mock_app = MagicMock()
+        mock_app.stage = ApplicationStage.UNDERWRITING
+        mock_app.loan_type = None
+        mock_app.loan_amount = 300000
+        mock_app.property_value = 400000
+        mock_app.application_borrowers = []
+
+        mock_predictive_tool = MagicMock()
+        mock_predictive_tool.ainvoke = AsyncMock(return_value="Loan rejected")
+
+        state = {"user_id": "uw-maria", "user_role": "underwriter"}
+
+        with (
+            patch(
+                "src.agents.underwriter_tools.is_predictive_model_available",
+                return_value=True,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_predictive_tool",
+                return_value=mock_predictive_tool,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_application",
+                new_callable=AsyncMock,
+                return_value=mock_app,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_financials",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "src.agents.underwriter_tools.write_audit_event",
+                new_callable=AsyncMock,
+            ),
+            patch("src.agents.underwriter_tools.SessionLocal") as mock_session_cls,
+        ):
+            mock_session = AsyncMock()
+            mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await uw_predict_loan_approval.ainvoke({"application_id": 1, "state": state})
+
+        call_args = mock_predictive_tool.ainvoke.call_args[0][0]
+        assert call_args["income_annum"] == 0
+        assert call_args["cibil_score"] == 0
+        assert call_args["residential_assets_value"] == 0
+        assert "rejected" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_handles_mcp_call_failure(self):
+        """MCP tool invocation error returns graceful message."""
+        mock_app = MagicMock()
+        mock_app.stage = ApplicationStage.UNDERWRITING
+        mock_app.loan_type = MagicMock(value="fha")
+        mock_app.loan_amount = 300000
+        mock_app.property_value = 400000
+        mock_app.application_borrowers = []
+
+        mock_predictive_tool = MagicMock()
+        mock_predictive_tool.ainvoke = AsyncMock(side_effect=ConnectionError("server down"))
+
+        state = {"user_id": "uw-maria", "user_role": "underwriter"}
+
+        with (
+            patch(
+                "src.agents.underwriter_tools.is_predictive_model_available",
+                return_value=True,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_predictive_tool",
+                return_value=mock_predictive_tool,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_application",
+                new_callable=AsyncMock,
+                return_value=mock_app,
+            ),
+            patch(
+                "src.agents.underwriter_tools.get_financials",
+                new_callable=AsyncMock,
+                return_value=[_make_fin()],
+            ),
+            patch(
+                "src.agents.underwriter_tools.write_audit_event",
+                new_callable=AsyncMock,
+            ),
+            patch("src.agents.underwriter_tools.SessionLocal") as mock_session_cls,
+        ):
+            mock_session = AsyncMock()
+            mock_session_cls.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            result = await uw_predict_loan_approval.ainvoke({"application_id": 1, "state": state})
+
+        assert "failed" in result.lower()

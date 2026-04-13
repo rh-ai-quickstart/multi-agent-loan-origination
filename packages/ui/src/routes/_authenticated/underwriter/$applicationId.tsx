@@ -17,6 +17,7 @@ import { useApplication } from '@/hooks/use-applications';
 import { useConditions } from '@/hooks/use-conditions';
 import { useDecisions } from '@/hooks/use-decisions';
 import { useRiskAssessment, useComplianceResult } from '@/hooks/use-underwriting';
+import { useFeatures } from '@/hooks/use-features';
 import { formatCurrency, formatDate, formatPercent } from '@/lib/format';
 import { LOAN_TYPE_LABELS } from '@/schemas/enums';
 import type { ApplicationResponse } from '@/schemas/applications';
@@ -103,7 +104,7 @@ function ratingStyle(rating: string | null | undefined) {
     return RATING_COLORS[rating ?? ''] ?? { icon: 'text-slate-300', bar: 'bg-slate-300', barWidth: 'w-0' };
 }
 
-function RiskAssessmentCard({ appId }: { appId: number }) {
+function RiskAssessmentCard({ appId, predictiveModelEnabled }: { appId: number; predictiveModelEnabled: boolean }) {
     const { data: assessment, isError } = useRiskAssessment(appId);
     const hasData = assessment && !isError;
 
@@ -116,13 +117,13 @@ function RiskAssessmentCard({ appId }: { appId: number }) {
                   rating: assessment.credit_rating,
               },
               {
-                  label: 'Capacity (DTI)',
+                  label: 'Capacity',
                   value: assessment.dti_value != null ? `${assessment.dti_value}%` : '--',
                   detail: assessment.dti_rating ? `${assessment.dti_rating} Risk` : 'No data',
                   rating: assessment.dti_rating,
               },
               {
-                  label: 'Collateral (LTV)',
+                  label: 'Collateral',
                   value: assessment.ltv_value != null ? `${assessment.ltv_value}%` : '--',
                   detail: assessment.ltv_rating ? `${assessment.ltv_rating} Risk` : 'No data',
                   rating: assessment.ltv_rating,
@@ -158,7 +159,7 @@ function RiskAssessmentCard({ appId }: { appId: number }) {
                     {hasData ? 'Re-run' : 'Run Assessment'}
                 </button>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className={cn('grid grid-cols-1 gap-4', predictiveModelEnabled ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
                 {metrics.map((m) => {
                     const style = ratingStyle(m.rating);
                     return (
@@ -175,6 +176,30 @@ function RiskAssessmentCard({ appId }: { appId: number }) {
                         </div>
                     );
                 })}
+                {predictiveModelEnabled && (() => {
+                    const hasResult = hasData && assessment.predictive_model_result;
+                    const isApproved = hasResult && assessment.predictive_model_result!.toLowerCase().includes('approved');
+                    return (
+                        <div className="rounded-lg border border-border bg-slate-50 p-4 dark:bg-slate-800/50">
+                            <div className="mb-2 flex items-center justify-between">
+                                <span className="text-sm font-semibold text-muted-foreground">Auto U/W</span>
+                                <CheckCircle2 className={cn('h-5 w-5', hasResult ? (isApproved ? 'text-emerald-500' : 'text-red-500') : 'text-slate-300')} />
+                            </div>
+                            <p className="text-2xl font-bold text-foreground">
+                                {hasResult ? (isApproved ? 'Approve' : 'Reject') : '--'}
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                {hasResult ? 'Suggested' : (hasData ? 'No prediction recorded' : 'Run assessment to generate')}
+                            </p>
+                            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                <div className={cn(
+                                    'h-full rounded-full transition-all',
+                                    hasResult ? (isApproved ? 'bg-emerald-500 w-full' : 'bg-red-500 w-full') : 'w-0',
+                                )} />
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
             {hasData && assessment.warnings && assessment.warnings.length > 0 && (
                 <div className="mt-4 space-y-1">
@@ -605,6 +630,7 @@ function UnderwriterDetail() {
     const appId = Number(applicationId);
 
     const { data: app, isLoading: appLoading } = useApplication(appId);
+    const { data: features } = useFeatures();
 
     if (appLoading) {
         return (
@@ -653,10 +679,10 @@ function UnderwriterDetail() {
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
                 {/* Left column */}
                 <div className="flex flex-col gap-6 lg:col-span-8">
-                    <RiskAssessmentCard appId={appId} />
+                    <RiskAssessmentCard appId={appId} predictiveModelEnabled={features?.predictive_model ?? false} />
+                    <RecommendationBanner appId={appId} />
                     <ComplianceChecksCard appId={appId} />
                     <ConditionsCard appId={appId} />
-                    <RecommendationBanner appId={appId} />
                 </div>
 
                 {/* Right column (sticky) */}

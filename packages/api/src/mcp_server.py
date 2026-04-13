@@ -207,10 +207,12 @@ def generate_risk_recommendation(
     employment_statuses: list[str],
     has_financials: bool,
     doc_count: int,
+    predictive_model_result: str | None = None,
 ) -> str:
     """Generate a preliminary underwriting recommendation from all risk factors.
 
-    Takes the outputs of the 5 individual risk tools plus context flags.
+    Takes the outputs of the 5 individual risk tools, an optional ML model
+    prediction, and context flags.
     Returns Approve, Approve with Conditions, Suspend, or Deny.
     """
     # Build compensating factors
@@ -221,6 +223,8 @@ def generate_risk_recommendation(
         compensating_factors.append("Low LTV (<60%) offsets weak credit")
     if asset_sufficiency_value is not None and asset_sufficiency_value > 50:
         compensating_factors.append("High reserves (>50% of loan amount)")
+    if predictive_model_result and "approved" in predictive_model_result.lower():
+        compensating_factors.append("Predictive model supports approval")
 
     # Build warnings
     warnings: list[str] = []
@@ -254,6 +258,18 @@ def generate_risk_recommendation(
         has_financials=has_financials,
         doc_total=doc_count,
     )
+
+    # Factor in predictive model rejection
+    if predictive_model_result and "rejected" in predictive_model_result.lower():
+        warnings.append("Predictive model flags elevated risk -- review recommended")
+        if rec.recommendation == "Approve":
+            rec = Recommendation(
+                recommendation="Approve with Conditions",
+                rationale=[
+                    "Predictive model indicates elevated risk despite passing rule-based checks"
+                ],
+                conditions=["Review predictive model risk flag before final approval"],
+            )
 
     # Compute overall risk
     ratings = [

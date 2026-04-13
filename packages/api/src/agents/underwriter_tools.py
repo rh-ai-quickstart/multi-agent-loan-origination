@@ -17,6 +17,7 @@ Design note -- session-per-tool-call:
     self-contained and avoids cross-tool state leakage.
 """
 
+import logging
 from typing import Annotated
 
 from db import CreditReport
@@ -34,12 +35,15 @@ from ..services.document import list_documents
 from ..services.rate_lock import get_rate_lock_status
 from ..services.risk_assessment import create_risk_assessment, update_recommendation
 from ..services.urgency import compute_urgency
+from .mcp_integration import get_predictive_tool, is_predictive_model_available
 from .risk_tools import (
     compute_recommendation,
     compute_risk_factors,
     extract_borrower_info,
 )
 from .shared import format_enum_label, user_context_from_state
+
+logger = logging.getLogger(__name__)
 
 _URGENCY_ORDER = {
     UrgencyLevel.CRITICAL: 0,
@@ -299,6 +303,110 @@ async def uw_application_detail(
         return output
 
 
+# Loan type -> term in months mapping
+_LOAN_TERM_MAP = {
+    "conventional_30": 360,
+    "conventional_15": 180,
+    "fha": 360,
+    "va": 360,
+    "jumbo": 360,
+    "usda": 360,
+    "arm": 360,
+}
+
+
+@tool
+async def uw_predict_loan_approval(
+    application_id: int,
+    state: Annotated[dict, InjectedState],
+) -> str:
+    """Run the external predictive ML model on a loan application.
+
+    Maps application data to the model's input fields and returns the
+    prediction. Returns unavailability message when the model is not
+    configured.
+
+    Args:
+        application_id: The loan application ID.
+    """
+    if not is_predictive_model_available():
+        return "Predictive model not configured."
+
+    predictive_tool = get_predictive_tool()
+    if predictive_tool is None:
+        return "Predictive model tool not found."
+
+    user = _user_context_from_state(state)
+    async with SessionLocal() as session:
+        app = await get_application(session, user, application_id)
+        if app is None:
+            return "Application not found or you don't have access to it."
+
+        financials = await get_financials(session, application_id)
+
+        # Aggregate financials across all borrowers
+        total_income = sum((f.gross_monthly_income or 0) for f in financials) if financials else 0
+        total_assets = sum((f.total_assets or 0) for f in financials) if financials else 0
+        credit_scores = [f.credit_score for f in financials if f.credit_score] if financials else []
+        min_credit = min(credit_scores) if credit_scores else 0
+
+        # Derive employment status
+        emp_statuses = []
+        for ab in app.application_borrowers or []:
+            if ab.borrower and ab.borrower.employment_status:
+                emp_statuses.append(ab.borrower.employment_status.value)
+        is_self_employed = "self_employed" in emp_statuses
+
+        # Derive loan term from loan type
+        loan_type_val = app.loan_type.value if app.loan_type else "conventional_30"
+        loan_term = _LOAN_TERM_MAP.get(loan_type_val, 360)
+
+        # Synthesize missing fields using application_id for variation
+        app_hash = hash(application_id)
+        no_of_dependents = abs(app_hash) % 5
+        graduated = abs(app_hash) % 2 == 0
+
+        # Split total assets across 4 categories (40/10/20/30)
+        residential_assets = float(total_assets) * 0.4
+        commercial_assets = float(total_assets) * 0.1
+        luxury_assets = float(total_assets) * 0.2
+        bank_assets = float(total_assets) * 0.3
+
+        # Capture loan_amount before session closes (commit expires ORM objects)
+        loan_amount = float(app.loan_amount or 0)
+
+        await write_audit_event(
+            session,
+            event_type="agent_tool_called",
+            user_id=user.user_id,
+            user_role=user.role.value,
+            application_id=application_id,
+            event_data={"tool": "uw_predict_loan_approval"},
+        )
+        await session.commit()
+
+    invoke_args = {
+        "no_of_dependents": no_of_dependents,
+        "graduated": graduated,
+        "self_employed": is_self_employed,
+        "income_annum": float(total_income) * 12,
+        "loan_amount": loan_amount,
+        "loan_term": loan_term,
+        "cibil_score": min_credit,
+        "residential_assets_value": residential_assets,
+        "commercial_assets_value": commercial_assets,
+        "luxury_assets_value": luxury_assets,
+        "bank_asset_value": bank_assets,
+    }
+    # Invoke the external MCP tool
+    try:
+        result = await predictive_tool.ainvoke(invoke_args)
+        return str(result)
+    except Exception as e:
+        logger.exception("Predictive model call failed for app %s", application_id)
+        return f"Predictive model call failed: {e}"
+
+
 @tool
 async def uw_save_risk_assessment(
     application_id: int,
@@ -319,7 +427,9 @@ async def uw_save_risk_assessment(
     conditions: list[str] | None,
     compensating_factors: list[str] | None,
     warnings: list[str] | None,
-    state: Annotated[dict, InjectedState],
+    predictive_model_result: str | None = None,
+    predictive_model_available: bool | None = None,
+    state: Annotated[dict, InjectedState] = None,
 ) -> str:
     """Save a completed risk assessment to the database.
 
@@ -346,6 +456,8 @@ async def uw_save_risk_assessment(
         conditions: List of conditions (if Approve with Conditions).
         compensating_factors: List of compensating factors found.
         warnings: List of data quality warnings.
+        predictive_model_result: ML model prediction (Loan approved/rejected or null).
+        predictive_model_available: Whether the predictive model was available.
     """
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
@@ -394,6 +506,8 @@ async def uw_save_risk_assessment(
             recommendation=recommendation,
             recommendation_rationale=rationale or None,
             recommendation_conditions=conditions or None,
+            predictive_model_result=predictive_model_result,
+            predictive_model_available=predictive_model_available,
         )
 
         await write_audit_event(
@@ -409,6 +523,7 @@ async def uw_save_risk_assessment(
                 "credit": credit_value,
                 "credit_source": credit_source,
                 "recommendation": recommendation,
+                "predictive_model_result": predictive_model_result,
             },
         )
         await session.commit()
@@ -425,10 +540,6 @@ async def uw_preliminary_recommendation(
     state: Annotated[dict, InjectedState],
 ) -> str:
     """Re-evaluate the preliminary recommendation for an application.
-
-    Re-computes the recommendation based on current risk factors and
-    documents. Useful after conditions have been addressed or new data
-    is available. For a full assessment, use uw_risk_assessment instead.
 
     Args:
         application_id: The loan application ID to evaluate.

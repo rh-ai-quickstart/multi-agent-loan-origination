@@ -230,3 +230,34 @@ class TestGenerateRiskRecommendation:
         params["credit_rating"] = "Low"
         result = json.loads(generate_risk_recommendation(**params))
         assert any("Strong credit" in f for f in result["compensating_factors"])
+
+    def test_ml_approval_adds_compensating_factor(self):
+        """ML model approval adds compensating factor."""
+        params = self._base_params()
+        params["predictive_model_result"] = "Loan approved"
+        result = json.loads(generate_risk_recommendation(**params))
+        assert any("Predictive model supports" in f for f in result["compensating_factors"])
+
+    def test_ml_rejection_adds_warning(self):
+        """ML model rejection adds warning."""
+        params = self._base_params()
+        params["predictive_model_result"] = "Loan rejected"
+        result = json.loads(generate_risk_recommendation(**params))
+        assert any("Predictive model flags" in w for w in result["warnings"])
+
+    def test_ml_rejection_escalates_approve_to_conditions(self):
+        """ML rejection escalates clean Approve to Approve with Conditions."""
+        params = self._base_params()
+        params["predictive_model_result"] = "Loan rejected"
+        result = json.loads(generate_risk_recommendation(**params))
+        assert result["recommendation"] == "Approve with Conditions"
+        assert any("predictive model" in c.lower() for c in result["conditions"])
+
+    def test_ml_none_has_no_effect(self):
+        """No ML result (None) does not affect recommendation."""
+        params = self._base_params()
+        params["predictive_model_result"] = None
+        result = json.loads(generate_risk_recommendation(**params))
+        assert result["recommendation"] == "Approve"
+        assert not any("Predictive" in f for f in result["compensating_factors"])
+        assert not any("Predictive" in w for w in result["warnings"])
