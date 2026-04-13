@@ -522,6 +522,8 @@ class RiskAssessmentRecord(Base):
     recommendation = Column(String(50), nullable=True)
     recommendation_rationale = Column(JSONB, nullable=True)
     recommendation_conditions = Column(JSONB, nullable=True)
+    predictive_model_result = Column(String(50), nullable=True)
+    predictive_model_available = Column(Boolean, nullable=True)
     assessed_by = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

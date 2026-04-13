@@ -16,6 +16,8 @@ export const RiskAssessmentSchema = z.object({
     income_stability_rating: z.string().nullable().optional(),
     asset_sufficiency_value: z.number().nullable().optional(),
     asset_sufficiency_rating: z.string().nullable().optional(),
+    predictive_model_result: z.string().nullable().optional(),
+    predictive_model_available: z.boolean().nullable().optional(),
     compensating_factors: z.array(z.string()).nullable().optional(),
     warnings: z.array(z.string()).nullable().optional(),
     overall_risk: z.string().nullable().optional(),

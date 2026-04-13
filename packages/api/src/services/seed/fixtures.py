@@ -564,23 +564,23 @@ ACTIVE_APPLICATIONS: list[dict] = [
         "created_at": _days_ago(28),
         "updated_at": _days_ago(6),
         "financials": {
-            "gross_monthly_income": Decimal("12000.00"),
+            "gross_monthly_income": Decimal("5200.00"),
             "monthly_debts": Decimal("3200.00"),
-            "total_assets": Decimal("185000.00"),
-            "credit_score": 765,
-            "dti_ratio": 0.267,
+            "total_assets": Decimal("18000.00"),
+            "credit_score": 520,
+            "dti_ratio": 0.615,
         },
         "documents": [
             {
                 "doc_type": DocumentType.W2,
                 "status": DocumentStatus.ACCEPTED,
-                "extractions": _w2_extractions("Mountain View Engineering", "$144,000"),
+                "extractions": _w2_extractions("Mountain View Engineering", "$62,400"),
             },
             {
                 "doc_type": DocumentType.PAY_STUB,
                 "status": DocumentStatus.ACCEPTED,
                 "extractions": _pay_stub_extractions(
-                    "Mountain View Engineering", "$5,538.46", ytd="$11,076.92"
+                    "Mountain View Engineering", "$2,400.00", ytd="$4,800.00"
                 ),
             },
             {
@@ -1402,11 +1402,11 @@ CREDIT_PROFILES: dict[str, dict] = {
         "oldest_account_years": 15,
     },
     ROBERT_KIM_ID: {
-        "credit_score": 710,
-        "outstanding_accounts": 5,
-        "total_outstanding_debt": Decimal("58300.00"),
-        "derogatory_marks": 1,
-        "oldest_account_years": 8,
+        "credit_score": 520,
+        "outstanding_accounts": 9,
+        "total_outstanding_debt": Decimal("92400.00"),
+        "derogatory_marks": 4,
+        "oldest_account_years": 3,
     },
     LISA_WASHINGTON_ID: {
         "credit_score": 695,

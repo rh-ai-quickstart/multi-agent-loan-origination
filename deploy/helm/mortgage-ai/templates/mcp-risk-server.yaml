@@ -1,0 +1,76 @@
+{{- if .Values.mcpRiskServer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.mcpRiskServer.name }}
+  labels:
+    {{- include "mortgage-ai.mcp-risk.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.mcpRiskServer.replicas }}
+  selector:
+    matchLabels:
+      {{- include "mortgage-ai.mcp-risk.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "mortgage-ai.mcp-risk.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mcp-risk-server
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "mortgage-ai.image" (dict "name" .Values.mcpRiskServer.image.repository "tag" .Values.mcpRiskServer.image.tag "Values" .Values) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["python", "-m", "src.mcp_server"]
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          {{- if .Values.mcpRiskServer.healthCheck.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.mcpRiskServer.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.mcpRiskServer.healthCheck.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.mcpRiskServer.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.mcpRiskServer.healthCheck.periodSeconds }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.mcpRiskServer.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.mcpRiskServer.name }}
+  labels:
+    {{- include "mortgage-ai.mcp-risk.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.mcpRiskServer.service.type }}
+  ports:
+    - port: {{ .Values.mcpRiskServer.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "mortgage-ai.mcp-risk.selectorLabels" . | nindent 4 }}
+{{- end }}

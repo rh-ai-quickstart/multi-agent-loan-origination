@@ -28,6 +28,8 @@ async def create_risk_assessment(
     recommendation: str | None = None,
     recommendation_rationale: list[str] | None = None,
     recommendation_conditions: list[str] | None = None,
+    predictive_model_result: str | None = None,
+    predictive_model_available: bool | None = None,
 ) -> RiskAssessmentRecord:
     """Create a risk assessment record (add only, caller commits)."""
     record = RiskAssessmentRecord(
@@ -50,6 +52,8 @@ async def create_risk_assessment(
         recommendation=recommendation,
         recommendation_rationale=recommendation_rationale,
         recommendation_conditions=recommendation_conditions,
+        predictive_model_result=predictive_model_result,
+        predictive_model_available=predictive_model_available,
     )
     session.add(record)
     return record

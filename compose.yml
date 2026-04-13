@@ -48,6 +48,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      mcp-risk-server:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql+asyncpg://user:password@mortgage-ai-db:5432/mortgage-ai #notsecret
       COMPLIANCE_DATABASE_URL: postgresql+asyncpg://compliance_app:compliance_pass@mortgage-ai-db:5432/mortgage-ai #notsecret
@@ -76,6 +78,8 @@ services:
       UPLOAD_MAX_SIZE_MB: "${UPLOAD_MAX_SIZE_MB:-50}"
       MLFLOW_TRACKING_URI: "${MLFLOW_TRACKING_URI:-http://mlflow:5000}"
       MLFLOW_EXPERIMENT_NAME: "${MLFLOW_EXPERIMENT_NAME:-mortgage-ai}"
+      MCP_RISK_SERVER_URL: http://mcp-risk-server:8081/mcp
+      PREDICTIVE_MODEL_MCP_URL: "${PREDICTIVE_MODEL_MCP_URL:-}"
       COMPANY_NAME: "${COMPANY_NAME:-Acme FinTech Company}"
       AGENT_NAME: "${AGENT_NAME:-}"
     volumes:
@@ -111,6 +115,22 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  mcp-risk-server:
+    build:
+      context: .
+      dockerfile: packages/api/Containerfile
+    labels:
+      com.quickstart.package: api
+    command: python -m src.mcp_server
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8081/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   # -------------------------------------------------------------------- auth --
   keycloak:

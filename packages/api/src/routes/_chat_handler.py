@@ -168,7 +168,10 @@ async def run_agent_stream(
         """
         # Set MLFlow trace context for correlation (autolog handles callbacks)
         set_trace_context(session_id=session_id, user_id=user_id)
-        config = {"configurable": {"thread_id": thread_id}}
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": 50,
+        }
 
         full_response = ""
         safety_blocked = False

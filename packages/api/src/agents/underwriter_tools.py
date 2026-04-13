@@ -2,8 +2,11 @@
 """LangGraph tools for the underwriter assistant agent.
 
 These wrap existing services so the underwriter agent can review the
-underwriting queue, inspect application details, perform risk assessments,
+underwriting queue, inspect application details, save risk assessments,
 and generate preliminary recommendations.
+
+Risk assessment *computation* is handled by MCP tools (see mcp_server.py).
+The uw_save_risk_assessment tool here handles DB persistence and audit only.
 
 Design note -- session-per-tool-call:
     Each tool opens its own ``SessionLocal()`` context rather than sharing
@@ -14,6 +17,7 @@ Design note -- session-per-tool-call:
     self-contained and avoids cross-tool state leakage.
 """
 
+import logging
 from typing import Annotated
 
 from db import CreditReport
@@ -31,15 +35,15 @@ from ..services.document import list_documents
 from ..services.rate_lock import get_rate_lock_status
 from ..services.risk_assessment import create_risk_assessment, update_recommendation
 from ..services.urgency import compute_urgency
+from .mcp_integration import get_predictive_tool, is_predictive_model_available
 from .risk_tools import (
-    _RISK_HIGH,
-    _RISK_LOW,
-    _RISK_MEDIUM,
     compute_recommendation,
     compute_risk_factors,
     extract_borrower_info,
 )
 from .shared import format_enum_label, user_context_from_state
+
+logger = logging.getLogger(__name__)
 
 _URGENCY_ORDER = {
     UrgencyLevel.CRITICAL: 0,
@@ -299,20 +303,161 @@ async def uw_application_detail(
         return output
 
 
+# Loan type -> term in months mapping
+_LOAN_TERM_MAP = {
+    "conventional_30": 360,
+    "conventional_15": 180,
+    "fha": 360,
+    "va": 360,
+    "jumbo": 360,
+    "usda": 360,
+    "arm": 360,
+}
+
+
 @tool
-async def uw_risk_assessment(
+async def uw_predict_loan_approval(
     application_id: int,
     state: Annotated[dict, InjectedState],
 ) -> str:
-    """Perform a full risk assessment with preliminary recommendation.
+    """Run the external predictive ML model on a loan application.
 
-    Computes DTI ratio, LTV ratio, credit risk, income stability, and
-    asset sufficiency. Then derives a preliminary recommendation (Approve,
-    Approve with Conditions, Suspend, or Deny). This is an advisory
-    assessment only -- final decisions require human judgment.
+    Maps application data to the model's input fields and returns the
+    prediction. Returns unavailability message when the model is not
+    configured.
 
     Args:
-        application_id: The loan application ID to assess.
+        application_id: The loan application ID.
+    """
+    if not is_predictive_model_available():
+        return "Predictive model not configured."
+
+    predictive_tool = get_predictive_tool()
+    if predictive_tool is None:
+        return "Predictive model tool not found."
+
+    user = _user_context_from_state(state)
+    async with SessionLocal() as session:
+        app = await get_application(session, user, application_id)
+        if app is None:
+            return "Application not found or you don't have access to it."
+
+        financials = await get_financials(session, application_id)
+
+        # Aggregate financials across all borrowers
+        total_income = sum((f.gross_monthly_income or 0) for f in financials) if financials else 0
+        total_assets = sum((f.total_assets or 0) for f in financials) if financials else 0
+        credit_scores = [f.credit_score for f in financials if f.credit_score] if financials else []
+        min_credit = min(credit_scores) if credit_scores else 0
+
+        # Derive employment status
+        emp_statuses = []
+        for ab in app.application_borrowers or []:
+            if ab.borrower and ab.borrower.employment_status:
+                emp_statuses.append(ab.borrower.employment_status.value)
+        is_self_employed = "self_employed" in emp_statuses
+
+        # Derive loan term from loan type
+        loan_type_val = app.loan_type.value if app.loan_type else "conventional_30"
+        loan_term = _LOAN_TERM_MAP.get(loan_type_val, 360)
+
+        # Synthesize missing fields using application_id for variation
+        app_hash = hash(application_id)
+        no_of_dependents = abs(app_hash) % 5
+        graduated = abs(app_hash) % 2 == 0
+
+        # Split total assets across 4 categories (40/10/20/30)
+        residential_assets = float(total_assets) * 0.4
+        commercial_assets = float(total_assets) * 0.1
+        luxury_assets = float(total_assets) * 0.2
+        bank_assets = float(total_assets) * 0.3
+
+        # Capture loan_amount before session closes (commit expires ORM objects)
+        loan_amount = float(app.loan_amount or 0)
+
+        await write_audit_event(
+            session,
+            event_type="agent_tool_called",
+            user_id=user.user_id,
+            user_role=user.role.value,
+            application_id=application_id,
+            event_data={"tool": "uw_predict_loan_approval"},
+        )
+        await session.commit()
+
+    invoke_args = {
+        "no_of_dependents": no_of_dependents,
+        "graduated": graduated,
+        "self_employed": is_self_employed,
+        "income_annum": float(total_income) * 12,
+        "loan_amount": loan_amount,
+        "loan_term": loan_term,
+        "cibil_score": min_credit,
+        "residential_assets_value": residential_assets,
+        "commercial_assets_value": commercial_assets,
+        "luxury_assets_value": luxury_assets,
+        "bank_asset_value": bank_assets,
+    }
+    # Invoke the external MCP tool
+    try:
+        result = await predictive_tool.ainvoke(invoke_args)
+        return str(result)
+    except Exception as e:
+        logger.exception("Predictive model call failed for app %s", application_id)
+        return f"Predictive model call failed: {e}"
+
+
+@tool
+async def uw_save_risk_assessment(
+    application_id: int,
+    dti_value: float | None,
+    dti_rating: str | None,
+    ltv_value: float | None,
+    ltv_rating: str | None,
+    credit_value: int | None,
+    credit_rating: str | None,
+    credit_source: str,
+    income_stability_value: str | None,
+    income_stability_rating: str | None,
+    asset_sufficiency_value: float | None,
+    asset_sufficiency_rating: str | None,
+    overall_risk: str | None,
+    recommendation: str,
+    rationale: list[str] | None,
+    conditions: list[str] | None,
+    compensating_factors: list[str] | None,
+    warnings: list[str] | None,
+    predictive_model_result: str | None = None,
+    predictive_model_available: bool | None = None,
+    state: Annotated[dict, InjectedState] = None,
+) -> str:
+    """Save a completed risk assessment to the database.
+
+    Call this after computing all risk factors and the recommendation
+    using the individual MCP risk tools. Persists the assessment and
+    writes an audit event.
+
+    Args:
+        application_id: The loan application ID.
+        dti_value: Computed DTI percentage (or null if unavailable).
+        dti_rating: DTI risk rating (Low/Medium/High or null).
+        ltv_value: Computed LTV percentage (or null if unavailable).
+        ltv_rating: LTV risk rating (Low/Medium/High or null).
+        credit_value: Credit score used (or null if unavailable).
+        credit_rating: Credit risk rating (Low/Medium/High or null).
+        credit_source: 'bureau_hard_pull' or 'self_reported'.
+        income_stability_value: Employment status summary (or null).
+        income_stability_rating: Income stability rating (Low/Medium/High or null).
+        asset_sufficiency_value: Asset ratio percentage (or null).
+        asset_sufficiency_rating: Asset sufficiency rating (Low/Medium/High or null).
+        overall_risk: Overall risk rating (Low/Medium/High or null).
+        recommendation: Approve, Approve with Conditions, Suspend, or Deny.
+        rationale: List of reasons for the recommendation.
+        conditions: List of conditions (if Approve with Conditions).
+        compensating_factors: List of compensating factors found.
+        warnings: List of data quality warnings.
+        predictive_model_result: ML model prediction (Loan approved/rejected or null).
+        predictive_model_available: Whether the predictive model was available.
     """
     user = _user_context_from_state(state)
     async with SessionLocal() as session:
@@ -329,83 +474,40 @@ async def uw_risk_assessment(
                 user_role=user.role.value,
                 application_id=application_id,
                 event_data={
-                    "tool": "uw_risk_assessment",
+                    "tool": "uw_save_risk_assessment",
                     "error": f"wrong_stage:{stage_val}",
                 },
             )
             await session.commit()
             return (
-                f"Risk assessment is only available for applications in the UNDERWRITING "
-                f"stage. Application #{application_id} is in "
+                f"Risk assessment save is only available for applications in the "
+                f"UNDERWRITING stage. Application #{application_id} is in "
                 f"{format_enum_label(stage_val)}."
             )
 
-        financials = await get_financials(session, application_id)
-
-        # Prefer bureau credit score from hard-pull CreditReport
-        bureau_score = None
-        cr_result = await session.execute(
-            select(CreditReport)
-            .where(
-                CreditReport.application_id == application_id,
-                CreditReport.pull_type == "hard",
-            )
-            .order_by(CreditReport.pulled_at.desc())
-            .limit(1)
-        )
-        hard_pull = cr_result.scalars().first()
-        if hard_pull:
-            bureau_score = hard_pull.credit_score
-
-        documents, doc_total = await list_documents(session, user, application_id, limit=50)
-        borrowers = extract_borrower_info(app)
-        risk = compute_risk_factors(app, financials, borrowers, bureau_credit_score=bureau_score)
-        rec = compute_recommendation(
-            risk,
-            borrowers,
-            has_financials=bool(financials),
-            doc_total=doc_total,
-        )
-
-        credit_source = "bureau_hard_pull" if bureau_score else "self_reported"
-
-        # Compute overall risk
-        ratings = [
-            risk.dti.get("rating"),
-            risk.ltv.get("rating"),
-            risk.credit.get("rating"),
-            risk.income_stability.get("rating"),
-            risk.asset_sufficiency.get("rating"),
-        ]
-        valid_ratings = [r for r in ratings if r is not None]
-        if valid_ratings:
-            risk_order = {_RISK_LOW: 0, _RISK_MEDIUM: 1, _RISK_HIGH: 2}
-            overall_risk = max(valid_ratings, key=lambda r: risk_order.get(r, 1))
-        else:
-            overall_risk = None
-
-        # Persist risk assessment with recommendation
         await create_risk_assessment(
             session,
             application_id=application_id,
-            dti_value=risk.dti.get("value"),
-            dti_rating=risk.dti.get("rating"),
-            ltv_value=risk.ltv.get("value"),
-            ltv_rating=risk.ltv.get("rating"),
-            credit_value=risk.credit.get("value"),
-            credit_rating=risk.credit.get("rating"),
+            dti_value=dti_value,
+            dti_rating=dti_rating,
+            ltv_value=ltv_value,
+            ltv_rating=ltv_rating,
+            credit_value=credit_value,
+            credit_rating=credit_rating,
             credit_source=credit_source,
-            income_stability_value=risk.income_stability.get("value"),
-            income_stability_rating=risk.income_stability.get("rating"),
-            asset_sufficiency_value=risk.asset_sufficiency.get("value"),
-            asset_sufficiency_rating=risk.asset_sufficiency.get("rating"),
-            compensating_factors=risk.compensating_factors or None,
-            warnings=risk.warnings or None,
+            income_stability_value=income_stability_value,
+            income_stability_rating=income_stability_rating,
+            asset_sufficiency_value=asset_sufficiency_value,
+            asset_sufficiency_rating=asset_sufficiency_rating,
+            compensating_factors=compensating_factors or None,
+            warnings=warnings or None,
             overall_risk=overall_risk,
             assessed_by=user.user_id,
-            recommendation=rec.recommendation,
-            recommendation_rationale=rec.rationale or None,
-            recommendation_conditions=rec.conditions or None,
+            recommendation=recommendation,
+            recommendation_rationale=rationale or None,
+            recommendation_conditions=conditions or None,
+            predictive_model_result=predictive_model_result,
+            predictive_model_available=predictive_model_available,
         )
 
         await write_audit_event(
@@ -415,108 +517,21 @@ async def uw_risk_assessment(
             user_role=user.role.value,
             application_id=application_id,
             event_data={
-                "tool": "uw_risk_assessment",
-                "dti": risk.dti.get("value"),
-                "ltv": risk.ltv.get("value"),
-                "credit": risk.credit.get("value"),
+                "tool": "uw_save_risk_assessment",
+                "dti": dti_value,
+                "ltv": ltv_value,
+                "credit": credit_value,
                 "credit_source": credit_source,
-                "recommendation": rec.recommendation,
+                "recommendation": recommendation,
+                "predictive_model_result": predictive_model_result,
             },
         )
         await session.commit()
 
-    # Format output
-    lines = [
-        f"Risk Assessment -- Application #{application_id}",
-        "",
-    ]
-
-    # DTI (Capacity)
-    dti = risk.dti
-    if dti["value"] is not None:
-        lines.append(f"CAPACITY (DTI): {dti['value']}% -- {dti['rating']} Risk")
-        if dti["value"] < 36:
-            lines.append("  Well within conventional guidelines")
-        elif dti["value"] <= 43:
-            lines.append("  Within QM safe harbor limits")
-        else:
-            lines.append("  Exceeds QM safe harbor; requires compensating factors or exception")
-    else:
-        lines.append("CAPACITY (DTI): Incomplete data")
-
-    # LTV (Collateral)
-    ltv = risk.ltv
-    lines.append("")
-    if ltv["value"] is not None:
-        lines.append(f"COLLATERAL (LTV): {ltv['value']}% -- {ltv['rating']} Risk")
-        if ltv["value"] > 80:
-            lines.append("  PMI likely required")
-    else:
-        lines.append("COLLATERAL (LTV): Incomplete data")
-
-    # Credit
-    cred = risk.credit
-    lines.append("")
-    if cred["value"] is not None:
-        lines.append(f"CREDIT: {cred['value']} (lowest) -- {cred['rating']} Risk")
-    else:
-        lines.append("CREDIT: No score available")
-
-    # Income stability
-    stab = risk.income_stability
-    lines.append("")
-    if stab["value"] is not None:
-        lines.append(f"STABILITY: {stab['value']} -- {stab['rating']} Risk")
-    else:
-        lines.append("STABILITY: No employment data")
-
-    # Asset sufficiency
-    assets = risk.asset_sufficiency
-    lines.append("")
-    if assets["value"] is not None:
-        lines.append(f"ASSET SUFFICIENCY: {assets['value']}% of loan -- {assets['rating']} Risk")
-    else:
-        lines.append("ASSET SUFFICIENCY: Incomplete data")
-
-    # Compensating factors
-    if risk.compensating_factors:
-        lines.append("")
-        lines.append("COMPENSATING FACTORS:")
-        for cf in risk.compensating_factors:
-            lines.append(f"  + {cf}")
-
-    # Warnings
-    if risk.warnings:
-        lines.append("")
-        lines.append("WARNINGS:")
-        for w in risk.warnings:
-            lines.append(f"  ! {w}")
-
-    # Overall risk
-    lines.append("")
-    if overall_risk:
-        lines.append(f"OVERALL RISK: {overall_risk}")
-    else:
-        lines.append("OVERALL RISK: Insufficient data for assessment")
-
-    # Recommendation
-    lines.append("")
-    lines.append(f"RECOMMENDATION: {rec.recommendation}")
-    if rec.rationale:
-        for r in rec.rationale:
-            lines.append(f"  - {r}")
-    if rec.conditions:
-        lines.append("CONDITIONS:")
-        for i, c in enumerate(rec.conditions, 1):
-            lines.append(f"  {i}. {c}")
-
-    lines.append("")
-    lines.append(
-        "DISCLAIMER: This is an advisory assessment only. All regulatory "
-        "information is simulated for demonstration purposes."
+    return (
+        f"Risk assessment saved for application #{application_id}. "
+        f"Recommendation: {recommendation}."
     )
-
-    return "\n".join(lines)
 
 
 @tool
@@ -525,10 +540,6 @@ async def uw_preliminary_recommendation(
     state: Annotated[dict, InjectedState],
 ) -> str:
     """Re-evaluate the preliminary recommendation for an application.
-
-    Re-computes the recommendation based on current risk factors and
-    documents. Useful after conditions have been addressed or new data
-    is available. For a full assessment, use uw_risk_assessment instead.
 
     Args:
         application_id: The loan application ID to evaluate.
@@ -576,7 +587,7 @@ async def uw_preliminary_recommendation(
         if hard_pull:
             bureau_score = hard_pull.credit_score
 
-        documents, doc_total = await list_documents(session, user, application_id, limit=50)
+        _documents, doc_total = await list_documents(session, user, application_id, limit=50)
         borrowers = extract_borrower_info(app)
         risk = compute_risk_factors(app, financials, borrowers, bureau_credit_score=bureau_score)
         rec = compute_recommendation(

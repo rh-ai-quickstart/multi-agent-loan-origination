@@ -13,6 +13,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .admin import setup_admin
+from .agents.mcp_integration import init_mcp_client, shutdown_mcp_client
 from .core.config import settings
 from .inference.safety import log_safety_status
 from .middleware.pii import PIIMaskingMiddleware
@@ -75,8 +76,13 @@ async def lifespan(_app: FastAPI):
     await conversation_service.initialize(settings.DATABASE_URL)
     init_storage_service(settings)
     init_extraction_service()
+    await init_mcp_client(
+        settings.MCP_RISK_SERVER_URL,
+        predictive_model_url=settings.PREDICTIVE_MODEL_MCP_URL,
+    )
     await _auto_seed()
     yield
+    await shutdown_mcp_client()
     await conversation_service.shutdown()
 
 
@@ -179,6 +185,14 @@ app.include_router(underwriting.router, prefix="/api/applications", tags=["under
 
 # Setup SQLAdmin dashboard at /admin
 setup_admin(app)
+
+
+@app.get("/api/features")
+async def feature_flags() -> dict[str, bool]:
+    """Expose optional feature availability to the UI."""
+    return {
+        "predictive_model": settings.PREDICTIVE_MODEL_MCP_URL is not None,
+    }
 
 
 @app.get("/")

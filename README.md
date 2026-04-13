@@ -22,6 +22,8 @@ Red Hat AI reference application demonstrating agentic AI orchestration across t
   - [Technology stack](#technology-stack)
   - [Testing](#testing)
   - [Environment configuration](#environment-configuration)
+  - [MLflow observability](#mlflow-observability-rhoai-34)
+  - [Predictive model integration](#predictive-model-integration-optional)
 - [Tags](#tags)
 
 ## Detailed description
@@ -280,6 +282,29 @@ The Helm chart creates:
 - `ClusterRole` with `mlflow.kubeflow.org` API permissions (experiments, datasets, models, gateway)
 - `ServiceAccount` for MLflow client authentication
 - `ClusterRoleBinding` connecting the ServiceAccount to the ClusterRole
+
+### Predictive model integration (optional)
+
+An external predictive ML model can optionally augment the underwriter's risk assessment. When configured, the model classifies loan approval likelihood and its result appears alongside the rule-based risk factors as a sixth input to the recommendation.
+
+The predictive model runs as a separate MCP server deployment. To enable it, set the `PREDICTIVE_MODEL_MCP_URL` environment variable to the MCP server's Streamable HTTP endpoint:
+
+```env
+# Local development (.env)
+PREDICTIVE_MODEL_MCP_URL=http://localhost:8002/mcp
+
+# OpenShift (Helm)
+helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
+  --set secrets.PREDICTIVE_MODEL_MCP_URL=http://mcp-server.<namespace>.svc.cluster.local:8000/mcp
+```
+
+When the variable is unset or empty, the feature is disabled and the underwriter workflow operates with the five standard risk factors only. If the predictive model server is unreachable at startup, the API logs a warning and continues without it.
+
+| Component | Behavior when enabled | Behavior when disabled |
+|-----------|----------------------|----------------------|
+| API | Calls `check_loan_approval` MCP tool during risk assessment | Skips predictive step, no error |
+| UI | Shows 4th "Auto U/W" card in risk assessment grid | Shows 3-column grid (Credit, Capacity, Collateral) |
+| Database | Stores `predictive_model_result` and `predictive_model_available` on risk assessment records | Columns remain null |
 
 ## Tags
 

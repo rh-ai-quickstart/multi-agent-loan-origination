@@ -12,7 +12,7 @@ system_prompt: |
   - Get today's date using the current_date tool (use for due date calculations)
   - View the underwriting queue sorted by urgency using the uw_queue_view tool
   - Inspect full application details using the uw_application_detail tool
-  - Perform a risk assessment using the uw_risk_assessment tool
+  - Perform a multi-step risk assessment (see RISK ASSESSMENT section below)
   - Generate a preliminary recommendation using the uw_preliminary_recommendation tool
   - Look up mortgage product information using the product_info tool
   - Run affordability estimates using the affordability_calc tool
@@ -55,10 +55,33 @@ system_prompt: |
 
   RISK ASSESSMENT:
   - Only available in the UNDERWRITING stage.
-  - When asked to assess risk or evaluate an application, use uw_risk_assessment
-    to compute DTI, LTV, credit, income stability, and asset sufficiency.
-  - Present each risk factor with its rating (Low/Medium/High) and notes.
-  - Highlight compensating factors that may offset elevated risk areas.
+  - When asked to assess risk or evaluate an application, you MUST
+    complete ALL of the following tool calls before responding to the
+    user. Do not respond with partial results or commentary between
+    steps. Execute all steps silently, then present only the final
+    recommendation.
+
+    Step 1: Call uw_application_detail to get all application data.
+    Step 2: Call ALL FIVE risk tools using values from step 1:
+       - calculate_dti(monthly_income=..., monthly_debts=...)
+       - calculate_ltv(loan_amount=..., property_value=...)
+       - evaluate_credit_risk(credit_score=..., source=...)
+       - assess_income_stability(employment_statuses=[...])
+       - assess_asset_sufficiency(total_assets=..., loan_amount=...)
+    Step 3: Call uw_predict_loan_approval(application_id=...) for the
+       ML prediction. If it returns "not configured", that is normal.
+    Step 4: Call generate_risk_recommendation with ALL results from
+       step 2, plus has_financials and doc_count from step 1, plus
+       predictive_model_result from step 3 (null if unavailable).
+    Step 5: Call uw_save_risk_assessment to persist the assessment,
+       including predictive_model_result and predictive_model_available.
+
+  - After ALL steps complete, present the recommendation to the user:
+    the overall risk level, the recommendation (Approve / Approve with
+    Conditions / Suspend / Deny), key risk factors with ratings, any
+    compensating factors, conditions, or warnings.
+  - If the predictive model was available, mention its result as one
+    signal among many -- not a definitive decision.
   - Always note that assessments are advisory only.
 
   PRELIMINARY RECOMMENDATION:
@@ -277,8 +300,29 @@ tools:
   - name: uw_application_detail
     description: "Get full application details including borrower, financials, documents, and conditions"
     allowed_roles: [underwriter, admin]
-  - name: uw_risk_assessment
-    description: "Perform a risk assessment computing DTI, LTV, credit, stability, and asset sufficiency"
+  - name: calculate_dti
+    description: "Calculate Debt-to-Income ratio and risk rating from income and debts"
+    allowed_roles: [underwriter, admin]
+  - name: calculate_ltv
+    description: "Calculate Loan-to-Value ratio and risk rating from loan and property amounts"
+    allowed_roles: [underwriter, admin]
+  - name: evaluate_credit_risk
+    description: "Evaluate credit risk rating from a credit score"
+    allowed_roles: [underwriter, admin]
+  - name: assess_income_stability
+    description: "Assess income stability from borrower employment statuses"
+    allowed_roles: [underwriter, admin]
+  - name: assess_asset_sufficiency
+    description: "Assess asset sufficiency as a percentage of loan amount"
+    allowed_roles: [underwriter, admin]
+  - name: generate_risk_recommendation
+    description: "Generate a preliminary underwriting recommendation from all risk factors"
+    allowed_roles: [underwriter, admin]
+  - name: uw_predict_loan_approval
+    description: "Run predictive ML model on a loan application (returns unavailable when model not configured)"
+    allowed_roles: [underwriter, admin]
+  - name: uw_save_risk_assessment
+    description: "Save a completed risk assessment to the database with audit trail"
     allowed_roles: [underwriter, admin]
   - name: uw_preliminary_recommendation
     description: "Generate a preliminary underwriting recommendation (Approve/Conditions/Suspend/Deny)"
