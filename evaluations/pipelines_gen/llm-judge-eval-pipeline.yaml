@@ -8,9 +8,9 @@
 #    llm_model: str [Default: 'qwen3-14b']
 #    llm_secret_name: str [Default: 'llm-credentials']
 #    mlflow_experiment_name: str [Default: 'multi-agent-loan-origination']
-#    mlflow_secret_name: str [Default: 'mlflow-credentials']
 #    mlflow_tracking_uri: str
 #    mlflow_workspace: str
+#    system_prompt_version: str [Default: 'v1']
 components:
   comp-create-dataset-op:
     executorLabel: exec-create-dataset-op
@@ -76,6 +76,15 @@ components:
         mlflow_workspace:
           description: MLflow workspace (namespace) for RHOAI
           parameterType: STRING
+        system_prompt_version:
+          defaultValue: v1
+          description: 'Prompt version to use. "v1" (default) uses
+
+            the agent''s built-in prompt. Any other value (e.g. "v2") uses
+
+            degraded mock responses to simulate regression.'
+          isOptional: true
+          parameterType: STRING
     outputDefinitions:
       parameters:
         Output:
@@ -135,9 +144,14 @@ deploymentSpec:
           \ Experiment name\n        dataset_name: Name for the dataset\n        agent_name:\
           \ Agent being evaluated\n        mlflow_workspace: MLflow workspace (namespace)\
           \ for RHOAI\n\n    Returns:\n        NamedTuple with experiment_name and\
-          \ dataset_id\n    \"\"\"\n    from typing import NamedTuple\n    import\
-          \ logging\n    import mlflow\n    from mlflow.genai.datasets import create_dataset\n\
-          \n    logging.getLogger(\"mlflow\").setLevel(logging.ERROR)\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
+          \ dataset_id\n    \"\"\"\n    import os\n    from typing import NamedTuple\n\
+          \    from pathlib import Path\n    import logging\n    import mlflow\n \
+          \   from mlflow.genai.datasets import create_dataset\n\n    logging.getLogger(\"\
+          mlflow\").setLevel(logging.ERROR)\n\n    # Auto-detect Kubernetes SA token\
+          \ for MLflow auth\n    if not os.environ.get(\"MLFLOW_TRACKING_TOKEN\"):\n\
+          \        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
+          )\n        if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
+          ] = sa_token_path.read_text().strip()\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
           \    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API\n\
           \    mlflow.set_experiment(experiment_name)\n\n    # Define test cases\n\
           \    test_cases = [\n        {\n            \"inputs\": {\"user_message\"\
@@ -260,17 +274,25 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef run_llm_judge_eval_op(\n    mlflow_tracking_uri: str,\n    experiment_name:\
           \ str,\n    dataset_id: str,\n    llm_base_url: str,\n    llm_model: str,\n\
-          \    mlflow_workspace: str,\n) -> dict:\n    \"\"\"Run LLM-as-a-Judge evaluation.\n\
-          \n    Uses all scorers including LLM judges:\n    - contains_expected, has_numeric_result,\
-          \ response_length (deterministic)\n    - ToolCallCorrectness, ToolCallEfficiency\
-          \ (LLM judge)\n    - RelevanceToQuery, Safety, Guidelines (LLM judge)\n\n\
-          \    Args:\n        mlflow_tracking_uri: MLflow server URL\n        experiment_name:\
+          \    mlflow_workspace: str,\n    system_prompt_version: str = \"v1\",\n\
+          ) -> dict:\n    \"\"\"Run LLM-as-a-Judge evaluation.\n\n    Uses all scorers\
+          \ including LLM judges:\n    - contains_expected, has_numeric_result, response_length\
+          \ (deterministic)\n    - ToolCallCorrectness, ToolCallEfficiency (LLM judge)\n\
+          \    - RelevanceToQuery, Safety, Guidelines (LLM judge)\n\n    Args:\n \
+          \       mlflow_tracking_uri: MLflow server URL\n        experiment_name:\
           \ Experiment name\n        dataset_id: MLflow dataset ID to load\n     \
           \   llm_base_url: LLM endpoint URL\n        llm_model: Model name for judge\n\
-          \        mlflow_workspace: MLflow workspace (namespace) for RHOAI\n\n  \
-          \  Returns:\n        Dictionary with evaluation metrics\n    \"\"\"\n  \
-          \  import os\n    import re\n    import logging\n    import warnings\n\n\
-          \    warnings.filterwarnings(\"ignore\")\n\n    # Set OpenAI env vars BEFORE\
+          \        mlflow_workspace: MLflow workspace (namespace) for RHOAI\n    \
+          \    system_prompt_version: Prompt version to use. \"v1\" (default) uses\n\
+          \            the agent's built-in prompt. Any other value (e.g. \"v2\")\
+          \ uses\n            degraded mock responses to simulate regression.\n\n\
+          \    Returns:\n        Dictionary with evaluation metrics\n    \"\"\"\n\
+          \    import os\n    import re\n    import logging\n    import warnings\n\
+          \    from pathlib import Path\n\n    warnings.filterwarnings(\"ignore\"\
+          )\n\n    # Auto-detect Kubernetes SA token for MLflow auth\n    if not os.environ.get(\"\
+          MLFLOW_TRACKING_TOKEN\"):\n        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
+          )\n        if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
+          ] = sa_token_path.read_text().strip()\n\n    # Set OpenAI env vars BEFORE\
           \ importing mlflow to ensure proper client config\n    os.environ[\"OPENAI_API_BASE\"\
           ] = llm_base_url\n    os.environ[\"OPENAI_BASE_URL\"] = llm_base_url\n \
           \   print(f\"DEBUG: Set OPENAI_API_BASE={os.environ.get('OPENAI_API_BASE')}\"\
@@ -293,27 +315,56 @@ deploymentSpec:
           \ True\n        return False\n\n    @scorer\n    def response_length(outputs:\
           \ str) -> float:\n        length = len(str(outputs))\n        return 1.0\
           \ if length >= 50 else 0.5\n\n    # -------------------------------------------------------------------------\n\
-          \    # Define mock predictor\n    # -------------------------------------------------------------------------\n\
-          \    def predict_fn(user_message: str) -> str:\n        msg_lower = user_message.lower()\n\
-          \        if \"loan products\" in msg_lower or \"offer\" in msg_lower:\n\
-          \            return \"We offer several mortgage products including 30-year\
+          \    # Define mock predictor (version-aware)\n    # -------------------------------------------------------------------------\n\
+          \    use_v1 = system_prompt_version.lower() == \"v1\"\n    print(f\"System\
+          \ prompt version: {system_prompt_version} ({'agent default' if use_v1 else\
+          \ 'regression test'})\")\n\n    def predict_fn(user_message: str) -> str:\n\
+          \        msg_lower = user_message.lower()\n\n        if use_v1:\n      \
+          \      # V1: Agent's built-in prompt \u2014 accurate, tool-sourced responses\n\
+          \            if \"loan products\" in msg_lower or \"offer\" in msg_lower:\n\
+          \                return \"We offer several mortgage products including 30-year\
           \ fixed, 15-year fixed, FHA loans, VA loans, and adjustable rate mortgages\
-          \ (ARMs).\"\n        elif \"fha\" in msg_lower:\n            return \"FHA\
-          \ loans are government-backed mortgages with lower down payment requirements,\
-          \ typically 3.5% for qualified borrowers.\"\n        elif \"va\" in msg_lower:\n\
-          \            return \"VA loans are available to eligible veterans and military\
-          \ service members, often with no down payment required.\"\n        elif\
-          \ \"fixed\" in msg_lower and \"adjustable\" in msg_lower:\n            return\
-          \ \"Fixed rate mortgages have consistent payments, while ARMs have rates\
-          \ that adjust periodically based on market conditions.\"\n        elif \"\
-          afford\" in msg_lower:\n            return \"Based on your income of $100,000\
-          \ and monthly debts, you could potentially afford a loan amount of approximately\
-          \ $350,000 with monthly payments around $2,200.\"\n        elif \"payment\"\
-          \ in msg_lower and \"300,000\" in msg_lower:\n            return \"On a\
-          \ $300,000 loan at 6.5% for 30 years, your estimated monthly payment would\
-          \ be approximately $1,896 for principal and interest.\"\n        else:\n\
-          \            return \"I can help you with information about our mortgage\
-          \ products, affordability calculations, and loan options.\"\n\n    # -------------------------------------------------------------------------\n\
+          \ (ARMs).\"\n            elif \"fha\" in msg_lower:\n                return\
+          \ \"FHA loans are government-backed mortgages with lower down payment requirements,\
+          \ typically 3.5% for qualified borrowers.\"\n            elif \"va\" in\
+          \ msg_lower:\n                return \"VA loans are available to eligible\
+          \ veterans and military service members, often with no down payment required.\"\
+          \n            elif \"fixed\" in msg_lower and \"adjustable\" in msg_lower:\n\
+          \                return \"Fixed rate mortgages have consistent payments,\
+          \ while ARMs have rates that adjust periodically based on market conditions.\"\
+          \n            elif \"afford\" in msg_lower:\n                return \"Based\
+          \ on your income of $100,000 and monthly debts, you could potentially afford\
+          \ a loan amount of approximately $350,000 with monthly payments around $2,200.\"\
+          \n            elif \"payment\" in msg_lower and \"300,000\" in msg_lower:\n\
+          \                return \"On a $300,000 loan at 6.5% for 30 years, your\
+          \ estimated monthly payment would be approximately $1,896 for principal\
+          \ and interest.\"\n            else:\n                return \"I can help\
+          \ you with information about our mortgage products, affordability calculations,\
+          \ and loan options.\"\n        else:\n            # V2+: Degraded responses\
+          \ \u2014 agent answering from \"general knowledge\"\n            # without\
+          \ calling tools. Simulates the regression caused by removing\n         \
+          \   # mandatory tool use from the system prompt.\n            if \"loan\
+          \ products\" in msg_lower or \"offer\" in msg_lower:\n                return\
+          \ \"We have various mortgage options available. You can choose between different\
+          \ loan types depending on your financial situation and goals.\"\n      \
+          \      elif \"fha\" in msg_lower:\n                return \"FHA loans are\
+          \ a type of government-backed mortgage. They can be a good option for first-time\
+          \ homebuyers who may have limited savings.\"\n            elif \"va\" in\
+          \ msg_lower:\n                return \"VA loans are mortgage loans for military\
+          \ service members. They typically offer favorable terms for eligible borrowers.\"\
+          \n            elif \"fixed\" in msg_lower and \"adjustable\" in msg_lower:\n\
+          \                return \"Fixed rate mortgages keep the same rate for the\
+          \ life of the loan, while adjustable rate mortgages can change over time\
+          \ based on market conditions.\"\n            elif \"afford\" in msg_lower:\n\
+          \                return \"Based on general guidelines, your housing costs\
+          \ should not exceed about 28% of your gross income. You should be able to\
+          \ find suitable options in your price range.\"\n            elif \"payment\"\
+          \ in msg_lower and \"300,000\" in msg_lower:\n                return \"\
+          Monthly payments depend on several factors including the loan amount, interest\
+          \ rate, and term length. I would recommend using a mortgage calculator for\
+          \ exact figures.\"\n            else:\n                return \"I can provide\
+          \ general information about mortgage products and help you understand your\
+          \ options.\"\n\n    # -------------------------------------------------------------------------\n\
           \    # Setup MLflow and configure LLM\n    # -------------------------------------------------------------------------\n\
           \    mlflow.set_tracking_uri(mlflow_tracking_uri)\n    mlflow.set_experiment(experiment_name)\n\
           \n    judge_model = f\"openai:/{llm_model}\"\n    print(f\"Judge model:\
@@ -379,8 +430,13 @@ deploymentSpec:
           \ MLflow server URL\n        mlflow_experiment_name: Base experiment name\n\
           \        mlflow_workspace: MLflow workspace (namespace) for RHOAI\n\n  \
           \  Returns:\n        Full experiment name (with -eval suffix)\n    \"\"\"\
-          \n    import logging\n    import mlflow\n\n    logging.getLogger(\"mlflow\"\
-          ).setLevel(logging.ERROR)\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
+          \n    import os\n    import logging\n    from pathlib import Path\n    import\
+          \ mlflow\n\n    logging.getLogger(\"mlflow\").setLevel(logging.ERROR)\n\n\
+          \    # Auto-detect Kubernetes SA token for MLflow auth\n    if not os.environ.get(\"\
+          MLFLOW_TRACKING_TOKEN\"):\n        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
+          )\n        if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
+          ] = sa_token_path.read_text().strip()\n            print(\"Auto-detected\
+          \ Kubernetes SA token\")\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
           \    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API\n\
           \n    experiment_name = mlflow_experiment_name\n    if not experiment_name.endswith(\"\
           -eval\"):\n        experiment_name = f\"{experiment_name}-eval\"\n\n   \
@@ -463,6 +519,8 @@ root:
               componentInputParameter: mlflow_tracking_uri
             mlflow_workspace:
               componentInputParameter: mlflow_workspace
+            system_prompt_version:
+              componentInputParameter: system_prompt_version
         taskInfo:
           name: run-llm-judge-eval-op
       setup-mlflow-op:
@@ -504,13 +562,16 @@ root:
         defaultValue: multi-agent-loan-origination
         isOptional: true
         parameterType: STRING
-      mlflow_secret_name:
-        defaultValue: mlflow-credentials
-        isOptional: true
-        parameterType: STRING
       mlflow_tracking_uri:
         parameterType: STRING
       mlflow_workspace:
+        parameterType: STRING
+      system_prompt_version:
+        defaultValue: v1
+        description: '"v1" uses the agent''s built-in prompt (default).
+
+          Set to "v2" or other to simulate a prompt regression.'
+        isOptional: true
         parameterType: STRING
 schemaVersion: 2.1.0
 sdkVersion: kfp-2.16.0
@@ -519,33 +580,11 @@ platforms:
   kubernetes:
     deploymentSpec:
       executors:
-        exec-create-dataset-op:
-          secretAsEnv:
-          - keyToEnv:
-            - envVar: MLFLOW_TRACKING_TOKEN
-              secretKey: MLFLOW_TRACKING_TOKEN
-            optional: false
-            secretNameParameter:
-              componentInputParameter: mlflow_secret_name
         exec-run-llm-judge-eval-op:
           secretAsEnv:
-          - keyToEnv:
-            - envVar: MLFLOW_TRACKING_TOKEN
-              secretKey: MLFLOW_TRACKING_TOKEN
-            optional: false
-            secretNameParameter:
-              componentInputParameter: mlflow_secret_name
           - keyToEnv:
             - envVar: OPENAI_API_KEY
               secretKey: OPENAI_API_KEY
             optional: false
             secretNameParameter:
               componentInputParameter: llm_secret_name
-        exec-setup-mlflow-op:
-          secretAsEnv:
-          - keyToEnv:
-            - envVar: MLFLOW_TRACKING_TOKEN
-              secretKey: MLFLOW_TRACKING_TOKEN
-            optional: false
-            secretNameParameter:
-              componentInputParameter: mlflow_secret_name
