@@ -8,7 +8,7 @@ Group related settings together; each group becomes a section future PRs extend.
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve project root .env regardless of CWD (matches inference/config.py approach)
@@ -136,7 +136,16 @@ class Settings(BaseSettings):
     PREDICTIVE_MODEL_MCP_URL: str | None = Field(
         default=None,
         description="URL of external predictive model MCP server. When set, predictive loan approval tool is available.",
+        validate_default=True,
     )
+
+    @field_validator("PREDICTIVE_MODEL_MCP_URL", mode="before")
+    @classmethod
+    def _empty_predictive_url_to_none(cls, v: str | None) -> str | None:
+        """Treat empty string as unset so deleting the value disables the feature."""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
     # -- Observability (MLFlow) --
     MLFLOW_TRACKING_URI: str | None = Field(
