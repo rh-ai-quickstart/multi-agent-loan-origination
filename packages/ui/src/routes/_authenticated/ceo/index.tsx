@@ -6,20 +6,16 @@ import {
     Activity,
     TrendingDown,
     Users,
-    Cpu,
     Shield,
-    AlertTriangle,
     ChevronDown,
     ChevronUp,
     Star,
 } from 'lucide-react';
 import { usePipelineSummary, useDenialTrends, useLOPerformance } from '@/hooks/use-analytics';
-import { useModelMonitoring } from '@/hooks/use-model-monitoring';
 import { useAuditEvents } from '@/hooks/use-audit';
 import type { PipelineSummary } from '@/schemas/analytics';
 import type { DenialTrends } from '@/schemas/analytics';
 import type { LOPerformanceSummary } from '@/schemas/analytics';
-import type { ModelMonitoringSummary } from '@/schemas/model-monitoring';
 import type { AuditSearchResponse, AuditEventItem } from '@/schemas/audit';
 import { cn } from '@/lib/utils';
 import { staffName } from '@/lib/staff-names';
@@ -54,17 +50,6 @@ function CardHeader({ icon: Icon, title }: { icon: React.ElementType; title: str
             <h2 className="text-lg font-semibold text-foreground">{title}</h2>
         </div>
     );
-}
-
-function formatNumber(n: number): string {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-    return n.toLocaleString();
-}
-
-function formatMs(ms: number): string {
-    if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${Math.round(ms)}ms`;
 }
 
 function initials(name: string): string {
@@ -360,174 +345,6 @@ function LOPerformanceSkeleton() {
     );
 }
 
-function ModelHealthCard({ data }: { data: ModelMonitoringSummary }) {
-    const isDemo = !data.langfuse_available;
-
-    // If no metrics at all (shouldn't happen now, but defensive)
-    if (!data.latency && !data.errors && !data.routing) {
-        return (
-            <CardShell>
-                <CardHeader icon={Cpu} title="AI Model Health" />
-                <div className="flex flex-col items-center justify-center gap-2 py-8 text-muted-foreground">
-                    <AlertTriangle className="h-8 w-8" />
-                    <p className="text-sm font-medium">Monitoring Unavailable</p>
-                    <p className="text-xs">No monitoring data available</p>
-                </div>
-            </CardShell>
-        );
-    }
-
-    const errorRate = data.errors?.error_rate ?? 0;
-    const statusColor = errorRate > 5
-        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-        : errorRate > 1
-            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400';
-    const statusLabel = errorRate > 5 ? 'Degraded' : errorRate > 1 ? 'Warning' : 'Healthy';
-
-    const latencyTiles = data.latency
-        ? [
-            { label: 'P50', value: formatMs(data.latency.p50_ms) },
-            { label: 'P95', value: formatMs(data.latency.p95_ms) },
-            { label: 'P99', value: formatMs(data.latency.p99_ms) },
-        ]
-        : [];
-
-    const tokenTrend = data.token_usage?.trend ?? [];
-    const maxTokens = Math.max(...tokenTrend.map((t) => t.total_tokens), 1);
-
-    const routingModels = data.routing?.models ?? [];
-    const totalRoutingCalls = data.routing?.total_calls ?? 1;
-
-    const ROUTING_COLORS = ['bg-[#1e3a5f]', 'bg-sky-500', 'bg-violet-500', 'bg-amber-500', 'bg-emerald-500'];
-
-    return (
-        <CardShell>
-            <div className="mb-4 flex items-center justify-between">
-                <CardHeader icon={Cpu} title="AI Model Health" />
-                <div className="flex items-center gap-2">
-                    {isDemo && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                            Simulated
-                        </span>
-                    )}
-                    <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-bold', statusColor)}>
-                        {statusLabel}
-                    </span>
-                </div>
-            </div>
-
-            {/* Latency tiles */}
-            {latencyTiles.length > 0 && (
-                <div className="mb-4 grid grid-cols-3 gap-3">
-                    {latencyTiles.map((tile) => (
-                        <div key={tile.label} className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-800">
-                            <p className="text-xs text-muted-foreground">{tile.label}</p>
-                            <p className="text-lg font-bold text-foreground">{tile.value}</p>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Token usage trend */}
-            {tokenTrend.length > 0 && (
-                <div className="mb-4">
-                    <div className="mb-2 flex items-baseline justify-between">
-                        <h3 className="text-sm font-medium text-muted-foreground">
-                            Token Usage <span className="font-normal">— Last {Math.round(data.time_range_hours / 24)} Days</span>
-                        </h3>
-                        <span className="text-xs text-muted-foreground">
-                            {formatNumber(data.token_usage?.total_tokens ?? 0)} total
-                        </span>
-                    </div>
-                    <div className="flex items-end gap-1" style={{ height: 60 }}>
-                        {tokenTrend.map((point, i) => {
-                            const inputPct = point.total_tokens > 0 ? (point.input_tokens / point.total_tokens) * 100 : 50;
-                            return (
-                                <div
-                                    key={i}
-                                    className="flex flex-1 flex-col overflow-hidden rounded-t"
-                                    style={{ height: `${(point.total_tokens / maxTokens) * 100}%`, minHeight: 2 }}
-                                    title={`Input: ${formatNumber(point.input_tokens)} / Output: ${formatNumber(point.output_tokens)}`}
-                                >
-                                    <div className="bg-sky-400 dark:bg-sky-500" style={{ height: `${inputPct}%` }} />
-                                    <div className="flex-1 bg-violet-400 dark:bg-violet-500" />
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-4 text-[10px] text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                            <span className="inline-block h-2 w-2 rounded-sm bg-sky-400 dark:bg-sky-500" />
-                            Input ({formatNumber(data.token_usage?.input_tokens ?? 0)})
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <span className="inline-block h-2 w-2 rounded-sm bg-violet-400 dark:bg-violet-500" />
-                            Output ({formatNumber(data.token_usage?.output_tokens ?? 0)})
-                        </span>
-                    </div>
-                </div>
-            )}
-
-            {/* Routing distribution */}
-            {routingModels.length > 0 && (
-                <div>
-                    <h3 className="mb-2 text-sm font-medium text-muted-foreground">Model Routing</h3>
-                    <div className="flex h-4 overflow-hidden rounded-full">
-                        {routingModels.map((model, i) => (
-                            <div
-                                key={model.model}
-                                className={cn(ROUTING_COLORS[i % ROUTING_COLORS.length])}
-                                style={{ width: `${(model.call_count / totalRoutingCalls) * 100}%` }}
-                                title={`${model.model}: ${model.percentage.toFixed(1)}%`}
-                            />
-                        ))}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                        {routingModels.map((model, i) => (
-                            <div key={model.model} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <span className={cn('inline-block h-2 w-2 rounded-full', ROUTING_COLORS[i % ROUTING_COLORS.length])} />
-                                {model.model} ({model.percentage.toFixed(0)}%)
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </CardShell>
-    );
-}
-
-function ModelHealthSkeleton() {
-    return (
-        <CardShell>
-            <CardHeader icon={Cpu} title="AI Model Health" />
-            <div className="mb-4 grid grid-cols-3 gap-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="rounded-lg bg-slate-50 p-3 text-center dark:bg-slate-800">
-                        <Skeleton className="mx-auto mb-1 h-3 w-8" />
-                        <Skeleton className="mx-auto h-6 w-14" />
-                    </div>
-                ))}
-            </div>
-            <Skeleton className="mb-4 h-[60px] w-full" />
-            <Skeleton className="h-4 w-full rounded-full" />
-        </CardShell>
-    );
-}
-
-function ModelHealthUnavailable() {
-    return (
-        <CardShell>
-            <CardHeader icon={Cpu} title="AI Model Health" />
-            <div className="flex flex-col items-center justify-center gap-2 py-8 text-muted-foreground">
-                <AlertTriangle className="h-8 w-8" />
-                <p className="text-sm font-medium">Monitoring Unavailable</p>
-                <p className="text-xs">LangFuse is not configured</p>
-            </div>
-        </CardShell>
-    );
-}
-
 const EVENT_TYPE_BADGE: Record<string, string> = {
     application_created: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     application_updated: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
@@ -675,7 +492,6 @@ function CeoDashboard() {
     const pipeline = usePipelineSummary(DEFAULT_DAYS);
     const denials = useDenialTrends(DEFAULT_DAYS);
     const loPerformance = useLOPerformance(DEFAULT_DAYS);
-    const modelHealth = useModelMonitoring(Math.min(DEFAULT_DAYS * 24, 2160));
     const auditEvents = useAuditEvents(5);
 
     return (
@@ -690,8 +506,11 @@ function CeoDashboard() {
             <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {pipeline.isLoading ? <PipelineOverviewSkeleton /> : pipeline.data ? <PipelineOverviewCard data={pipeline.data} /> : null}
                 {denials.isLoading ? <DenialAnalysisSkeleton /> : denials.data ? <DenialAnalysisCard data={denials.data} /> : null}
+            </div>
+
+            {/* LO Performance - full width */}
+            <div className="mb-6">
                 {loPerformance.isLoading ? <LOPerformanceSkeleton /> : loPerformance.data ? <LOPerformanceCard data={loPerformance.data} /> : null}
-                {modelHealth.isLoading ? <ModelHealthSkeleton /> : modelHealth.data ? <ModelHealthCard data={modelHealth.data} /> : <ModelHealthUnavailable />}
             </div>
 
             {/* Audit events - full width */}
