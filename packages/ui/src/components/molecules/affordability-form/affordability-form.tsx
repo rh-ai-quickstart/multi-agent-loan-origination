@@ -254,7 +254,7 @@ export function AffordabilityForm() {
 
                             <p className="text-xs leading-5 text-muted-foreground">
                                 Estimates are for illustrative purposes only and do not constitute
-                                a loan commitment. Actual rates and terms may vary. This organization, its activities and its employees are fictional and are not intended to represent or depict any current or former business organization or any individuals. Any resemblance to any individual or organization is purely coincidental.
+                                a loan commitment. Actual rates and terms may vary.
                             </p>
                         </div>
                     </div>
