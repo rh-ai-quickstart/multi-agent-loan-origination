@@ -345,13 +345,6 @@ function AuditTrailPage() {
                 )}
             </div>
 
-            {/* Footer disclaimer */}
-            <p className="mt-8 text-center text-xs text-muted-foreground">
-                This organization, its activities and its employees are fictional and are not intended to represent
-                or depict any current or former business organization or any individuals. Any resemblance to any
-                individual or organization is purely coincidental. Regulatory references (HMDA, ECOA, TRID, FCRA)
-                are simplified representations, not legal guidance.
-            </p>
         </div>
     );
 }

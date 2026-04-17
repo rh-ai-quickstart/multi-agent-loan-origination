@@ -60,12 +60,12 @@ function AuthenticatedLayout() {
     return (
         <div className="flex flex-1 flex-col overflow-hidden">
             <div className="flex flex-1 overflow-hidden">
-                <main className="flex-1 overflow-y-auto lg:pr-[340px]">
+                <main className="flex-1 overflow-y-auto pb-10 lg:pr-[340px]">
                     <Outlet />
                 </main>
                 <ChatSidebar />
             </div>
-            <div className="shrink-0 border-t border-border bg-slate-50 px-4 py-1.5 text-center text-[10px] leading-tight text-muted-foreground dark:bg-slate-900 lg:pr-[340px]">
+            <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-border bg-slate-50 px-4 py-1.5 text-center text-[10px] leading-tight text-muted-foreground dark:bg-slate-900 lg:right-[320px]">
                 This organization, its activities and its employees are fictional and are not intended to represent
                 or depict any current or former business organization or any individuals. Any resemblance to any
                 individual or organization is purely coincidental.
