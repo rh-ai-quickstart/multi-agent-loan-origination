@@ -4,8 +4,6 @@ import { Logo } from '../logo/logo';
 import { COMPANY_NAME } from '@/lib/company';
 
 export function Footer() {
-    const currentYear = new Date().getFullYear();
-
     return (
         <footer className="w-full bg-[#1e3a5f] text-white dark:bg-black">
             <div className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6 lg:px-8">
@@ -25,13 +23,12 @@ export function Footer() {
                 </div>
 
                 {/* Bottom bar */}
-                <div className="mt-10 flex flex-col gap-2 border-t border-white/10 pt-8 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
-                    <p>
-                        &copy; {currentYear} {COMPANY_NAME}. All rights reserved.
-                        &nbsp;&nbsp;Equal Housing Lender.
-                    </p>
+                <div className="mt-10 border-t border-white/10 pt-8 text-xs text-white/50">
                     <p className="italic">
-                        {COMPANY_NAME} is a fictional company created for demonstration purposes.
+                        This organization, its activities and its employees are fictional and are
+                        not intended to represent or depict any current or former business
+                        organization or any individuals. Any resemblance to any individual or
+                        organization is purely coincidental.
                     </p>
                 </div>
             </div>

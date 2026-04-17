@@ -516,11 +516,6 @@ function CeoDashboard() {
             {/* Audit events - full width */}
             {auditEvents.isLoading ? <AuditEventsSkeleton /> : auditEvents.data ? <AuditEventsCard data={auditEvents.data} /> : null}
 
-            {/* Footer disclaimer */}
-            <p className="mt-8 text-center text-xs text-muted-foreground">
-                {COMPANY_NAME} is a fictional company. All data is simulated for demonstration purposes.
-                Regulatory references (HMDA, ECOA, TRID, FCRA) are simplified representations, not legal guidance.
-            </p>
         </div>
     );
 }
