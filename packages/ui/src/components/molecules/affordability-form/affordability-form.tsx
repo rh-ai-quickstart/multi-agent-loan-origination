@@ -7,7 +7,6 @@ import { useChatContext } from '@/contexts/chat-context';
 import { Label } from '@/components/atoms/label/label';
 import { formatCurrency } from '@/lib/format';
 import type { AffordabilityRequest } from '@/schemas/affordability';
-import { COMPANY_NAME } from '@/lib/company';
 
 interface FormState {
     gross_annual_income: string;
@@ -255,7 +254,7 @@ export function AffordabilityForm() {
 
                             <p className="text-xs leading-5 text-muted-foreground">
                                 Estimates are for illustrative purposes only and do not constitute
-                                a loan commitment. Actual rates and terms may vary. {COMPANY_NAME} is a fictional company created for demonstration purposes.
+                                a loan commitment. Actual rates and terms may vary. This organization, its activities and its employees are fictional and are not intended to represent or depict any current or former business organization or any individuals. Any resemblance to any individual or organization is purely coincidental.
                             </p>
                         </div>
                     </div>

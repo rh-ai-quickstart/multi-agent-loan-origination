@@ -31,7 +31,10 @@ export function Footer() {
                         &nbsp;&nbsp;Equal Housing Lender.
                     </p>
                     <p className="italic">
-                        {COMPANY_NAME} is a fictional company created for demonstration purposes.
+                        This organization, its activities and its employees are fictional and are
+                        not intended to represent or depict any current or former business
+                        organization or any individuals. Any resemblance to any individual or
+                        organization is purely coincidental.
                     </p>
                 </div>
             </div>
