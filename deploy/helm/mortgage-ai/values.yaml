@@ -10,7 +10,7 @@
 global:
   imageRegistry: quay.io
   imageRepository: rh-ai-quickstart
-  imageTag: "0.1.9"
+  imageTag: "latest"
   imagePullPolicy: Always
   storageClass: ""
 
@@ -62,12 +62,6 @@ secrets:
   EMBEDDING_PROVIDER: ""
   EMBEDDING_BASE_URL: ""
   EMBEDDING_API_KEY: ""
-
-  # MCP Risk Server
-  MCP_RISK_SERVER_URL: "http://mcp-risk-server:8081/mcp"
-
-  # Predictive Model MCP (optional -- external ML model for loan approval prediction)
-  PREDICTIVE_MODEL_MCP_URL: ""
 
   # Safety / Shields (optional)
   SAFETY_MODEL: ""
@@ -121,7 +115,7 @@ api:
   name: mortgage-ai-api
   image:
     repository: mortgage-ai-api
-    tag: ""
+    tag: latest
   service:
     type: ClusterIP
     port: 8000
@@ -144,7 +138,7 @@ ui:
   name: mortgage-ai-ui
   image:
     repository: mortgage-ai-ui
-    tag: ""
+    tag: latest
   service:
     type: ClusterIP
     port: 8080
@@ -214,29 +208,6 @@ minio:
     limits:
       memory: "384Mi"
       cpu: "500m"
-
-# MCP Risk Assessment Server (pure-computation tools for MLFlow trace visibility)
-mcpRiskServer:
-  enabled: true
-  name: mcp-risk-server
-  image:
-    repository: mortgage-ai-api
-    tag: ""
-  service:
-    type: ClusterIP
-    port: 8081
-  replicas: 1
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "100m"
-    limits:
-      memory: "512Mi"
-      cpu: "500m"
-  healthCheck:
-    enabled: true
-    initialDelaySeconds: 15
-    periodSeconds: 10
 
 # MLflow observability (RHOAI 3.4+)
 mlflow:
