@@ -37,7 +37,7 @@ Each persona has a dedicated chat interface powered by a role-scoped AI agent wi
 
 ## AI Patterns Demonstrated
 
-This Quickstart demonstrates production-ready AI patterns for regulated industries:
+This Quickstart demonstrates AI patterns for regulated industries:
 
 - **Multi-Agent Orchestration**: Five role-scoped agents with distinct tool sets and system prompts, coordinated via LangGraph
 - **Compliance Knowledge Base**: RAG-powered retrieval from federal regulations (TRID, ECOA, ATR/QM, HMDA), agency guidelines (Fannie Mae, FHA), and internal policies

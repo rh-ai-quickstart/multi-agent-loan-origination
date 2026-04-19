@@ -32,7 +32,7 @@ This Red Hat AI reference application showcases multi-agent AI systems on Red Ha
 
 The application covers the complete mortgage lending lifecycle with five distinct persona experiences: prospect inquiry, borrower application intake, loan officer pipeline management, underwriter compliance checks and risk assessment, and executive analytics. Each persona interacts with a specialized LangGraph agent backed by role-scoped tools, compliance knowledge retrieval, and comprehensive audit trails.
 
-This quickstart demonstrates production-ready AI patterns including role-based access control (RBAC) scoped agent routing, pgvector-based compliance knowledge base with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, personally identifiable information (PII) masking, vision-based document extraction, and hash-chained audit events. The architecture deploys to OpenShift AI but also runs locally for development and exploration.
+This quickstart demonstrates AI patterns for regulated industries including role-based access control (RBAC) scoped agent routing, pgvector-based compliance knowledge base with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, personally identifiable information (PII) masking, vision-based document extraction, and hash-chained audit events. The architecture deploys to OpenShift AI but also runs locally for development and exploration.
 
 > **Regulatory disclaimer:** All compliance content (HMDA, ECOA, TRID, ATR/QM, FCRA) is simulated for demonstration purposes and does not constitute legal or regulatory advice.
 
@@ -228,7 +228,7 @@ The application implements five distinct persona experiences, each with a specia
 
 ### Key AI patterns
 
-This quickstart demonstrates production-ready AI patterns for regulated industries:
+This quickstart demonstrates AI patterns for regulated industries:
 
 - **Multi-agent orchestration** - Five LangGraph agents with role-scoped tools and RBAC enforcement
 - **Compliance knowledge base** - pgvector retrieval-augmented generation (RAG) with tiered boosting (federal regulations > agency guidelines > internal policies)
