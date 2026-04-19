@@ -104,14 +104,9 @@ graph TD
 
 **For local development:**
 
-- 16GB RAM minimum (32GB recommended for running all services + large language model (LLM) locally)
+- 16GB RAM minimum (32GB recommended for running all services + LLM locally)
 - 20GB available disk space for container images and model files
 - Multi-core CPU (4+ cores recommended)
-
-**For local LLM serving:**
-
-- GPU with 8GB+ VRAM for running a local inference server with 7B-30B parameter models, or
-- Access to an OpenAI-compatible API endpoint (cloud provider, OpenShift AI model serving, or similar)
 
 **For OpenShift deployment:**
 
