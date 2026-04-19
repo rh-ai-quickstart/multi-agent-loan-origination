@@ -65,12 +65,14 @@ LLM_JUDGE_PACKAGES = AGENT_PACKAGES + [
 def setup_mlflow_op(
     mlflow_tracking_uri: str,
     mlflow_experiment_name: str,
+    mlflow_workspace: str = "",
 ) -> str:
     """Configure MLflow tracking and return experiment name.
 
     Args:
         mlflow_tracking_uri: MLflow server URL
         mlflow_experiment_name: Base experiment name
+        mlflow_workspace: MLflow workspace (maps to K8s namespace)
 
     Returns:
         Full experiment name (with -eval suffix)
@@ -82,6 +84,8 @@ def setup_mlflow_op(
 
     logging.getLogger("mlflow").setLevel(logging.ERROR)
 
+    os.environ["MLFLOW_TRACKING_INSECURE_TLS"] = "true"
+
     # Auto-detect Kubernetes SA token for MLflow auth
     if not os.environ.get("MLFLOW_TRACKING_TOKEN"):
         sa_token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
@@ -90,6 +94,10 @@ def setup_mlflow_op(
             print("Auto-detected Kubernetes SA token")
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
+
+    if mlflow_workspace:
+        mlflow.set_workspace(mlflow_workspace)
+        print(f"Workspace: {mlflow_workspace}")
 
     experiment_name = mlflow_experiment_name
     if not experiment_name.endswith("-eval"):
@@ -115,6 +123,7 @@ def create_dataset_op(
     experiment_name: str,
     dataset_name: str,
     agent_name: str,
+    mlflow_workspace: str = "",
 ) -> NamedTuple("DatasetOutput", [("experiment_name", str), ("dataset_id", str)]):
     """Create evaluation dataset in MLflow.
 
@@ -123,6 +132,7 @@ def create_dataset_op(
         experiment_name: Experiment name
         dataset_name: Name for the dataset
         agent_name: Agent being evaluated
+        mlflow_workspace: MLflow workspace (maps to K8s namespace)
 
     Returns:
         NamedTuple with experiment_name and dataset_id
@@ -136,6 +146,8 @@ def create_dataset_op(
 
     logging.getLogger("mlflow").setLevel(logging.ERROR)
 
+    os.environ["MLFLOW_TRACKING_INSECURE_TLS"] = "true"
+
     # Auto-detect Kubernetes SA token for MLflow auth
     if not os.environ.get("MLFLOW_TRACKING_TOKEN"):
         sa_token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
@@ -143,6 +155,8 @@ def create_dataset_op(
             os.environ["MLFLOW_TRACKING_TOKEN"] = sa_token_path.read_text().strip()
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
+    if mlflow_workspace:
+        mlflow.set_workspace(mlflow_workspace)
     mlflow.set_experiment(experiment_name)
 
     # Define test cases
@@ -236,6 +250,7 @@ def run_simple_eval_op(
     experiment_name: str,
     dataset_id: str,
     system_prompt_version: str = "v1",
+    mlflow_workspace: str = "",
 ) -> dict:
     """Run simple evaluation without LLM judge.
 
@@ -252,6 +267,7 @@ def run_simple_eval_op(
             the agent's built-in prompt. Any other value (e.g. "v2") loads
             the corresponding version from MLflow Prompt Registry and uses
             degraded mock responses to simulate regression.
+        mlflow_workspace: MLflow workspace (maps to K8s namespace)
 
     Returns:
         Dictionary with evaluation metrics
@@ -269,6 +285,8 @@ def run_simple_eval_op(
     from mlflow.genai.datasets import get_dataset
 
     logging.getLogger("mlflow").setLevel(logging.ERROR)
+
+    os.environ["MLFLOW_TRACKING_INSECURE_TLS"] = "true"
 
     # Auto-detect Kubernetes SA token for MLflow auth
     if not os.environ.get("MLFLOW_TRACKING_TOKEN"):
@@ -354,6 +372,8 @@ def run_simple_eval_op(
     # Setup MLflow
     # -------------------------------------------------------------------------
     mlflow.set_tracking_uri(mlflow_tracking_uri)
+    if mlflow_workspace:
+        mlflow.set_workspace(mlflow_workspace)
     mlflow.set_experiment(experiment_name)
 
     # Load dataset from MLflow using dataset_id
@@ -402,6 +422,7 @@ def run_llm_judge_eval_op(
     llm_base_url: str,
     llm_model: str,
     system_prompt_version: str = "v1",
+    mlflow_workspace: str = "",
 ) -> dict:
     """Run LLM-as-a-Judge evaluation.
 
@@ -419,6 +440,7 @@ def run_llm_judge_eval_op(
         system_prompt_version: Prompt version to use. "v1" (default) uses
             the agent's built-in prompt. Any other value (e.g. "v2") uses
             degraded mock responses to simulate regression.
+        mlflow_workspace: MLflow workspace (maps to K8s namespace)
 
     Returns:
         Dictionary with evaluation metrics
@@ -430,6 +452,8 @@ def run_llm_judge_eval_op(
     from pathlib import Path
 
     warnings.filterwarnings("ignore")
+
+    os.environ["MLFLOW_TRACKING_INSECURE_TLS"] = "true"
 
     # Auto-detect Kubernetes SA token for MLflow auth
     if not os.environ.get("MLFLOW_TRACKING_TOKEN"):
@@ -535,6 +559,8 @@ def run_llm_judge_eval_op(
     # Setup MLflow and configure LLM
     # -------------------------------------------------------------------------
     mlflow.set_tracking_uri(mlflow_tracking_uri)
+    if mlflow_workspace:
+        mlflow.set_workspace(mlflow_workspace)
     mlflow.set_experiment(experiment_name)
 
     judge_model = f"openai:/{llm_model}"
@@ -651,6 +677,7 @@ def report_results_op(
 )
 def simple_eval_pipeline(
     mlflow_tracking_uri: str,
+    mlflow_workspace: str = "",
     mlflow_experiment_name: str = "multi-agent-loan-origination",
     agent_name: str = "public-assistant",
     dataset_name: str = "public_assistant_eval_simple",
@@ -662,6 +689,7 @@ def simple_eval_pipeline(
     (read from /var/run/secrets/kubernetes.io/serviceaccount/token).
 
     Args:
+        mlflow_workspace: MLflow workspace (maps to K8s namespace, e.g. wksp-user1).
         system_prompt_version: "v1" uses the agent's built-in prompt (default).
             Set to "v2" or other to simulate a prompt regression.
 
@@ -676,6 +704,7 @@ def simple_eval_pipeline(
     setup_task = setup_mlflow_op(
         mlflow_tracking_uri=mlflow_tracking_uri,
         mlflow_experiment_name=mlflow_experiment_name,
+        mlflow_workspace=mlflow_workspace,
     )
 
     # Step 2: Create dataset
@@ -684,6 +713,7 @@ def simple_eval_pipeline(
         experiment_name=setup_task.output,
         dataset_name=dataset_name,
         agent_name=agent_name,
+        mlflow_workspace=mlflow_workspace,
     )
 
     # Step 3: Run simple evaluation
@@ -692,6 +722,7 @@ def simple_eval_pipeline(
         experiment_name=dataset_task.outputs["experiment_name"],
         dataset_id=dataset_task.outputs["dataset_id"],
         system_prompt_version=system_prompt_version,
+        mlflow_workspace=mlflow_workspace,
     )
 
     # Step 4: Report results
@@ -712,6 +743,7 @@ def simple_eval_pipeline(
 def llm_judge_eval_pipeline(
     mlflow_tracking_uri: str,
     llm_base_url: str,
+    mlflow_workspace: str = "",
     llm_model: str = "qwen3-14b",
     mlflow_experiment_name: str = "multi-agent-loan-origination",
     agent_name: str = "public-assistant",
@@ -725,6 +757,7 @@ def llm_judge_eval_pipeline(
     (read from /var/run/secrets/kubernetes.io/serviceaccount/token).
 
     Args:
+        mlflow_workspace: MLflow workspace (maps to K8s namespace, e.g. wksp-user1).
         system_prompt_version: "v1" uses the agent's built-in prompt (default).
             Set to "v2" or other to simulate a prompt regression.
 
@@ -739,6 +772,7 @@ def llm_judge_eval_pipeline(
     setup_task = setup_mlflow_op(
         mlflow_tracking_uri=mlflow_tracking_uri,
         mlflow_experiment_name=mlflow_experiment_name,
+        mlflow_workspace=mlflow_workspace,
     )
 
     # Step 2: Create dataset
@@ -747,6 +781,7 @@ def llm_judge_eval_pipeline(
         experiment_name=setup_task.output,
         dataset_name=dataset_name,
         agent_name=agent_name,
+        mlflow_workspace=mlflow_workspace,
     )
 
     # Step 3: Run LLM-as-a-Judge evaluation
@@ -757,6 +792,7 @@ def llm_judge_eval_pipeline(
         llm_base_url=llm_base_url,
         llm_model=llm_model,
         system_prompt_version=system_prompt_version,
+        mlflow_workspace=mlflow_workspace,
     )
     kubernetes.use_secret_as_env(
         eval_task,

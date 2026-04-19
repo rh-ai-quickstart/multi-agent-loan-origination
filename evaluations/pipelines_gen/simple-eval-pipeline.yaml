@@ -6,6 +6,7 @@
 #    dataset_name: str [Default: 'public_assistant_eval_simple']
 #    mlflow_experiment_name: str [Default: 'multi-agent-loan-origination']
 #    mlflow_tracking_uri: str
+#    mlflow_workspace: str [Default: '']
 #    system_prompt_version: str [Default: 'v1']
 components:
   comp-create-dataset-op:
@@ -23,6 +24,11 @@ components:
           parameterType: STRING
         mlflow_tracking_uri:
           description: MLflow server URL
+          parameterType: STRING
+        mlflow_workspace:
+          defaultValue: ''
+          description: MLflow workspace (maps to K8s namespace)
+          isOptional: true
           parameterType: STRING
     outputDefinitions:
       parameters:
@@ -60,6 +66,11 @@ components:
         mlflow_tracking_uri:
           description: MLflow server URL
           parameterType: STRING
+        mlflow_workspace:
+          defaultValue: ''
+          description: MLflow workspace (maps to K8s namespace)
+          isOptional: true
+          parameterType: STRING
         system_prompt_version:
           defaultValue: v1
           description: 'Prompt version to use. "v1" (default) uses
@@ -84,6 +95,11 @@ components:
           parameterType: STRING
         mlflow_tracking_uri:
           description: MLflow server URL
+          parameterType: STRING
+        mlflow_workspace:
+          defaultValue: ''
+          description: MLflow workspace (maps to K8s namespace)
+          isOptional: true
           parameterType: STRING
     outputDefinitions:
       parameters:
@@ -120,19 +136,23 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef create_dataset_op(\n    mlflow_tracking_uri: str,\n    experiment_name:\
-          \ str,\n    dataset_name: str,\n    agent_name: str,\n) -> NamedTuple(\"\
-          DatasetOutput\", [(\"experiment_name\", str), (\"dataset_id\", str)]):\n\
-          \    \"\"\"Create evaluation dataset in MLflow.\n\n    Args:\n        mlflow_tracking_uri:\
-          \ MLflow server URL\n        experiment_name: Experiment name\n        dataset_name:\
-          \ Name for the dataset\n        agent_name: Agent being evaluated\n\n  \
-          \  Returns:\n        NamedTuple with experiment_name and dataset_id\n  \
-          \  \"\"\"\n    import os\n    from typing import NamedTuple\n    from pathlib\
-          \ import Path\n    import logging\n    import mlflow\n    from mlflow.genai.datasets\
-          \ import create_dataset\n\n    logging.getLogger(\"mlflow\").setLevel(logging.ERROR)\n\
-          \n    # Auto-detect Kubernetes SA token for MLflow auth\n    if not os.environ.get(\"\
-          MLFLOW_TRACKING_TOKEN\"):\n        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
+          \ str,\n    dataset_name: str,\n    agent_name: str,\n    mlflow_workspace:\
+          \ str = \"\",\n) -> NamedTuple(\"DatasetOutput\", [(\"experiment_name\"\
+          , str), (\"dataset_id\", str)]):\n    \"\"\"Create evaluation dataset in\
+          \ MLflow.\n\n    Args:\n        mlflow_tracking_uri: MLflow server URL\n\
+          \        experiment_name: Experiment name\n        dataset_name: Name for\
+          \ the dataset\n        agent_name: Agent being evaluated\n        mlflow_workspace:\
+          \ MLflow workspace (maps to K8s namespace)\n\n    Returns:\n        NamedTuple\
+          \ with experiment_name and dataset_id\n    \"\"\"\n    import os\n    from\
+          \ typing import NamedTuple\n    from pathlib import Path\n    import logging\n\
+          \    import mlflow\n    from mlflow.genai.datasets import create_dataset\n\
+          \n    logging.getLogger(\"mlflow\").setLevel(logging.ERROR)\n\n    os.environ[\"\
+          MLFLOW_TRACKING_INSECURE_TLS\"] = \"true\"\n\n    # Auto-detect Kubernetes\
+          \ SA token for MLflow auth\n    if not os.environ.get(\"MLFLOW_TRACKING_TOKEN\"\
+          ):\n        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
           )\n        if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
           ] = sa_token_path.read_text().strip()\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
+          \    if mlflow_workspace:\n        mlflow.set_workspace(mlflow_workspace)\n\
           \    mlflow.set_experiment(experiment_name)\n\n    # Define test cases\n\
           \    test_cases = [\n        {\n            \"inputs\": {\"user_message\"\
           : \"What loan products do you offer?\"},\n            \"expectations\":\
@@ -254,24 +274,27 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef run_simple_eval_op(\n    mlflow_tracking_uri: str,\n    experiment_name:\
           \ str,\n    dataset_id: str,\n    system_prompt_version: str = \"v1\",\n\
-          ) -> dict:\n    \"\"\"Run simple evaluation without LLM judge.\n\n    Uses\
-          \ deterministic scorers:\n    - contains_expected: Check if expected keyword\
-          \ appears\n    - has_numeric_result: Check for numeric values\n    - response_length:\
-          \ Ensure adequate response length\n\n    Args:\n        mlflow_tracking_uri:\
-          \ MLflow server URL\n        experiment_name: Experiment name\n        dataset_id:\
-          \ MLflow dataset ID to load\n        system_prompt_version: Prompt version\
-          \ to use. \"v1\" (default) uses\n            the agent's built-in prompt.\
-          \ Any other value (e.g. \"v2\") loads\n            the corresponding version\
-          \ from MLflow Prompt Registry and uses\n            degraded mock responses\
-          \ to simulate regression.\n\n    Returns:\n        Dictionary with evaluation\
-          \ metrics\n    \"\"\"\n    import os\n    import re\n    import logging\n\
-          \    import warnings\n    from pathlib import Path\n\n    warnings.filterwarnings(\"\
-          ignore\")\n\n    import mlflow\n    from mlflow.genai.scorers import scorer\n\
-          \    from mlflow.genai.datasets import get_dataset\n\n    logging.getLogger(\"\
-          mlflow\").setLevel(logging.ERROR)\n\n    # Auto-detect Kubernetes SA token\
-          \ for MLflow auth\n    if not os.environ.get(\"MLFLOW_TRACKING_TOKEN\"):\n\
-          \        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
-          )\n        if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
+          \    mlflow_workspace: str = \"\",\n) -> dict:\n    \"\"\"Run simple evaluation\
+          \ without LLM judge.\n\n    Uses deterministic scorers:\n    - contains_expected:\
+          \ Check if expected keyword appears\n    - has_numeric_result: Check for\
+          \ numeric values\n    - response_length: Ensure adequate response length\n\
+          \n    Args:\n        mlflow_tracking_uri: MLflow server URL\n        experiment_name:\
+          \ Experiment name\n        dataset_id: MLflow dataset ID to load\n     \
+          \   system_prompt_version: Prompt version to use. \"v1\" (default) uses\n\
+          \            the agent's built-in prompt. Any other value (e.g. \"v2\")\
+          \ loads\n            the corresponding version from MLflow Prompt Registry\
+          \ and uses\n            degraded mock responses to simulate regression.\n\
+          \        mlflow_workspace: MLflow workspace (maps to K8s namespace)\n\n\
+          \    Returns:\n        Dictionary with evaluation metrics\n    \"\"\"\n\
+          \    import os\n    import re\n    import logging\n    import warnings\n\
+          \    from pathlib import Path\n\n    warnings.filterwarnings(\"ignore\"\
+          )\n\n    import mlflow\n    from mlflow.genai.scorers import scorer\n  \
+          \  from mlflow.genai.datasets import get_dataset\n\n    logging.getLogger(\"\
+          mlflow\").setLevel(logging.ERROR)\n\n    os.environ[\"MLFLOW_TRACKING_INSECURE_TLS\"\
+          ] = \"true\"\n\n    # Auto-detect Kubernetes SA token for MLflow auth\n\
+          \    if not os.environ.get(\"MLFLOW_TRACKING_TOKEN\"):\n        sa_token_path\
+          \ = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\")\n    \
+          \    if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
           ] = sa_token_path.read_text().strip()\n\n    # Allow nested event loops\n\
           \    try:\n        import nest_asyncio\n        nest_asyncio.apply()\n \
           \   except ImportError:\n        pass\n\n    # -------------------------------------------------------------------------\n\
@@ -337,7 +360,8 @@ deploymentSpec:
           \ general information about mortgage products and help you understand your\
           \ options.\"\n\n    # -------------------------------------------------------------------------\n\
           \    # Setup MLflow\n    # -------------------------------------------------------------------------\n\
-          \    mlflow.set_tracking_uri(mlflow_tracking_uri)\n    mlflow.set_experiment(experiment_name)\n\
+          \    mlflow.set_tracking_uri(mlflow_tracking_uri)\n    if mlflow_workspace:\n\
+          \        mlflow.set_workspace(mlflow_workspace)\n    mlflow.set_experiment(experiment_name)\n\
           \n    # Load dataset from MLflow using dataset_id\n    print(f\"Loading\
           \ dataset: {dataset_id}\")\n    dataset = get_dataset(dataset_id=dataset_id)\n\
           \    print(f\"Dataset loaded: {dataset.name} with {len(dataset.to_df())}\
@@ -382,22 +406,25 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef setup_mlflow_op(\n    mlflow_tracking_uri: str,\n    mlflow_experiment_name:\
-          \ str,\n) -> str:\n    \"\"\"Configure MLflow tracking and return experiment\
-          \ name.\n\n    Args:\n        mlflow_tracking_uri: MLflow server URL\n \
-          \       mlflow_experiment_name: Base experiment name\n\n    Returns:\n \
-          \       Full experiment name (with -eval suffix)\n    \"\"\"\n    import\
-          \ os\n    import logging\n    from pathlib import Path\n    import mlflow\n\
-          \n    logging.getLogger(\"mlflow\").setLevel(logging.ERROR)\n\n    # Auto-detect\
+          \ str,\n    mlflow_workspace: str = \"\",\n) -> str:\n    \"\"\"Configure\
+          \ MLflow tracking and return experiment name.\n\n    Args:\n        mlflow_tracking_uri:\
+          \ MLflow server URL\n        mlflow_experiment_name: Base experiment name\n\
+          \        mlflow_workspace: MLflow workspace (maps to K8s namespace)\n\n\
+          \    Returns:\n        Full experiment name (with -eval suffix)\n    \"\"\
+          \"\n    import os\n    import logging\n    from pathlib import Path\n  \
+          \  import mlflow\n\n    logging.getLogger(\"mlflow\").setLevel(logging.ERROR)\n\
+          \n    os.environ[\"MLFLOW_TRACKING_INSECURE_TLS\"] = \"true\"\n\n    # Auto-detect\
           \ Kubernetes SA token for MLflow auth\n    if not os.environ.get(\"MLFLOW_TRACKING_TOKEN\"\
           ):\n        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
           )\n        if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
           ] = sa_token_path.read_text().strip()\n            print(\"Auto-detected\
           \ Kubernetes SA token\")\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
-          \n    experiment_name = mlflow_experiment_name\n    if not experiment_name.endswith(\"\
-          -eval\"):\n        experiment_name = f\"{experiment_name}-eval\"\n\n   \
-          \ mlflow.set_experiment(experiment_name)\n\n    print(f\"MLflow configured:\
-          \ {mlflow_tracking_uri}\")\n    print(f\"Experiment: {experiment_name}\"\
-          )\n\n    return experiment_name\n\n"
+          \n    if mlflow_workspace:\n        mlflow.set_workspace(mlflow_workspace)\n\
+          \        print(f\"Workspace: {mlflow_workspace}\")\n\n    experiment_name\
+          \ = mlflow_experiment_name\n    if not experiment_name.endswith(\"-eval\"\
+          ):\n        experiment_name = f\"{experiment_name}-eval\"\n\n    mlflow.set_experiment(experiment_name)\n\
+          \n    print(f\"MLflow configured: {mlflow_tracking_uri}\")\n    print(f\"\
+          Experiment: {experiment_name}\")\n\n    return experiment_name\n\n"
         image: python:3.11-slim
 pipelineInfo:
   description: Multi-step evaluation pipeline without LLM judges
@@ -424,6 +451,8 @@ root:
                 producerTask: setup-mlflow-op
             mlflow_tracking_uri:
               componentInputParameter: mlflow_tracking_uri
+            mlflow_workspace:
+              componentInputParameter: mlflow_workspace
         taskInfo:
           name: create-dataset-op
       report-results-op:
@@ -465,6 +494,8 @@ root:
                 producerTask: create-dataset-op
             mlflow_tracking_uri:
               componentInputParameter: mlflow_tracking_uri
+            mlflow_workspace:
+              componentInputParameter: mlflow_workspace
             system_prompt_version:
               componentInputParameter: system_prompt_version
         taskInfo:
@@ -480,6 +511,8 @@ root:
               componentInputParameter: mlflow_experiment_name
             mlflow_tracking_uri:
               componentInputParameter: mlflow_tracking_uri
+            mlflow_workspace:
+              componentInputParameter: mlflow_workspace
         taskInfo:
           name: setup-mlflow-op
   inputDefinitions:
@@ -497,6 +530,11 @@ root:
         isOptional: true
         parameterType: STRING
       mlflow_tracking_uri:
+        parameterType: STRING
+      mlflow_workspace:
+        defaultValue: ''
+        description: MLflow workspace (maps to K8s namespace, e.g. wksp-user1).
+        isOptional: true
         parameterType: STRING
       system_prompt_version:
         defaultValue: v1
