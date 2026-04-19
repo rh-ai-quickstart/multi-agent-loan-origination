@@ -152,8 +152,8 @@ deploymentSpec:
           \        sa_token_path = Path(\"/var/run/secrets/kubernetes.io/serviceaccount/token\"\
           )\n        if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
           ] = sa_token_path.read_text().strip()\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
-          \    try:\n        mlflow.set_workspace(mlflow_workspace)\n    except Exception:\n\
-          \        pass\n    mlflow.set_experiment(experiment_name)\n\n    # Define\
+          \    # Workspace support requires --enable-workspaces on server; skip if\
+          \ unavailable\n    mlflow.set_experiment(experiment_name)\n\n    # Define\
           \ test cases\n    test_cases = [\n        {\n            \"inputs\": {\"\
           user_message\": \"What loan products do you offer?\"},\n            \"expectations\"\
           : {\n                \"expected_answer\": \"30-year\",\n               \
@@ -302,8 +302,8 @@ deploymentSpec:
           \ mlflow.genai.datasets import get_dataset\n\n    logging.getLogger(\"mlflow\"\
           ).setLevel(logging.ERROR)\n\n    # Allow nested event loops\n    try:\n\
           \        import nest_asyncio\n        nest_asyncio.apply()\n    except ImportError:\n\
-          \        pass\n\n    try:\n        mlflow.set_workspace(mlflow_workspace)\n\
-          \    except Exception:\n        pass\n\n    # -------------------------------------------------------------------------\n\
+          \        pass\n\n    # Workspace support requires --enable-workspaces on\
+          \ server; skip if unavailable\n\n    # -------------------------------------------------------------------------\n\
           \    # Define custom scorers\n    # -------------------------------------------------------------------------\n\
           \    @scorer\n    def contains_expected(inputs: dict, outputs: str, expectations:\
           \ dict) -> bool:\n        expected = expectations.get(\"expected_answer\"\
@@ -437,8 +437,8 @@ deploymentSpec:
           )\n        if sa_token_path.exists():\n            os.environ[\"MLFLOW_TRACKING_TOKEN\"\
           ] = sa_token_path.read_text().strip()\n            print(\"Auto-detected\
           \ Kubernetes SA token\")\n\n    mlflow.set_tracking_uri(mlflow_tracking_uri)\n\
-          \    try:\n        mlflow.set_workspace(mlflow_workspace)\n    except Exception:\n\
-          \        pass\n\n    experiment_name = mlflow_experiment_name\n    if not\
+          \    # Workspace support requires --enable-workspaces on server; skip if\
+          \ unavailable\n\n    experiment_name = mlflow_experiment_name\n    if not\
           \ experiment_name.endswith(\"-eval\"):\n        experiment_name = f\"{experiment_name}-eval\"\
           \n\n    mlflow.set_experiment(experiment_name)\n\n    print(f\"MLflow configured:\
           \ {mlflow_tracking_uri}\")\n    print(f\"Workspace: {mlflow_workspace}\"\

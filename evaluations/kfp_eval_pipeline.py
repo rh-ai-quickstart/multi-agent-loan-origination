@@ -92,10 +92,7 @@ def setup_mlflow_op(
             print("Auto-detected Kubernetes SA token")
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
-    try:
-        mlflow.set_workspace(mlflow_workspace)
-    except Exception:
-        pass
+    # Workspace support requires --enable-workspaces on server; skip if unavailable
 
     experiment_name = mlflow_experiment_name
     if not experiment_name.endswith("-eval"):
@@ -152,10 +149,7 @@ def create_dataset_op(
             os.environ["MLFLOW_TRACKING_TOKEN"] = sa_token_path.read_text().strip()
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
-    try:
-        mlflow.set_workspace(mlflow_workspace)
-    except Exception:
-        pass
+    # Workspace support requires --enable-workspaces on server; skip if unavailable
     mlflow.set_experiment(experiment_name)
 
     # Define test cases
@@ -298,10 +292,7 @@ def run_simple_eval_op(
     except ImportError:
         pass
 
-    try:
-        mlflow.set_workspace(mlflow_workspace)
-    except Exception:
-        pass
+    # Workspace support requires --enable-workspaces on server; skip if unavailable
 
     # -------------------------------------------------------------------------
     # Define scorers
@@ -484,10 +475,7 @@ def run_llm_judge_eval_op(
     except ImportError:
         pass
 
-    try:
-        mlflow.set_workspace(mlflow_workspace)
-    except Exception:
-        pass
+    # Workspace support requires --enable-workspaces on server; skip if unavailable
 
     # -------------------------------------------------------------------------
     # Define custom scorers
