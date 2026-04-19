@@ -19,11 +19,36 @@ import { useDecisions } from '@/hooks/use-decisions';
 import { useRiskAssessment, useComplianceResult } from '@/hooks/use-underwriting';
 import { useFeatures } from '@/hooks/use-features';
 import { formatCurrency, formatDate, formatPercent } from '@/lib/format';
-import { LOAN_TYPE_LABELS } from '@/schemas/enums';
+import { APPLICATION_STAGE_LABELS, LOAN_TYPE_LABELS, type ApplicationStage } from '@/schemas/enums';
 import type { ApplicationResponse } from '@/schemas/applications';
 import type { Condition } from '@/schemas/conditions';
 import type { DecisionItem } from '@/schemas/decisions';
 import { cn } from '@/lib/utils';
+
+// -- Stage-aware action guards ------------------------------------------------
+
+const ASSESSMENT_STAGES = new Set<ApplicationStage>(['underwriting']);
+const DECISION_STAGES = new Set<ApplicationStage>(['underwriting', 'conditional_approval']);
+
+function stageAllows(stage: ApplicationStage | undefined, allowed: Set<ApplicationStage>): boolean {
+    return stage != null && allowed.has(stage);
+}
+
+function disabledReason(stage: ApplicationStage | undefined, allowed: Set<ApplicationStage>): string | null {
+    if (stageAllows(stage, allowed)) return null;
+    const label = stage ? APPLICATION_STAGE_LABELS[stage] : 'Unknown';
+    const names = [...allowed].map((s) => APPLICATION_STAGE_LABELS[s]).join(' or ');
+    return `Not available in ${label} stage. Requires ${names}.`;
+}
+
+const STAGE_BADGE_COLORS: Partial<Record<ApplicationStage, string>> = {
+    underwriting: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    conditional_approval: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    clear_to_close: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    closed: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
+    denied: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    withdrawn: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400',
+};
 
 export const Route = createFileRoute('/_authenticated/underwriter/$applicationId')({
     component: UnderwriterDetail,
@@ -104,9 +129,11 @@ function ratingStyle(rating: string | null | undefined) {
     return RATING_COLORS[rating ?? ''] ?? { icon: 'text-slate-300', bar: 'bg-slate-300', barWidth: 'w-0' };
 }
 
-function RiskAssessmentCard({ appId, predictiveModelEnabled }: { appId: number; predictiveModelEnabled: boolean }) {
+function RiskAssessmentCard({ appId, stage, predictiveModelEnabled }: { appId: number; stage?: ApplicationStage; predictiveModelEnabled: boolean }) {
     const { data: assessment, isError } = useRiskAssessment(appId);
     const hasData = assessment && !isError;
+    const disabled = !stageAllows(stage, ASSESSMENT_STAGES);
+    const tooltip = disabledReason(stage, ASSESSMENT_STAGES);
 
     const metrics = hasData
         ? [
@@ -154,7 +181,9 @@ function RiskAssessmentCard({ appId, predictiveModelEnabled }: { appId: number; 
                 </h3>
                 <button
                     onClick={() => chatPrefill(`Run a risk assessment on application #${appId}`)}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#1e3a5f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42]"
+                    disabled={disabled}
+                    title={tooltip ?? undefined}
+                    className="flex items-center gap-1.5 rounded-lg bg-[#1e3a5f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     {hasData ? 'Re-run' : 'Run Assessment'}
                 </button>
@@ -224,9 +253,11 @@ const STATUS_BADGE: Record<string, string> = {
     FAIL: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
-function ComplianceChecksCard({ appId }: { appId: number }) {
+function ComplianceChecksCard({ appId, stage }: { appId: number; stage?: ApplicationStage }) {
     const { data: result, isError } = useComplianceResult(appId);
     const hasData = result && !isError;
+    const disabled = !stageAllows(stage, ASSESSMENT_STAGES);
+    const tooltip = disabledReason(stage, ASSESSMENT_STAGES);
 
     const checks = [
         { key: 'ecoa' as const, name: 'ECOA (Fair Lending)', icon: Scale },
@@ -247,7 +278,9 @@ function ComplianceChecksCard({ appId }: { appId: number }) {
                 </h4>
                 <button
                     onClick={() => chatPrefill(`Run compliance checks on application #${appId}`)}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#1e3a5f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42]"
+                    disabled={disabled}
+                    title={tooltip ?? undefined}
+                    className="flex items-center gap-1.5 rounded-lg bg-[#1e3a5f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     {hasData ? 'Re-run' : 'Run Checks'}
                 </button>
@@ -287,10 +320,12 @@ function ComplianceChecksCard({ appId }: { appId: number }) {
 
 // -- Conditions card ----------------------------------------------------------
 
-function ConditionsCard({ appId }: { appId: number }) {
+function ConditionsCard({ appId, stage }: { appId: number; stage?: ApplicationStage }) {
     const { data: conditions, isLoading } = useConditions(appId);
     const items = conditions?.data ?? [];
     const openCount = items.filter((c) => c.status === 'open' || c.status === 'responded' || c.status === 'escalated').length;
+    const disabled = !stageAllows(stage, DECISION_STAGES);
+    const tooltip = disabledReason(stage, DECISION_STAGES);
 
     if (isLoading) {
         return (
@@ -310,7 +345,9 @@ function ConditionsCard({ appId }: { appId: number }) {
                 </h4>
                 <button
                     onClick={() => chatPrefill(`Issue a new condition for application #${appId}`)}
-                    className="flex items-center gap-1.5 rounded-lg bg-[#1e3a5f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42]"
+                    disabled={disabled}
+                    title={tooltip ?? undefined}
+                    className="flex items-center gap-1.5 rounded-lg bg-[#1e3a5f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     <Plus className="h-3.5 w-3.5" />
                     Issue New Condition
@@ -444,9 +481,11 @@ function RecommendationBanner({ appId }: { appId: number }) {
 
 // -- Decision panel -----------------------------------------------------------
 
-function DecisionPanel({ appId }: { appId: number }) {
+function DecisionPanel({ appId, stage }: { appId: number; stage?: ApplicationStage }) {
     const [decision, setDecision] = useState<string>('');
     const [rationale, setRationale] = useState('');
+    const stageDisabled = !stageAllows(stage, DECISION_STAGES);
+    const tooltip = disabledReason(stage, DECISION_STAGES);
 
     const options = [
         { value: 'approved', label: 'Approve' },
@@ -455,7 +494,7 @@ function DecisionPanel({ appId }: { appId: number }) {
         { value: 'denied', label: 'Deny' },
     ];
 
-    const canSubmit = decision !== '' && rationale.trim().length > 0;
+    const canSubmit = !stageDisabled && decision !== '' && rationale.trim().length > 0;
 
     const handleSubmit = () => {
         if (!canSubmit) return;
@@ -470,52 +509,64 @@ function DecisionPanel({ appId }: { appId: number }) {
                 <Gavel className="h-5 w-5 text-muted-foreground" />
                 Make Decision
             </h3>
-            <div className="mb-6 space-y-3">
-                {options.map((opt) => {
-                    const isSelected = decision === opt.value;
-                    return (
-                        <label
-                            key={opt.value}
-                            className={cn(
-                                'flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors',
-                                isSelected
-                                    ? 'border-[#1e3a5f]/50 bg-[#1e3a5f]/5 ring-1 ring-[#1e3a5f]'
-                                    : 'border-border hover:bg-slate-50 dark:hover:bg-slate-800',
-                            )}
-                        >
-                            <input
-                                type="radio"
-                                name="decision"
-                                value={opt.value}
-                                checked={isSelected}
-                                onChange={() => setDecision(opt.value)}
-                                className="h-4 w-4 text-[#1e3a5f] focus:ring-[#1e3a5f]"
-                            />
-                            <span className={cn('text-sm font-medium', isSelected ? 'font-bold text-[#1e3a5f]' : 'text-foreground')}>
-                                {opt.label}
-                            </span>
-                        </label>
-                    );
-                })}
-            </div>
-            <div className="mb-4">
-                <label className="mb-2 block text-sm font-medium text-foreground">Rationale / Notes</label>
-                <textarea
-                    value={rationale}
-                    onChange={(e) => setRationale(e.target.value)}
-                    placeholder="Enter decision rationale..."
-                    rows={4}
-                    className="w-full resize-none rounded-lg border border-border bg-transparent p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30"
-                />
-            </div>
-            <button
-                onClick={handleSubmit}
-                disabled={!canSubmit}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1e3a5f] py-3 font-bold text-white shadow-md transition-colors hover:bg-[#152e42] disabled:opacity-40"
-            >
-                <Gavel className="h-4 w-4" />
-                Record Decision
-            </button>
+            {stageDisabled && tooltip && (
+                <p className="mb-4 rounded-lg border border-border bg-slate-50 px-3 py-2 text-xs text-muted-foreground dark:bg-slate-800/50">
+                    {tooltip}
+                </p>
+            )}
+            <fieldset disabled={stageDisabled} className={cn(stageDisabled && 'opacity-50')}>
+                <div className="mb-6 space-y-3">
+                    {options.map((opt) => {
+                        const isSelected = decision === opt.value;
+                        return (
+                            <label
+                                key={opt.value}
+                                className={cn(
+                                    'flex items-center gap-3 rounded-lg border p-3 transition-colors',
+                                    stageDisabled
+                                        ? 'cursor-not-allowed border-border'
+                                        : 'cursor-pointer',
+                                    !stageDisabled && isSelected
+                                        ? 'border-[#1e3a5f]/50 bg-[#1e3a5f]/5 ring-1 ring-[#1e3a5f]'
+                                        : !stageDisabled
+                                          ? 'border-border hover:bg-slate-50 dark:hover:bg-slate-800'
+                                          : '',
+                                )}
+                            >
+                                <input
+                                    type="radio"
+                                    name="decision"
+                                    value={opt.value}
+                                    checked={isSelected}
+                                    onChange={() => setDecision(opt.value)}
+                                    className="h-4 w-4 text-[#1e3a5f] focus:ring-[#1e3a5f]"
+                                />
+                                <span className={cn('text-sm font-medium', isSelected ? 'font-bold text-[#1e3a5f]' : 'text-foreground')}>
+                                    {opt.label}
+                                </span>
+                            </label>
+                        );
+                    })}
+                </div>
+                <div className="mb-4">
+                    <label className="mb-2 block text-sm font-medium text-foreground">Rationale / Notes</label>
+                    <textarea
+                        value={rationale}
+                        onChange={(e) => setRationale(e.target.value)}
+                        placeholder="Enter decision rationale..."
+                        rows={4}
+                        className="w-full resize-none rounded-lg border border-border bg-transparent p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/30"
+                    />
+                </div>
+                <button
+                    onClick={handleSubmit}
+                    disabled={!canSubmit}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1e3a5f] py-3 font-bold text-white shadow-md transition-colors hover:bg-[#152e42] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    <Gavel className="h-4 w-4" />
+                    Record Decision
+                </button>
+            </fieldset>
         </CardShell>
     );
 }
@@ -665,6 +716,8 @@ function UnderwriterDetail() {
     }
 
     const name = borrowerName(app);
+    const stage = app.stage as ApplicationStage | undefined;
+    const stageBadgeColor = stage ? STAGE_BADGE_COLORS[stage] ?? 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400' : '';
 
     return (
         <div className="mx-auto max-w-[1280px] p-6 md:p-8">
@@ -673,21 +726,26 @@ function UnderwriterDetail() {
                 <Link to="/underwriter" className="transition-colors hover:text-foreground">Queue</Link>
                 <ChevronRight className="h-3.5 w-3.5" />
                 <span className="font-medium text-foreground">{name} — #{app.id}</span>
+                {stage && (
+                    <span className={cn('ml-2 rounded-full px-2.5 py-0.5 text-xs font-semibold', stageBadgeColor)}>
+                        {APPLICATION_STAGE_LABELS[stage]}
+                    </span>
+                )}
             </nav>
 
             {/* Two-column layout */}
             <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
                 {/* Left column */}
                 <div className="flex flex-col gap-6 lg:col-span-8">
-                    <RiskAssessmentCard appId={appId} predictiveModelEnabled={features?.predictive_model ?? false} />
+                    <RiskAssessmentCard appId={appId} stage={stage} predictiveModelEnabled={features?.predictive_model ?? false} />
                     <RecommendationBanner appId={appId} />
-                    <ComplianceChecksCard appId={appId} />
-                    <ConditionsCard appId={appId} />
+                    <ComplianceChecksCard appId={appId} stage={stage} />
+                    <ConditionsCard appId={appId} stage={stage} />
                 </div>
 
                 {/* Right column (sticky) */}
                 <div className="flex flex-col gap-6 lg:col-span-4 lg:sticky lg:top-[80px]">
-                    <DecisionPanel appId={appId} />
+                    <DecisionPanel appId={appId} stage={stage} />
                     <AppSummaryCard app={app} />
                     <ComplianceKBCard />
                     <PastDecisions appId={appId} />
