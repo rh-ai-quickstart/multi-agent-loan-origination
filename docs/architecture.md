@@ -572,7 +572,7 @@ Developers adapting this Quickstart to their domain should consider:
 
 ### Integrating a Real LLM Provider
 
-Replace the mock LlamaStack / LMStudio setup:
+Configure your LLM provider:
 
 1. Set `LLM_BASE_URL` to your provider's OpenAI-compatible endpoint (e.g., `https://api.together.ai/v1`).
 2. Set `LLM_API_KEY` to your API key.

@@ -110,8 +110,8 @@ graph TD
 
 **For local LLM serving:**
 
-- GPU with 8GB+ VRAM for running LM Studio with 7B-30B parameter models, or
-- Access to a cloud-based OpenAI-compatible API endpoint
+- GPU with 8GB+ VRAM for running a local inference server with 7B-30B parameter models, or
+- Access to an OpenAI-compatible API endpoint (cloud provider, OpenShift AI model serving, or similar)
 
 **For OpenShift deployment:**
 
@@ -125,7 +125,7 @@ graph TD
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 - Podman 4+ and podman-compose
 - PostgreSQL 16 (provided via compose for local development)
-- An OpenAI-compatible LLM endpoint (LM Studio, virtual large language model (vLLM), OpenAI API, or similar)
+- An OpenAI-compatible LLM endpoint (local inference server, OpenShift AI model serving, vLLM, or any compatible API)
 
 ## Deploy
 
@@ -138,7 +138,7 @@ make setup                # Install all dependencies
 cp .env.example .env      # Configure LLM endpoint and model names
 ```
 
-Edit `.env` to point to your LLM endpoint. For LM Studio running locally:
+Edit `.env` to point to your LLM endpoint. For a local inference server:
 
 ```env
 LLM_BASE_URL=http://localhost:1234/v1
@@ -301,7 +301,7 @@ cd packages/ui && pnpm test:run              # Run UI tests
 Copy `.env.example` to `.env` and configure for your environment. Key settings to adjust:
 
 ```env
-# LLM endpoint (LM Studio, vLLM, or OpenAI)
+# LLM endpoint (any OpenAI-compatible server or OpenShift AI model serving)
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_API_KEY=not-needed
 LLM_MODEL=qwen3-30b-a3b

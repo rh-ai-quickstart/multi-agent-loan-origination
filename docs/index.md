@@ -54,7 +54,7 @@ This Quickstart demonstrates AI patterns for regulated industries:
 |-------|-----------|
 | **Agent Framework** | LangGraph for multi-agent orchestration |
 | **Observability** | MLflow for experiment tracking and tracing (RHOAI-native) |
-| **Model Serving** | Any OpenAI-compatible endpoint (LM Studio, vLLM, OpenShift AI); optional LlamaStack abstraction |
+| **Model Serving** | Any OpenAI-compatible endpoint (local inference server, OpenShift AI model serving, vLLM, or cloud API) |
 | **Backend** | FastAPI with async SQLAlchemy 2.0, Pydantic 2.x validation |
 | **Database** | PostgreSQL 16 with pgvector for embeddings |
 | **Frontend** | React 19 with TanStack Router and Query, Tailwind CSS, shadcn/ui components |
