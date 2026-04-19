@@ -92,7 +92,10 @@ def setup_mlflow_op(
             print("Auto-detected Kubernetes SA token")
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
-    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
+    try:
+        mlflow.set_workspace(mlflow_workspace)
+    except Exception:
+        pass
 
     experiment_name = mlflow_experiment_name
     if not experiment_name.endswith("-eval"):
@@ -149,7 +152,10 @@ def create_dataset_op(
             os.environ["MLFLOW_TRACKING_TOKEN"] = sa_token_path.read_text().strip()
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
-    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
+    try:
+        mlflow.set_workspace(mlflow_workspace)
+    except Exception:
+        pass
     mlflow.set_experiment(experiment_name)
 
     # Define test cases
@@ -292,7 +298,10 @@ def run_simple_eval_op(
     except ImportError:
         pass
 
-    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
+    try:
+        mlflow.set_workspace(mlflow_workspace)
+    except Exception:
+        pass
 
     # -------------------------------------------------------------------------
     # Define scorers
@@ -475,7 +484,10 @@ def run_llm_judge_eval_op(
     except ImportError:
         pass
 
-    mlflow.set_workspace(mlflow_workspace)  # MLflow 3.x workspace API
+    try:
+        mlflow.set_workspace(mlflow_workspace)
+    except Exception:
+        pass
 
     # -------------------------------------------------------------------------
     # Define custom scorers
