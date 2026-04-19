@@ -46,15 +46,15 @@ This Quickstart demonstrates production-ready AI patterns for regulated industri
 - **Audit Trails**: Immutable append-only audit logs with cryptographic hash chains for all agent actions and decisions
 - **Model Routing**: Rule-based routing between fast/capable models based on query complexity and tool requirements
 - **Safety Shields**: Optional integration with Llama Guard for input/output content moderation
-- **Observability**: Comprehensive tracing via LangFuse for agent conversations, tool calls, and model usage
+- **Observability**: Experiment tracking and tracing via MLflow for agent conversations, tool calls, and model usage
 
 ## Technology Stack
 
 | Layer | Technology |
 |-------|-----------|
 | **Agent Framework** | LangGraph for multi-agent orchestration |
-| **Observability** | LangFuse (self-hosted) for tracing and monitoring |
-| **Model Serving** | LlamaStack abstraction layer (supports OpenAI, local LLMs, OpenShift AI) |
+| **Observability** | MLflow for experiment tracking and tracing (RHOAI-native) |
+| **Model Serving** | Any OpenAI-compatible endpoint (LM Studio, vLLM, OpenShift AI); optional LlamaStack abstraction |
 | **Backend** | FastAPI with async SQLAlchemy 2.0, Pydantic 2.x validation |
 | **Database** | PostgreSQL 16 with pgvector for embeddings |
 | **Frontend** | React 19 with TanStack Router and Query, Tailwind CSS, shadcn/ui components |
@@ -93,4 +93,4 @@ This is a reference application, not a production system. It does not include:
 
 ## Source Code
 
-The source code is available at [github.com/rh-ai-quickstart/mortgage-ai](https://github.com/rh-ai-quickstart/mortgage-ai).
+The source code is available at [github.com/rh-ai-quickstart/multi-agent-loan-origination](https://github.com/rh-ai-quickstart/multi-agent-loan-origination).

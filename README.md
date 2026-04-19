@@ -44,11 +44,61 @@ Demo video inclusion/timeline TBD.
 
 #### System architecture
 
-![System architecture](docs/images/gemini-architecture.png)
+```mermaid
+graph TB
+    Browser["Browser (Client)"]
+
+    subgraph UI["UI Package (React + Vite)"]
+        Router["TanStack Router"]
+        Query["TanStack Query"]
+        Components["Tailwind CSS + shadcn/ui"]
+    end
+
+    subgraph API["API Package (FastAPI)"]
+        Middleware["Middleware (JWT, PII Masking, CORS)"]
+        REST["REST Routes (/api/applications, /api/analytics, /admin)"]
+        WS["WebSocket Chat (/api/chat, /api/borrower/chat, /api/lo/chat, /api/uw/chat, /api/ceo/chat)"]
+        subgraph Agents["Agent System (LangGraph)"]
+            Registry["Registry (YAML config)"]
+            AgentRouter["Router (rule-based intent)"]
+            Graphs["Agent Graphs (5 personas)"]
+        end
+    end
+
+    Keycloak["Keycloak (OIDC)"]
+    LLM["LLM Endpoint (OpenAI-compatible)"]
+    MLflow["MLflow (Observability)"]
+    MCP["MCP Risk Server (Predictive Model)"]
+
+    subgraph Infra["Infrastructure"]
+        PG["PostgreSQL 16 + pgvector"]
+        MinIO["MinIO (S3-compatible)"]
+    end
+
+    Browser -->|"HTTPS / WebSocket"| UI
+    UI -->|"HTTP/WS :8000"| API
+    API --> Keycloak
+    API --> LLM
+    API --> MLflow
+    API --> MCP
+    API --> PG
+    API --> MinIO
+```
 
 #### Agent request flow
 
-![Agent request flow](docs/images/gemini-agent-flow.png)
+```mermaid
+graph LR
+    Input["User Message"] --> Shield1["Input Shield (Llama Guard)"]
+    Shield1 --> Classify["Classify (Rule-Based)"]
+    Classify -->|SIMPLE| Fast["Agent Fast (text-only)"]
+    Classify -->|COMPLEX| Capable["Agent Capable (tool-calling)"]
+    Fast -->|low confidence| Capable
+    Fast --> Shield2["Output Shield"]
+    Capable <-->|tool calls| Tools["Tool Node + RBAC Auth"]
+    Capable --> Shield2
+    Shield2 --> Output["Response to Client"]
+```
 
 ## Requirements
 
@@ -195,14 +245,20 @@ This quickstart demonstrates production-ready AI patterns for regulated industri
 ```
 mortgage-ai/
 ├── packages/
-│   ├── ui/              # React frontend (pnpm)
-│   ├── api/             # FastAPI backend + agents (uv)
-│   └── db/              # Database models + migrations (uv)
+│   ├── ui/              # React frontend (pnpm, Vite)
+│   ├── api/             # FastAPI backend + LangGraph agents (uv)
+│   ├── db/              # SQLAlchemy models + Alembic migrations (uv)
+│   ├── e2e/             # Playwright end-to-end tests (pnpm)
+│   └── configs/         # Shared TypeScript configs
 ├── config/
-│   ├── agents/          # Agent YAML configurations
+│   ├── agents/          # Agent YAML configurations (system prompts, tools, routing)
 │   └── keycloak/        # Keycloak realm export
+├── data/                # Compliance KB source documents (YAML)
 ├── deploy/helm/         # Helm charts for OpenShift
-├── compose.yml          # Local development services
+├── docs/                # MkDocs documentation site source
+├── evaluations/         # Agent evaluation notebooks (MLflow)
+├── scripts/             # Utility scripts (DB seeding, KB ingestion)
+├── compose.yml          # Local development services (profile-based)
 ├── Makefile             # Development commands
 └── turbo.json           # Turborepo pipeline config
 ```
@@ -232,7 +288,7 @@ make lint               # Lint all packages
 Package-specific test commands:
 
 ```bash
-cd packages/api && uv run pytest -v          # Run 1083 API tests
+cd packages/api && uv run pytest -v          # Run API tests
 cd packages/ui && pnpm test:run              # Run UI tests
 ```
 
@@ -240,6 +296,7 @@ cd packages/ui && pnpm test:run              # Run UI tests
 |---------|-----------|----------|
 | API | pytest | `packages/api/tests/` |
 | UI | Vitest + React Testing Library | `packages/ui/src/**/*.test.tsx` |
+| E2E | Playwright | `packages/e2e/tests/` |
 
 ### Environment configuration
 

@@ -7,67 +7,50 @@ This multi-agent AI reference application is built to demonstrate production-gra
 
 ### Component Topology
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          Browser (Client)                           │
-└─────────┬───────────────────────────────────────────────────────────┘
-          │ HTTPS / WebSocket
-          ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    UI Package (React + Vite)                        │
-│  - TanStack Router (file-based routing)                             │
-│  - TanStack Query (server state)                                    │
-│  - Tailwind CSS + shadcn/ui (components)                            │
-└─────────┬───────────────────────────────────────────────────────────┘
-          │ HTTP/WS (port 8000)
-          ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    API Package (FastAPI)                            │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │ Middleware Layer                                              │  │
-│  │  - JWT validation (Keycloak OIDC)                             │  │
-│  │  - PII masking (role-based)                                   │  │
-│  │  - CORS                                                        │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │ REST Routes                                                    │  │
-│  │  - /api/applications, /api/documents, /api/conditions         │  │
-│  │  - /api/analytics (CEO dashboards)                            │  │
-│  │  - /admin (SQLAdmin panel)                                    │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │ WebSocket Chat Endpoints                                      │  │
-│  │  - /api/public/chat (unauthenticated)                         │  │
-│  │  - /api/borrower/chat, /api/lo/chat, /api/uw/chat, /api/ceo/chat  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │ Agent System (LangGraph)                                      │  │
-│  │  - Registry (YAML config → graph builder)                     │  │
-│  │  - Router (rule-based intent → model tier)                    │  │
-│  │  - Agent graphs (5 personas, tool-augmented)                  │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-└─────┬───────────────────────────┬──────────────────────────┬────────┘
-      │                           │                          │
-      ▼                           ▼                          ▼
-┌──────────┐            ┌──────────────────┐    ┌────────────────────┐
-│ Keycloak │            │  LlamaStack      │    │ LangFuse           │
-│ (OIDC)   │            │  (Model Router)  │    │ (Observability)    │
-└──────────┘            └──────────────────┘    └────────────────────┘
-      │                           │                          │
-      │                           │                          │
-      ▼                           ▼                          ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Infrastructure Layer                             │
-│  ┌─────────────┐  ┌─────────┐  ┌──────────┐  ┌────────────────┐   │
-│  │ PostgreSQL  │  │  MinIO  │  │  Redis   │  │  ClickHouse    │   │
-│  │  + pgvector │  │  (S3)   │  │ (LF)     │  │  (LF)          │   │
-│  └─────────────┘  └─────────┘  └──────────┘  └────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    Browser["Browser (Client)"]
+
+    subgraph UI["UI Package (React + Vite)"]
+        Router["TanStack Router"]
+        Query["TanStack Query"]
+        Components["Tailwind CSS + shadcn/ui"]
+    end
+
+    subgraph API["API Package (FastAPI)"]
+        Middleware["Middleware (JWT, PII Masking, CORS)"]
+        REST["REST Routes (/api/applications, /api/analytics, /admin)"]
+        WS["WebSocket Chat (/api/chat, /api/borrower/chat, /api/lo/chat, /api/uw/chat, /api/ceo/chat)"]
+        subgraph Agents["Agent System (LangGraph)"]
+            Registry["Registry (YAML config)"]
+            AgentRouter["Router (rule-based intent)"]
+            Graphs["Agent Graphs (5 personas)"]
+        end
+    end
+
+    Keycloak["Keycloak (OIDC)"]
+    LLM["LLM Endpoint (OpenAI-compatible)"]
+    MLflow["MLflow (Observability)"]
+    MCP["MCP Risk Server (Predictive Model)"]
+
+    subgraph Infra["Infrastructure"]
+        PG["PostgreSQL 16 + pgvector"]
+        MinIO["MinIO (S3-compatible)"]
+    end
+
+    Browser -->|"HTTPS / WebSocket"| UI
+    UI -->|"HTTP/WS :8000"| API
+    API --> Keycloak
+    API --> LLM
+    API --> MLflow
+    API --> MCP
+    API --> PG
+    API --> MinIO
 ```
 
 ### Monorepo Structure
 
-The application is organized as a Turborepo monorepo with three packages:
+The application is organized as a Turborepo monorepo:
 
 ```
 packages/
@@ -88,13 +71,16 @@ packages/
 │   │   └── core/      # Config, auth logic, error handling
 │   └── pyproject.toml
 │
-└── db/                 # Database models + migrations (uv/Python)
-    ├── src/db/
-    │   ├── models.py  # SQLAlchemy ORM models
-    │   ├── enums.py   # Shared enums (stages, statuses)
-    │   └── database.py# Async session factory
-    ├── alembic/        # Migration scripts
-    └── pyproject.toml
+├── db/                 # Database models + migrations (uv/Python)
+│   ├── src/db/
+│   │   ├── models.py  # SQLAlchemy ORM models
+│   │   ├── enums.py   # Shared enums (stages, statuses)
+│   │   └── database.py# Async session factory
+│   ├── alembic/        # Migration scripts
+│   └── pyproject.toml
+│
+├── e2e/                # Playwright end-to-end tests (pnpm)
+└── configs/            # Shared TypeScript configs
 ```
 
 **Dependency flow:** `ui → api → db` (ui calls api via HTTP, api imports db models as Python dependency).
@@ -105,10 +91,10 @@ The `compose.yml` supports layered profiles to run only what you need:
 
 | Profile | Services Added | Use Case |
 |---------|---------------|----------|
-| (none) | postgres, minio, api, ui | Minimal stack for development |
+| (none) | postgres, minio, mcp-risk-server, api, ui | Minimal stack for development |
 | `auth` | + keycloak | Test OIDC authentication flow |
-| `ai` | + llamastack | LlamaStack model router (optional) |
-| `observability` | + redis, clickhouse, langfuse-web, langfuse-worker | LLM tracing and monitoring |
+| `ai` | + llamastack | LlamaStack model serving abstraction (optional) |
+| `observability` | + mlflow | MLflow experiment tracking and tracing |
 | `full` | all of the above | Full stack for integration testing |
 
 ## Agent System
@@ -139,9 +125,17 @@ response = await agent.ainvoke({"messages": [user_message], ...})
 
 Each agent uses a common graph structure with safety shields and rule-based routing:
 
-```
-input_shield → classify → [agent_fast | agent_capable] → tools → output_shield → END
-                              (text-only)   (tool-calling)
+```mermaid
+graph LR
+    Input["User Message"] --> Shield1["Input Shield (Llama Guard)"]
+    Shield1 --> Classify["Classify (Rule-Based)"]
+    Classify -->|SIMPLE| Fast["Agent Fast (text-only)"]
+    Classify -->|COMPLEX| Capable["Agent Capable (tool-calling)"]
+    Fast -->|low confidence| Capable
+    Fast --> Shield2["Output Shield"]
+    Capable <-->|tool calls| Tools["Tool Node + RBAC Auth"]
+    Capable --> Shield2
+    Shield2 --> Output["Response"]
 ```
 
 **Nodes:**
@@ -447,39 +441,35 @@ The **PII masking middleware** (`packages/api/src/middleware/pii.py`) masks sens
 
 ## Observability
 
-### LangFuse Integration
+### MLflow Integration
 
-The application uses **LangFuse** (self-hosted) for LLM observability:
+The application uses **MLflow** for LLM observability and experiment tracking. On Red Hat OpenShift AI (RHOAI 3.4+), MLflow is the native experiment tracking service.
 
-- **Traces:** Every agent invocation creates a trace with LLM calls, tool executions, token counts, latencies.
-- **Prompt versioning:** System prompts stored as LangFuse prompt templates (not yet implemented — planned for production hardening).
-- **User feedback:** UI can submit thumbs-up/down on agent responses (captured in LangFuse).
+- **Traces:** Agent invocations are traced with LLM calls, tool executions, token counts, and latencies.
+- **Experiments:** Agent evaluation runs are tracked as MLflow experiments for comparison across model versions.
 
-**Infrastructure:**
+**Infrastructure (local development):**
 
-- **LangFuse web:** Next.js app (port 3001)
-- **LangFuse worker:** Background worker for async processing
-- **Redis:** Session cache, job queue
-- **ClickHouse:** Time-series storage for traces and metrics
-- **MinIO:** S3 storage for trace payloads
+- **MLflow server:** Tracking server (port 5000) with PostgreSQL backend store and MinIO artifact storage.
+- Enabled via the `observability` compose profile.
 
 **Configuration:**
 
-- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`: API keys (auto-provisioned by init script)
-- `LANGFUSE_HOST`: LangFuse server URL (e.g., `http://langfuse-web:3000`)
+- `MLFLOW_TRACKING_URI`: MLflow server URL (e.g., `http://mlflow:5000` or the RHOAI route)
+- `MLFLOW_EXPERIMENT_NAME`: Experiment name (default: `multi-agent-loan-origination`)
+- `MLFLOW_TRACKING_TOKEN`: Service account token (RHOAI deployments)
+- `MLFLOW_TRACKING_INSECURE_TLS`: Skip TLS verification for self-signed certs
 
-When these env vars are set, the API automatically wraps all LangGraph invocations with LangFuse callbacks.
+When `MLFLOW_TRACKING_URI` is set, the API logs agent traces to MLflow.
 
 ### Model Monitoring (CEO Dashboard)
 
-The CEO agent has access to model monitoring tools backed by LangFuse analytics:
+The CEO agent has access to model monitoring tools:
 
 - **Model latency:** P50/P90/P99 latencies by model and tier
 - **Token usage:** Input/output token counts and cost estimates
 - **Error rates:** Failed inferences by model and error type
 - **Routing distribution:** Fast vs capable tier usage over time
-
-These tools query LangFuse's ClickHouse backend via REST API.
 
 ### Logging and Error Handling
 
@@ -523,14 +513,14 @@ Each package builds a container image:
 
 **Base images:**
 
-- UI: `registry.access.redhat.com/ubi9/nginx-122`
-- API: `registry.access.redhat.com/ubi9/python-311`
+- UI build: `node:20-alpine` (build stage), `nginx:alpine` (runtime)
+- API: `python:3.11-slim`
 
 ### Helm Chart
 
 The `deploy/helm/` directory contains a Helm chart for deploying to OpenShift:
 
-- Deployments for UI, API, DB, Keycloak, MinIO, LangFuse
+- Deployments for UI, API, DB, Keycloak, MinIO
 - Services, Routes (OpenShift), ConfigMaps, Secrets
 - Health checks, resource limits, autoscaling config
 
@@ -548,7 +538,7 @@ helm install mortgage-ai ./deploy/helm/ \
 Configuration follows the **12-factor app** pattern:
 
 - **Environment variables:** All runtime config (DB URLs, API keys, feature flags)
-- **Config files:** Static configs (agent YAML, LlamaStack model routing, Keycloak realm JSON)
+- **Config files:** Static configs (agent YAML, Keycloak realm JSON)
 - **Secrets:** Managed via OpenShift Secrets or Helm values (never in Git)
 
 **Environment variable groups:**
@@ -559,7 +549,7 @@ Configuration follows the **12-factor app** pattern:
 | Auth | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `AUTH_DISABLED` | `http://localhost:8080`, `mortgage-ai`, `mortgage-ai-ui`, `true` |
 | LLM | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | `https://api.openai.com/v1`, `not-needed`, `gpt-4o-mini` |
 | Storage | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | `http://localhost:9090`, `minio`, `miniosecret`, `documents` |
-| Observability | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` | (unset — tracing disabled) |
+| Observability | `MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_NAME`, `MLFLOW_TRACKING_TOKEN` | (unset -- tracing disabled) |
 
 ## Extension Points
 
