@@ -44,46 +44,7 @@ Demo video inclusion/timeline TBD.
 
 #### System architecture
 
-```mermaid
-graph TB
-    Browser["Browser (Client)"]
-
-    subgraph UI["UI Package (React + Vite)"]
-        Router["TanStack Router"]
-        Query["TanStack Query"]
-        Components["Tailwind CSS + shadcn/ui"]
-    end
-
-    subgraph API["API Package (FastAPI)"]
-        Middleware["Middleware (JWT, PII Masking, CORS)"]
-        REST["REST Routes (/api/applications, /api/analytics, /admin)"]
-        WS["WebSocket Chat (/api/chat, /api/borrower/chat, /api/lo/chat, /api/uw/chat, /api/ceo/chat)"]
-        subgraph Agents["Agent System (LangGraph)"]
-            Registry["Registry (YAML config)"]
-            AgentRouter["Router (rule-based intent)"]
-            Graphs["Agent Graphs (5 personas)"]
-        end
-    end
-
-    Keycloak["Keycloak (OIDC)"]
-    LLM["LLM Endpoint (OpenAI-compatible)"]
-    MLflow["MLflow (Observability)"]
-    MCP["MCP Risk Server (Predictive Model)"]
-
-    subgraph Infra["Infrastructure"]
-        PG["PostgreSQL 16 + pgvector"]
-        MinIO["MinIO (S3-compatible)"]
-    end
-
-    Browser -->|"HTTPS / WebSocket"| UI
-    UI -->|"HTTP/WS :8000"| API
-    API --> Keycloak
-    API --> LLM
-    API --> MLflow
-    API --> MCP
-    API --> PG
-    API --> MinIO
-```
+![System architecture](docs/images/system-architecture.png)
 
 #### Agent request flow
 
