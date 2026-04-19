@@ -27,11 +27,14 @@ import {
     APPLICATION_STAGE_LABELS,
     LOAN_TYPE_LABELS,
 } from '@/schemas/enums';
+import type { ApplicationStage } from '@/schemas/enums';
 import type { ApplicationResponse } from '@/schemas/applications';
 import type { RateLockResponse } from '@/schemas/rate-lock';
 import type { Condition } from '@/schemas/conditions';
 import { cn } from '@/lib/utils';
 import { DOC_TYPE_LABELS, STAGE_BADGE } from '@/lib/labels';
+
+const SUBMIT_UW_STAGES = new Set<ApplicationStage>(['application', 'processing']);
 
 export const Route = createFileRoute('/_authenticated/loan-officer/$applicationId')({
     component: LoanDetail,
@@ -183,13 +186,20 @@ function DetailHeader({ app, rateLock }: { app: ApplicationResponse; rateLock: R
                         <Upload className="h-4 w-4" />
                         Request Documents
                     </button>
-                    <button
-                        onClick={() => chatPrefill(`Submit application #${app.id} to underwriting.`)}
-                        className="flex items-center gap-1.5 rounded-lg bg-[#1e3a5f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42]"
-                    >
-                        <Send className="h-4 w-4" />
-                        Submit to Underwriting
-                    </button>
+                    {(() => {
+                        const canSubmit = SUBMIT_UW_STAGES.has(app.stage as ApplicationStage);
+                        return (
+                            <button
+                                onClick={() => chatPrefill(`Submit application #${app.id} to underwriting.`)}
+                                disabled={!canSubmit}
+                                title={canSubmit ? undefined : `Not available in ${APPLICATION_STAGE_LABELS[app.stage]} stage`}
+                                className="flex items-center gap-1.5 rounded-lg bg-[#1e3a5f] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#152e42] disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <Send className="h-4 w-4" />
+                                Submit to Underwriting
+                            </button>
+                        );
+                    })()}
                 </div>
             </div>
         </CardShell>
