@@ -1,4 +1,4 @@
-# This project was developed with assistance from AI tools.
+<!-- This project was developed with assistance from AI tools. -->
 
 # Mortgage AI API
 
@@ -6,7 +6,7 @@ FastAPI backend for a multi-agent mortgage loan origination system. This is the 
 
 ## Overview
 
-Multi-persona chat application with role-scoped agents, compliance checks, audit trails, and analytics. Five LangGraph agents (public, borrower, loan officer, underwriter, CEO) powered by LangFuse observability and rule-based model routing (fast/capable tiers).
+Multi-persona chat application with role-scoped agents, compliance checks, audit trails, and analytics. Five LangGraph agents (public, borrower, loan officer, underwriter, CEO) with MLflow observability and vision-based document extraction.
 
 **Key capabilities:**
 - Role-scoped agents with 60+ tools across 5 personas
@@ -15,8 +15,8 @@ Multi-persona chat application with role-scoped agents, compliance checks, audit
 - Compliance knowledge base (pgvector + 8 regulatory documents)
 - Audit hash chains with tamper detection
 - PII masking for CEO role
-- Rule-based model routing with confidence escalation
-- 1083 tests (unit, functional, integration)
+- Vision-based document extraction (optional)
+- 1165+ tests (unit, functional, integration)
 
 ## Directory Structure
 
@@ -36,7 +36,7 @@ src/
     documents.py       # Document upload + MinIO storage
     hmda.py            # HMDA demographics (isolated schema)
     analytics.py       # Pipeline + denial + LO performance
-    model_monitoring.py # LangFuse model metrics
+    model_monitoring.py # Model monitoring metrics
     audit.py           # Audit trail + hash verification
     admin.py           # Seed data + admin tools
     chat.py            # Public WebSocket (unauthenticated)
@@ -51,7 +51,7 @@ src/
     compliance/        # Compliance checks + KB
     seed/              # Demo data generation
   agents/              # LangGraph agents + tools
-    base.py            # Base graph (shields, routing, RBAC)
+    base.py            # Base graph (shields, RBAC)
     registry.py        # Config loading (config/agents/*.yaml)
     public_assistant.py
     borrower_assistant.py
@@ -80,24 +80,13 @@ Five LangGraph agents, each with role-scoped tools and configuration in `config/
 | **CEO Assistant** | 12 tools (analytics, audit, model monitoring, product info) | `ws://host/api/ceo/chat?token=<jwt>` |
 
 All agents share a common base graph (`agents/base.py`) with:
-- **Input/output safety shields** (Llama Guard, optional)
-- **Rule-based model routing** (fast tier for simple queries, capable tier for complex/tools)
-- **Confidence escalation** (fast model responses with low confidence auto-escalate to capable model)
+- **Input/output safety shields** (optional, configurable via `SAFETY_MODEL`)
 - **Tool-level RBAC** (tools check user role before execution)
+- **Vision model** (optional, for document image extraction via `VISION_MODEL`)
 
 ### Agent Architecture
 
-```
-user input -> input_shield -> classify (rule-based) -> agent_fast / agent_capable
-                   |                                          |
-                   +-(blocked)-> END              tools <-> agent_capable -> output_shield -> END
-```
-
-**Rule-based routing:**
-- Keyword/pattern matching (no LLM call) classifies queries as SIMPLE or COMPLEX
-- COMPLEX queries route directly to capable model with tools
-- SIMPLE queries route to fast model (text-only, no tools)
-- Fast model responses with low confidence (logprobs or hedging phrases) auto-escalate to capable model
+![Agent request flow](../../docs/images/agent-request-flow.png)
 
 ## REST API
 
@@ -192,17 +181,16 @@ When `AUTH_DISABLED=true`, all authenticated endpoints return a development user
 - Masks SSN, account numbers, precise addresses
 - Applied to JSON response bodies after serialization
 
-## Model Routing & Observability
+## Models & Observability
 
-**LangFuse Integration:**
-- All agent interactions traced to LangFuse (if configured)
-- Metrics: latency, token usage, error rates, model routing decisions
-- Analytics endpoints expose LangFuse-backed metrics
+**MLflow Integration:**
+- Agent interactions traced to MLflow (when `MLFLOW_TRACKING_URI` is configured)
+- Metrics: latency, token usage, error rates
+- Analytics endpoints expose model monitoring metrics
 
-**Model Tiers:**
-- Fast tier: text-only responses for simple queries (no tools)
-- Capable tier: tool-calling for complex queries
-- Embedding tier: vector embeddings for compliance KB search (defaults to in-process `nomic-ai/nomic-embed-text-v1.5` via sentence-transformers; no external service needed)
+**Models:**
+- Primary LLM: configured via `LLM_MODEL` (any OpenAI-compatible endpoint)
+- Embeddings: vector embeddings for compliance KB search (defaults to in-process `nomic-ai/nomic-embed-text-v1.5` via sentence-transformers; no external service needed)
 - Optional vision model for document image extraction (defaults to main LLM)
 - Configurable via `LLM_MODEL`, `VISION_MODEL`, and `EMBEDDING_*` env vars
 
@@ -239,7 +227,7 @@ Environment variables loaded via Pydantic Settings (`src/core/config.py`). See `
 - `EMBEDDING_API_KEY` - Remote endpoint API key (only needed when provider is `openai_compatible`; falls back to `LLM_API_KEY`)
 
 **Observability:**
-- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST` - LangFuse (optional)
+- `MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_NAME`, `MLFLOW_TRACKING_TOKEN` - MLflow (optional)
 
 **Admin:**
 - `SQLADMIN_USER`, `SQLADMIN_PASSWORD`, `SQLADMIN_SECRET_KEY` - SQLAdmin dashboard at `/admin`
@@ -258,7 +246,7 @@ pnpm --filter api dev
 
 **Run tests:**
 ```bash
-# All tests (1083 tests)
+# All tests
 AUTH_DISABLED=true uv run pytest -v
 
 # Specific test types

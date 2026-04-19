@@ -296,7 +296,7 @@ All model monitoring endpoints require `ceo` or `admin` role.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/analytics/model-monitoring` | Overall LangFuse metrics summary |
+| `GET` | `/api/analytics/model-monitoring` | Overall model metrics summary |
 | `GET` | `/api/analytics/model-monitoring/latency` | Latency metrics (p50, p95, p99) |
 | `GET` | `/api/analytics/model-monitoring/tokens` | Token usage by model |
 | `GET` | `/api/analytics/model-monitoring/errors` | Error rate and breakdown |

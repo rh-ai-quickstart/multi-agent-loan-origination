@@ -37,24 +37,24 @@ Each persona has a dedicated chat interface powered by a role-scoped AI agent wi
 
 ## AI Patterns Demonstrated
 
-This Quickstart demonstrates production-ready AI patterns for regulated industries:
+This Quickstart demonstrates AI patterns for regulated industries:
 
 - **Multi-Agent Orchestration**: Five role-scoped agents with distinct tool sets and system prompts, coordinated via LangGraph
 - **Compliance Knowledge Base**: RAG-powered retrieval from federal regulations (TRID, ECOA, ATR/QM, HMDA), agency guidelines (Fannie Mae, FHA), and internal policies
 - **Fair Lending Guardrails**: ECOA compliance checks, adverse action validation, and prohibited basis detection
 - **HMDA Data Isolation**: Demographic information stored in a dedicated schema with restricted access, isolated from general application data
 - **Audit Trails**: Immutable append-only audit logs with cryptographic hash chains for all agent actions and decisions
-- **Model Routing**: Rule-based routing between fast/capable models based on query complexity and tool requirements
+- **Document Extraction**: Vision model integration for extracting text and data from uploaded document images
 - **Safety Shields**: Optional integration with Llama Guard for input/output content moderation
-- **Observability**: Comprehensive tracing via LangFuse for agent conversations, tool calls, and model usage
+- **Observability**: Experiment tracking and tracing via MLflow for agent conversations, tool calls, and model usage
 
 ## Technology Stack
 
 | Layer | Technology |
 |-------|-----------|
 | **Agent Framework** | LangGraph for multi-agent orchestration |
-| **Observability** | LangFuse (self-hosted) for tracing and monitoring |
-| **Model Serving** | LlamaStack abstraction layer (supports OpenAI, local LLMs, OpenShift AI) |
+| **Observability** | MLflow for experiment tracking and tracing (RHOAI-native) |
+| **Model Serving** | Any OpenAI-compatible endpoint (local inference server, OpenShift AI model serving, vLLM, or cloud API) |
 | **Backend** | FastAPI with async SQLAlchemy 2.0, Pydantic 2.x validation |
 | **Database** | PostgreSQL 16 with pgvector for embeddings |
 | **Frontend** | React 19 with TanStack Router and Query, Tailwind CSS, shadcn/ui components |
@@ -93,4 +93,4 @@ This is a reference application, not a production system. It does not include:
 
 ## Source Code
 
-The source code is available at [github.com/rh-ai-quickstart/mortgage-ai](https://github.com/rh-ai-quickstart/mortgage-ai).
+The source code is available at [github.com/rh-ai-quickstart/multi-agent-loan-origination](https://github.com/rh-ai-quickstart/multi-agent-loan-origination).

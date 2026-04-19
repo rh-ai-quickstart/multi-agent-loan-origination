@@ -32,7 +32,7 @@ This Red Hat AI reference application showcases multi-agent AI systems on Red Ha
 
 The application covers the complete mortgage lending lifecycle with five distinct persona experiences: prospect inquiry, borrower application intake, loan officer pipeline management, underwriter compliance checks and risk assessment, and executive analytics. Each persona interacts with a specialized LangGraph agent backed by role-scoped tools, compliance knowledge retrieval, and comprehensive audit trails.
 
-This quickstart demonstrates production-ready AI patterns including role-based access control (RBAC) scoped agent routing, pgvector-based compliance knowledge base with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, personally identifiable information (PII) masking, model complexity routing, and hash-chained audit events. The architecture deploys to OpenShift AI but also runs locally for development and exploration.
+This quickstart demonstrates AI patterns for regulated industries including role-based access control (RBAC) scoped agent routing, pgvector-based compliance knowledge base with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, personally identifiable information (PII) masking, vision-based document extraction, and hash-chained audit events. The architecture deploys to OpenShift AI but also runs locally for development and exploration.
 
 > **Regulatory disclaimer:** All compliance content (HMDA, ECOA, TRID, ATR/QM, FCRA) is simulated for demonstration purposes and does not constitute legal or regulatory advice.
 
@@ -44,11 +44,11 @@ Demo video inclusion/timeline TBD.
 
 #### System architecture
 
-![System architecture](docs/images/gemini-architecture.png)
+![System architecture](docs/images/system-architecture.png)
 
 #### Agent request flow
 
-![Agent request flow](docs/images/gemini-agent-flow.png)
+![Agent request flow](docs/images/agent-request-flow.png)
 
 ## Requirements
 
@@ -56,14 +56,9 @@ Demo video inclusion/timeline TBD.
 
 **For local development:**
 
-- 16GB RAM minimum (32GB recommended for running all services + large language model (LLM) locally)
+- 16GB RAM minimum (32GB recommended for running all services + LLM locally)
 - 20GB available disk space for container images and model files
 - Multi-core CPU (4+ cores recommended)
-
-**For local LLM serving:**
-
-- GPU with 8GB+ VRAM for running LM Studio with 7B-30B parameter models, or
-- Access to a cloud-based OpenAI-compatible API endpoint
 
 **For OpenShift deployment:**
 
@@ -77,7 +72,7 @@ Demo video inclusion/timeline TBD.
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 - Podman 4+ and podman-compose
 - PostgreSQL 16 (provided via compose for local development)
-- An OpenAI-compatible LLM endpoint (LM Studio, virtual large language model (vLLM), OpenAI API, or similar)
+- An OpenAI-compatible LLM endpoint (local inference server, OpenShift AI model serving, vLLM, or any compatible API)
 
 ## Deploy
 
@@ -90,7 +85,7 @@ make setup                # Install all dependencies
 cp .env.example .env      # Configure LLM endpoint and model names
 ```
 
-Edit `.env` to point to your LLM endpoint. For LM Studio running locally:
+Edit `.env` to point to your LLM endpoint. For a local inference server:
 
 ```env
 LLM_BASE_URL=http://localhost:1234/v1
@@ -180,12 +175,12 @@ The application implements five distinct persona experiences, each with a specia
 
 ### Key AI patterns
 
-This quickstart demonstrates production-ready AI patterns for regulated industries:
+This quickstart demonstrates AI patterns for regulated industries:
 
 - **Multi-agent orchestration** - Five LangGraph agents with role-scoped tools and RBAC enforcement
 - **Compliance knowledge base** - pgvector retrieval-augmented generation (RAG) with tiered boosting (federal regulations > agency guidelines > internal policies)
 - **Fair lending safeguards** - HMDA demographic data isolation in separate database schema with access controls
-- **Model routing** - Complexity-based routing between fast and capable LLM tiers to optimize cost and latency
+- **Document extraction** - Vision model integration for extracting text and data from uploaded document images
 - **Comprehensive audit trail** - Hash-chained, append-only audit events with MLflow trace correlation
 - **PII masking** - Middleware-based masking for executive roles (SSN, DOB, account numbers)
 - **Safety shields** - Input and output content filters with escalation pattern detection
@@ -195,14 +190,20 @@ This quickstart demonstrates production-ready AI patterns for regulated industri
 ```
 mortgage-ai/
 ├── packages/
-│   ├── ui/              # React frontend (pnpm)
-│   ├── api/             # FastAPI backend + agents (uv)
-│   └── db/              # Database models + migrations (uv)
+│   ├── ui/              # React frontend (pnpm, Vite)
+│   ├── api/             # FastAPI backend + LangGraph agents (uv)
+│   ├── db/              # SQLAlchemy models + Alembic migrations (uv)
+│   ├── e2e/             # Playwright end-to-end tests (pnpm)
+│   └── configs/         # Shared TypeScript configs
 ├── config/
-│   ├── agents/          # Agent YAML configurations
+│   ├── agents/          # Agent YAML configurations (system prompts, tools, routing)
 │   └── keycloak/        # Keycloak realm export
+├── data/                # Compliance KB source documents (YAML)
 ├── deploy/helm/         # Helm charts for OpenShift
-├── compose.yml          # Local development services
+├── docs/                # MkDocs documentation site source
+├── evaluations/         # Agent evaluation notebooks (MLflow)
+├── scripts/             # Utility scripts (DB seeding, KB ingestion)
+├── compose.yml          # Local development services (profile-based)
 ├── Makefile             # Development commands
 └── turbo.json           # Turborepo pipeline config
 ```
@@ -232,7 +233,7 @@ make lint               # Lint all packages
 Package-specific test commands:
 
 ```bash
-cd packages/api && uv run pytest -v          # Run 1083 API tests
+cd packages/api && uv run pytest -v          # Run API tests
 cd packages/ui && pnpm test:run              # Run UI tests
 ```
 
@@ -240,13 +241,14 @@ cd packages/ui && pnpm test:run              # Run UI tests
 |---------|-----------|----------|
 | API | pytest | `packages/api/tests/` |
 | UI | Vitest + React Testing Library | `packages/ui/src/**/*.test.tsx` |
+| E2E | Playwright | `packages/e2e/tests/` |
 
 ### Environment configuration
 
 Copy `.env.example` to `.env` and configure for your environment. Key settings to adjust:
 
 ```env
-# LLM endpoint (LM Studio, vLLM, or OpenAI)
+# LLM endpoint (any OpenAI-compatible server or OpenShift AI model serving)
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_API_KEY=not-needed
 LLM_MODEL=qwen3-30b-a3b

@@ -1,4 +1,5 @@
-# This project was developed with assistance from AI tools.
+<!-- This project was developed with assistance from AI tools. -->
+
 # Mortgage AI - Database Package
 
 PostgreSQL database layer for the Mortgage AI multi-agent mortgage lending demo application. Part of the Red Hat AI Quickstart catalog.
@@ -102,7 +103,7 @@ services:
 
 Initialization script (`config/postgres/init-databases.sh`) creates:
 
-- `langfuse` database (for LLM observability)
+- `mlflow` database (for observability)
 - `lending_app` and `compliance_app` roles
 - HMDA schema (created via Alembic migration)
 

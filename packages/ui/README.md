@@ -185,9 +185,9 @@ function ChatPanel() {
 ```
 
 WebSocket endpoints:
-- `ws://localhost:8000/api/public/chat` (unauthenticated)
+- `ws://localhost:8000/api/chat` (unauthenticated)
 - `ws://localhost:8000/api/borrower/chat` (requires JWT)
-- `ws://localhost:8000/api/lo/chat` (requires JWT)
+- `ws://localhost:8000/api/loan-officer/chat` (requires JWT)
 - `ws://localhost:8000/api/underwriter/chat` (requires JWT)
 - `ws://localhost:8000/api/ceo/chat` (requires JWT)
 
@@ -373,7 +373,3 @@ UI service exposes port 8080 and connects to API via cluster DNS.
 - Audit trail search
 - Decision trace viewer
 - Chat with executive AI assistant
-
-## License
-
-This project is part of the Red Hat AI Quickstart catalog. See repository root for license information.
