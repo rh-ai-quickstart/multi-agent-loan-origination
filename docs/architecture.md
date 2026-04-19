@@ -125,16 +125,7 @@ response = await agent.ainvoke({"messages": [user_message], ...})
 
 Each agent uses a common graph structure with optional safety shields:
 
-```mermaid
-graph TD
-    Input["User Message"] --> Shield1["Input Shield (optional)"]
-    Shield1 --> Agent["Agent (LLM)"]
-    Agent -->|tool calls| Auth["Tool RBAC Auth"]
-    Auth --> Tools["Tool Execution"]
-    Tools --> Agent
-    Agent -->|text response| Shield2["Output Shield (optional)"]
-    Shield2 --> Output["Response"]
-```
+![Agent request flow](images/agent-request-flow.png)
 
 **Nodes:**
 
