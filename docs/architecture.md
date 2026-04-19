@@ -99,7 +99,7 @@ The `compose.yml` supports layered profiles to run only what you need:
 
 ## Agent System
 
-The agent system is the core differentiator. It uses **LangGraph** for orchestration, a **rule-based router** for model tier selection, and **role-scoped tools** to enforce business logic and compliance constraints at the agent level.
+The agent system is the core differentiator. It uses **LangGraph** for orchestration and **role-scoped tools** to enforce business logic and compliance constraints at the agent level.
 
 ### Agent Architecture
 
@@ -123,32 +123,28 @@ response = await agent.ainvoke({"messages": [user_message], ...})
 
 #### Graph Structure
 
-Each agent uses a common graph structure with safety shields and rule-based routing:
+Each agent uses a common graph structure with optional safety shields:
 
 ```mermaid
-graph LR
-    Input["User Message"] --> Shield1["Input Shield (Llama Guard)"]
-    Shield1 --> Classify["Classify (Rule-Based)"]
-    Classify -->|SIMPLE| Fast["Agent Fast (text-only)"]
-    Classify -->|COMPLEX| Capable["Agent Capable (tool-calling)"]
-    Fast -->|low confidence| Capable
-    Fast --> Shield2["Output Shield"]
-    Capable <-->|tool calls| Tools["Tool Node + RBAC Auth"]
-    Capable --> Shield2
+graph TD
+    Input["User Message"] --> Shield1["Input Shield (optional)"]
+    Shield1 --> Agent["Agent (LLM)"]
+    Agent -->|tool calls| Auth["Tool RBAC Auth"]
+    Auth --> Tools["Tool Execution"]
+    Tools --> Agent
+    Agent -->|text response| Shield2["Output Shield (optional)"]
     Shield2 --> Output["Response"]
 ```
 
 **Nodes:**
 
-- **input_shield:** Llama Guard safety check on user input (when `SAFETY_MODEL` configured). Blocks unsafe requests.
-- **classify:** Rule-based intent classifier (no LLM call). Matches keywords/patterns to route SIMPLE → fast tier, COMPLEX → capable tier.
-- **agent_fast:** Fast/small model (e.g., `gpt-4o-mini`). No tools bound. Text-only responses. Requests logprobs for confidence scoring.
-- **agent_capable:** Capable/large model (e.g., `gpt-4o`, local 70B model). Tools bound. Reliable function calling.
-- **tools:** LangChain `ToolNode` that executes tool calls from the LLM.
+- **input_shield:** Safety check on user input (when `SAFETY_MODEL` configured). Blocks unsafe requests.
+- **agent:** The LLM node, configured via `LLM_MODEL`. Receives the conversation history and available tools. Returns either a text response or tool calls.
 - **tool_auth:** Pre-tool authorization node (RBAC Layer 3). Checks user role against `allowed_roles` for each tool before execution.
-- **output_shield:** Llama Guard safety check on agent output. Replaces unsafe responses with a refusal message.
+- **tools:** LangChain `ToolNode` that executes tool calls from the LLM. Results feed back to the agent for the next reasoning step.
+- **output_shield:** Safety check on agent output (when `SAFETY_MODEL` configured). Replaces unsafe responses with a refusal message.
 
-**Confidence escalation:** If the fast model returns a low-confidence response (low token logprobs or hedging phrases like "I'm not sure"), the response is discarded and the graph re-routes to `agent_capable` for a second pass.
+An optional vision-capable model (`VISION_MODEL`) can be configured separately for document image extraction; when unset, it falls back to the primary LLM.
 
 #### Agent Personas
 
@@ -163,10 +159,6 @@ The system includes five agents, each scoped to a user role:
 | **ceo-assistant** | CEO | 12 | Pipeline analytics, denial trends, LO performance, audit trail search, model monitoring |
 
 **Tool design philosophy:** Tools are single-purpose functions that read or write application state. Complex workflows (e.g., "submit application to underwriting") decompose into multiple tool calls orchestrated by the LLM. This keeps each tool testable and the agent's reasoning transparent.
-
-#### Rule-Based Routing
-
-All agent interactions use a single LLM configured via `LLM_MODEL`. An optional vision-capable model (`VISION_MODEL`) can be configured separately for document image extraction; when unset, it falls back to the primary LLM.
 
 ### Tool System
 
@@ -213,7 +205,7 @@ async def get_application_summary(
 Agent conversations are persisted using LangGraph's checkpointer pattern:
 
 - Each conversation has a unique `thread_id` (stored in `conversations` table)
-- Graph state (messages, model tier, escalation flags, user context) is checkpointed after each turn
+- Graph state (messages, user context) is checkpointed after each turn
 - On reconnect, the graph state is loaded from the checkpoint and the conversation continues
 
 **Storage:** Currently uses an in-memory checkpointer (SQLite or Postgres checkpointer can be swapped in for production).
@@ -469,7 +461,7 @@ The CEO agent has access to model monitoring tools:
 - **Model latency:** P50/P90/P99 latencies by model and tier
 - **Token usage:** Input/output token counts and cost estimates
 - **Error rates:** Failed inferences by model and error type
-- **Routing distribution:** Fast vs capable tier usage over time
+- **Routing distribution:** Model usage over time
 
 ### Logging and Error Handling
 
@@ -480,7 +472,7 @@ The API uses Python's `logging` module with structured log output:
 
 **What's logged:**
 
-- Agent actions (tool calls, model tier selection, confidence escalation)
+- Agent actions (tool calls, model usage)
 - Auth events (JWT validation, RBAC denials)
 - Safety shield blocks (input/output violations)
 - Compliance check results (pass/fail for ECOA, ATR/QM, TRID)
@@ -591,7 +583,7 @@ Replace the mock LlamaStack / LMStudio setup:
 
 This application demonstrates how to architect a multi-agent AI system for a regulated domain:
 
-- **Agent orchestration:** LangGraph graphs with rule-based routing, tool RBAC, safety shields.
+- **Agent orchestration:** LangGraph graphs with tool RBAC and safety shields.
 - **Data isolation:** Dual PostgreSQL roles enforce HMDA separation.
 - **Compliance patterns:** Vector KB with tiered boosting, compliance check tools, audit hash chain.
 - **Production structure:** Clear package boundaries, configuration-driven extensibility, observability hooks.

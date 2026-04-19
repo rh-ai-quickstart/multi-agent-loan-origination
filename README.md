@@ -32,7 +32,7 @@ This Red Hat AI reference application showcases multi-agent AI systems on Red Ha
 
 The application covers the complete mortgage lending lifecycle with five distinct persona experiences: prospect inquiry, borrower application intake, loan officer pipeline management, underwriter compliance checks and risk assessment, and executive analytics. Each persona interacts with a specialized LangGraph agent backed by role-scoped tools, compliance knowledge retrieval, and comprehensive audit trails.
 
-This quickstart demonstrates production-ready AI patterns including role-based access control (RBAC) scoped agent routing, pgvector-based compliance knowledge base with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, personally identifiable information (PII) masking, model complexity routing, and hash-chained audit events. The architecture deploys to OpenShift AI but also runs locally for development and exploration.
+This quickstart demonstrates production-ready AI patterns including role-based access control (RBAC) scoped agent routing, pgvector-based compliance knowledge base with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, personally identifiable information (PII) masking, vision-based document extraction, and hash-chained audit events. The architecture deploys to OpenShift AI but also runs locally for development and exploration.
 
 > **Regulatory disclaimer:** All compliance content (HMDA, ECOA, TRID, ATR/QM, FCRA) is simulated for demonstration purposes and does not constitute legal or regulatory advice.
 
@@ -89,14 +89,12 @@ graph TB
 
 ```mermaid
 graph TD
-    Input["User Message"] --> Shield1["Input Shield (Llama Guard)"]
-    Shield1 --> Classify["Classify (Rule-Based)"]
-    Classify -->|SIMPLE| Fast["Agent Fast (text-only)"]
-    Classify -->|COMPLEX| Capable["Agent Capable (tool-calling)"]
-    Fast -->|low confidence| Capable
-    Fast --> Shield2["Output Shield"]
-    Capable <-->|tool calls| Tools["Tool Node + RBAC Auth"]
-    Capable --> Shield2
+    Input["User Message"] --> Shield1["Input Shield (optional)"]
+    Shield1 --> Agent["Agent (LLM)"]
+    Agent -->|tool calls| Auth["Tool RBAC Auth"]
+    Auth --> Tools["Tool Execution"]
+    Tools --> Agent
+    Agent -->|text response| Shield2["Output Shield (optional)"]
     Shield2 --> Output["Response to Client"]
 ```
 
@@ -235,7 +233,7 @@ This quickstart demonstrates production-ready AI patterns for regulated industri
 - **Multi-agent orchestration** - Five LangGraph agents with role-scoped tools and RBAC enforcement
 - **Compliance knowledge base** - pgvector retrieval-augmented generation (RAG) with tiered boosting (federal regulations > agency guidelines > internal policies)
 - **Fair lending safeguards** - HMDA demographic data isolation in separate database schema with access controls
-- **Model routing** - Complexity-based routing between fast and capable LLM tiers to optimize cost and latency
+- **Document extraction** - Vision model integration for extracting text and data from uploaded document images
 - **Comprehensive audit trail** - Hash-chained, append-only audit events with MLflow trace correlation
 - **PII masking** - Middleware-based masking for executive roles (SSN, DOB, account numbers)
 - **Safety shields** - Input and output content filters with escalation pattern detection

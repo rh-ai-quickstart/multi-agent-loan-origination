@@ -44,7 +44,7 @@ This Quickstart demonstrates production-ready AI patterns for regulated industri
 - **Fair Lending Guardrails**: ECOA compliance checks, adverse action validation, and prohibited basis detection
 - **HMDA Data Isolation**: Demographic information stored in a dedicated schema with restricted access, isolated from general application data
 - **Audit Trails**: Immutable append-only audit logs with cryptographic hash chains for all agent actions and decisions
-- **Model Routing**: Rule-based routing between fast/capable models based on query complexity and tool requirements
+- **Document Extraction**: Vision model integration for extracting text and data from uploaded document images
 - **Safety Shields**: Optional integration with Llama Guard for input/output content moderation
 - **Observability**: Experiment tracking and tracing via MLflow for agent conversations, tool calls, and model usage
 
