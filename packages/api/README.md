@@ -1,4 +1,4 @@
-# This project was developed with assistance from AI tools.
+<!-- This project was developed with assistance from AI tools. -->
 
 # Mortgage AI API
 

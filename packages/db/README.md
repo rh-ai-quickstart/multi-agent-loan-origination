@@ -1,4 +1,5 @@
-# This project was developed with assistance from AI tools.
+<!-- This project was developed with assistance from AI tools. -->
+
 # Mortgage AI - Database Package
 
 PostgreSQL database layer for the Mortgage AI multi-agent mortgage lending demo application. Part of the Red Hat AI Quickstart catalog.
