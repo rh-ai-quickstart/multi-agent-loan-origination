@@ -65,14 +65,12 @@ LLM_JUDGE_PACKAGES = AGENT_PACKAGES + [
 def setup_mlflow_op(
     mlflow_tracking_uri: str,
     mlflow_experiment_name: str,
-    mlflow_workspace: str,
 ) -> str:
     """Configure MLflow tracking and return experiment name.
 
     Args:
         mlflow_tracking_uri: MLflow server URL
         mlflow_experiment_name: Base experiment name
-        mlflow_workspace: MLflow workspace (namespace) for RHOAI
 
     Returns:
         Full experiment name (with -eval suffix)
@@ -92,7 +90,6 @@ def setup_mlflow_op(
             print("Auto-detected Kubernetes SA token")
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
-    # Workspace support requires --enable-workspaces on server; skip if unavailable
 
     experiment_name = mlflow_experiment_name
     if not experiment_name.endswith("-eval"):
@@ -101,7 +98,6 @@ def setup_mlflow_op(
     mlflow.set_experiment(experiment_name)
 
     print(f"MLflow configured: {mlflow_tracking_uri}")
-    print(f"Workspace: {mlflow_workspace}")
     print(f"Experiment: {experiment_name}")
 
     return experiment_name
@@ -119,7 +115,6 @@ def create_dataset_op(
     experiment_name: str,
     dataset_name: str,
     agent_name: str,
-    mlflow_workspace: str,
 ) -> NamedTuple("DatasetOutput", [("experiment_name", str), ("dataset_id", str)]):
     """Create evaluation dataset in MLflow.
 
@@ -128,7 +123,6 @@ def create_dataset_op(
         experiment_name: Experiment name
         dataset_name: Name for the dataset
         agent_name: Agent being evaluated
-        mlflow_workspace: MLflow workspace (namespace) for RHOAI
 
     Returns:
         NamedTuple with experiment_name and dataset_id
@@ -149,7 +143,6 @@ def create_dataset_op(
             os.environ["MLFLOW_TRACKING_TOKEN"] = sa_token_path.read_text().strip()
 
     mlflow.set_tracking_uri(mlflow_tracking_uri)
-    # Workspace support requires --enable-workspaces on server; skip if unavailable
     mlflow.set_experiment(experiment_name)
 
     # Define test cases
@@ -242,7 +235,6 @@ def run_simple_eval_op(
     mlflow_tracking_uri: str,
     experiment_name: str,
     dataset_id: str,
-    mlflow_workspace: str,
     system_prompt_version: str = "v1",
 ) -> dict:
     """Run simple evaluation without LLM judge.
@@ -256,7 +248,6 @@ def run_simple_eval_op(
         mlflow_tracking_uri: MLflow server URL
         experiment_name: Experiment name
         dataset_id: MLflow dataset ID to load
-        mlflow_workspace: MLflow workspace (namespace) for RHOAI
         system_prompt_version: Prompt version to use. "v1" (default) uses
             the agent's built-in prompt. Any other value (e.g. "v2") loads
             the corresponding version from MLflow Prompt Registry and uses
@@ -291,8 +282,6 @@ def run_simple_eval_op(
         nest_asyncio.apply()
     except ImportError:
         pass
-
-    # Workspace support requires --enable-workspaces on server; skip if unavailable
 
     # -------------------------------------------------------------------------
     # Define scorers
@@ -412,7 +401,6 @@ def run_llm_judge_eval_op(
     dataset_id: str,
     llm_base_url: str,
     llm_model: str,
-    mlflow_workspace: str,
     system_prompt_version: str = "v1",
 ) -> dict:
     """Run LLM-as-a-Judge evaluation.
@@ -428,7 +416,6 @@ def run_llm_judge_eval_op(
         dataset_id: MLflow dataset ID to load
         llm_base_url: LLM endpoint URL
         llm_model: Model name for judge
-        mlflow_workspace: MLflow workspace (namespace) for RHOAI
         system_prompt_version: Prompt version to use. "v1" (default) uses
             the agent's built-in prompt. Any other value (e.g. "v2") uses
             degraded mock responses to simulate regression.
@@ -475,7 +462,7 @@ def run_llm_judge_eval_op(
     except ImportError:
         pass
 
-    # Workspace support requires --enable-workspaces on server; skip if unavailable
+
 
     # -------------------------------------------------------------------------
     # Define custom scorers
@@ -664,7 +651,6 @@ def report_results_op(
 )
 def simple_eval_pipeline(
     mlflow_tracking_uri: str,
-    mlflow_workspace: str,
     mlflow_experiment_name: str = "multi-agent-loan-origination",
     agent_name: str = "public-assistant",
     dataset_name: str = "public_assistant_eval_simple",
@@ -690,7 +676,6 @@ def simple_eval_pipeline(
     setup_task = setup_mlflow_op(
         mlflow_tracking_uri=mlflow_tracking_uri,
         mlflow_experiment_name=mlflow_experiment_name,
-        mlflow_workspace=mlflow_workspace,
     )
 
     # Step 2: Create dataset
@@ -699,7 +684,6 @@ def simple_eval_pipeline(
         experiment_name=setup_task.output,
         dataset_name=dataset_name,
         agent_name=agent_name,
-        mlflow_workspace=mlflow_workspace,
     )
 
     # Step 3: Run simple evaluation
@@ -707,7 +691,6 @@ def simple_eval_pipeline(
         mlflow_tracking_uri=mlflow_tracking_uri,
         experiment_name=dataset_task.outputs["experiment_name"],
         dataset_id=dataset_task.outputs["dataset_id"],
-        mlflow_workspace=mlflow_workspace,
         system_prompt_version=system_prompt_version,
     )
 
@@ -728,7 +711,6 @@ def simple_eval_pipeline(
 )
 def llm_judge_eval_pipeline(
     mlflow_tracking_uri: str,
-    mlflow_workspace: str,
     llm_base_url: str,
     llm_model: str = "qwen3-14b",
     mlflow_experiment_name: str = "multi-agent-loan-origination",
@@ -757,7 +739,6 @@ def llm_judge_eval_pipeline(
     setup_task = setup_mlflow_op(
         mlflow_tracking_uri=mlflow_tracking_uri,
         mlflow_experiment_name=mlflow_experiment_name,
-        mlflow_workspace=mlflow_workspace,
     )
 
     # Step 2: Create dataset
@@ -766,7 +747,6 @@ def llm_judge_eval_pipeline(
         experiment_name=setup_task.output,
         dataset_name=dataset_name,
         agent_name=agent_name,
-        mlflow_workspace=mlflow_workspace,
     )
 
     # Step 3: Run LLM-as-a-Judge evaluation
@@ -776,7 +756,6 @@ def llm_judge_eval_pipeline(
         dataset_id=dataset_task.outputs["dataset_id"],
         llm_base_url=llm_base_url,
         llm_model=llm_model,
-        mlflow_workspace=mlflow_workspace,
         system_prompt_version=system_prompt_version,
     )
     kubernetes.use_secret_as_env(
