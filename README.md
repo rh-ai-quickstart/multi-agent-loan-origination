@@ -88,7 +88,7 @@ graph TB
 #### Agent request flow
 
 ```mermaid
-graph LR
+graph TD
     Input["User Message"] --> Shield1["Input Shield (Llama Guard)"]
     Shield1 --> Classify["Classify (Rule-Based)"]
     Classify -->|SIMPLE| Fast["Agent Fast (text-only)"]
