@@ -48,16 +48,7 @@ Demo video inclusion/timeline TBD.
 
 #### Agent request flow
 
-```mermaid
-graph TD
-    Input["User Message"] --> Shield1["Input Shield (optional)"]
-    Shield1 --> Agent["Agent (LLM)"]
-    Agent -->|tool calls| Auth["Tool RBAC Auth"]
-    Auth --> Tools["Tool Execution"]
-    Tools --> Agent
-    Agent -->|text response| Shield2["Output Shield (optional)"]
-    Shield2 --> Output["Response to Client"]
-```
+![Agent request flow](docs/images/agent-request-flow.png)
 
 ## Requirements
 
