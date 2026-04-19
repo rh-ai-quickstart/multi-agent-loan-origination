@@ -103,7 +103,7 @@ services:
 
 Initialization script (`config/postgres/init-databases.sh`) creates:
 
-- `langfuse` database (for LLM observability)
+- `mlflow` database (for observability)
 - `lending_app` and `compliance_app` roles
 - HMDA schema (created via Alembic migration)
 

@@ -15,8 +15,8 @@ Multi-persona chat application with role-scoped agents, compliance checks, audit
 - Compliance knowledge base (pgvector + 8 regulatory documents)
 - Audit hash chains with tamper detection
 - PII masking for CEO role
-- Rule-based model routing with confidence escalation
-- 1083 tests (unit, functional, integration)
+- Vision-based document extraction (optional)
+- 1165+ tests (unit, functional, integration)
 
 ## Directory Structure
 
@@ -51,7 +51,7 @@ src/
     compliance/        # Compliance checks + KB
     seed/              # Demo data generation
   agents/              # LangGraph agents + tools
-    base.py            # Base graph (shields, routing, RBAC)
+    base.py            # Base graph (shields, RBAC)
     registry.py        # Config loading (config/agents/*.yaml)
     public_assistant.py
     borrower_assistant.py
@@ -255,7 +255,7 @@ pnpm --filter api dev
 
 **Run tests:**
 ```bash
-# All tests (1083 tests)
+# All tests
 AUTH_DISABLED=true uv run pytest -v
 
 # Specific test types
