@@ -22,6 +22,7 @@ from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from ..core.metrics import (
+    agent_routing_total,
     llm_inference_duration_seconds,
     llm_tokens_total,
     tool_call_duration_seconds,
@@ -56,19 +57,38 @@ def _record_token_usage(
 ) -> None:
     """Extract token usage from LLM response metadata and record prometheus metrics."""
     metadata = response.response_metadata or {}
+
     usage = metadata.get("token_usage") or metadata.get("usage") or {}
     if not usage and "usage_metadata" in metadata:
         usage = metadata["usage_metadata"]
     if not usage and hasattr(response, "usage_metadata") and response.usage_metadata:
         um = response.usage_metadata
         usage = {
-            "input_tokens": getattr(um, "input_tokens", 0) or 0,
-            "output_tokens": getattr(um, "output_tokens", 0) or 0,
+            "input_tokens": getattr(um, "input_tokens", None),
+            "output_tokens": getattr(um, "output_tokens", None),
         }
+
+    input_tokens = 0
+    output_tokens = 0
     if usage:
-        input_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-        output_tokens = usage.get("completion_tokens") or usage.get("output_tokens") or 0
-    else:
+        raw_input = usage.get("prompt_tokens")
+        if raw_input is None:
+            raw_input = usage.get("input_tokens")
+        raw_output = usage.get("completion_tokens")
+        if raw_output is None:
+            raw_output = usage.get("output_tokens")
+        input_tokens = raw_input if raw_input is not None else 0
+        output_tokens = raw_output if raw_output is not None else 0
+
+    # Fall back to character-based estimation when provider reports zeros
+    if input_tokens == 0 and output_tokens == 0:
+        if usage:
+            logger.warning(
+                "LLM provider returned zero tokens for model=%s persona=%s; "
+                "falling back to character-based estimation",
+                model_name,
+                persona,
+            )
         input_text = "".join(
             m.content if isinstance(m.content, str) else ""
             for m in messages
@@ -77,14 +97,11 @@ def _record_token_usage(
         output_text = response.content if isinstance(response.content, str) else ""
         input_tokens = max(1, len(input_text) // 4)
         output_tokens = max(1, len(output_text) // 4)
-    if input_tokens:
-        llm_tokens_total.labels(model=model_name, direction="input", persona=persona).inc(
-            input_tokens
-        )
-    if output_tokens:
-        llm_tokens_total.labels(model=model_name, direction="output", persona=persona).inc(
-            output_tokens
-        )
+
+    llm_tokens_total.labels(model=model_name, direction="input", persona=persona).inc(input_tokens)
+    llm_tokens_total.labels(model=model_name, direction="output", persona=persona).inc(
+        output_tokens
+    )
 
 
 def build_agent_graph_compiled(
@@ -146,6 +163,7 @@ def build_agent_graph_compiled(
         llm_inference_duration_seconds.labels(model=model_name, persona=persona).observe(duration)
 
         _record_token_usage(response, messages, model_name, persona)
+        agent_routing_total.labels(persona=persona, complexity="complex").inc()
 
         return {"messages": [response]}
 
