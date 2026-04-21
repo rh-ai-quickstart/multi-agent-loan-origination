@@ -63,6 +63,10 @@ secrets:
   EMBEDDING_BASE_URL: ""
   EMBEDDING_API_KEY: ""
 
+  # MCP risk server
+  MCP_RISK_SERVER_URL: "http://mcp-risk-server:8081/mcp"
+  PREDICTIVE_MODEL_MCP_URL: ""
+
   # Safety / Shields (optional)
   SAFETY_MODEL: ""
   SAFETY_ENDPOINT: ""
@@ -219,6 +223,29 @@ mlflow:
     pipelineRunner:
       enabled: false  # Enable when DSPA is deployed in this namespace
       serviceAccountName: pipeline-runner-dspa  # SA created by DSPA operator
+
+# MCP Risk Server (optional)
+mcpRiskServer:
+  enabled: true
+  name: mcp-risk-server
+  image:
+    repository: mortgage-ai-api
+    tag: latest
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 8081
+  healthCheck:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
 
 # LlamaStack model serving
 llamastack:
