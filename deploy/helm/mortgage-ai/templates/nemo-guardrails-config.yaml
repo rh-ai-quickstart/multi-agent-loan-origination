@@ -165,7 +165,7 @@ data:
         forbidden_topics = {
             "security": ["password", "hack", "exploit", "vulnerability"],
             "inappropriate": ["violence", "illegal", "harmful"],
-            "competitors": ["chatgpt", "openai", "claude", "anthropic"],
+            "competitors": ["chatgpt", "openai", "claude", "anthropic", "green aura", "black aura", "rob aura"],
         }
         for category, words in forbidden_topics.items():
             for word in words:
