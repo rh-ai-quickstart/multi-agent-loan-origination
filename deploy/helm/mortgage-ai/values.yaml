@@ -269,6 +269,49 @@ llamastack:
       memory: "768Mi"
       cpu: "500m"
 
+# NeMo Guardrails (TrustyAI operator)
+nemoGuardrails:
+  enabled: false
+
+  # Main LLM that NeMo uses for response generation
+  llm:
+    baseUrl: ""              # e.g. https://maas.apps.example.com/prelude-maas/llama-4-scout/v1
+    modelName: ""            # e.g. llama-4-scout-17b-16e-w4a16
+    apiKey: ""               # API key for the main LLM endpoint
+
+  # Content safety detector model (NemoGuard 8B via vLLM)
+  contentSafety:
+    deploy: true             # Deploy ServingRuntime + InferenceService in this namespace
+    modelPath: "llama-3.1-nemoguard-8b-content-safety-merged"
+    runtime:
+      image: "registry.redhat.io/rhaiis/vllm-cuda-rhel9@sha256:ec799bb5eeb7e25b4b25a8917ab5161da6b6f1ab830cbba61bba371cffb0c34d"
+    gpu:
+      resourceType: "nvidia.com/mig-2g.35gb"
+      count: "1"
+    # S3 storage for model weights (must contain the model at modelPath)
+    storage:
+      endpoint: ""           # e.g. http://minio-llms.voice-agents.svc.cluster.local:9000
+      bucket: "llms"
+      accessKey: ""
+      secretKey: ""
+      region: "us-south"
+
+  # nginx proxy (HTTP->HTTPS bridging for MaaS, indirection for content safety)
+  proxy:
+    enabled: true
+    image: "registry.redhat.io/ubi10/nginx-126:10.1"
+    # MaaS LLM proxy: rewrites /v1/* to /<pathPrefix>/v1/*
+    maas:
+      upstream: ""           # e.g. https://maas.apps.example.com
+      pathPrefix: ""         # e.g. prelude-maas/llama-4-scout-17b-16e-w4a16
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "64Mi"
+      limits:
+        cpu: "500m"
+        memory: "256Mi"
+
 # Seed data (demo data for demos / dev environments)
 seed:
   enabled: false

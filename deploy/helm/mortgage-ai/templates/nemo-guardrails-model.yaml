@@ -1,0 +1,99 @@
+{{- if and .Values.nemoGuardrails.enabled .Values.nemoGuardrails.contentSafety.deploy }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nemo-model-storage
+  labels:
+    {{- include "mortgage-ai.nemo-guardrails.labels" . | nindent 4 }}
+    opendatahub.io/dashboard: 'true'
+    opendatahub.io/managed: 'true'
+  annotations:
+    opendatahub.io/connection-type: s3
+    openshift.io/display-name: NeMo Model Storage
+type: Opaque
+data:
+  AWS_ACCESS_KEY_ID: {{ .Values.nemoGuardrails.contentSafety.storage.accessKey | toString | b64enc | quote }}
+  AWS_DEFAULT_REGION: {{ .Values.nemoGuardrails.contentSafety.storage.region | toString | b64enc | quote }}
+  AWS_S3_BUCKET: {{ .Values.nemoGuardrails.contentSafety.storage.bucket | toString | b64enc | quote }}
+  AWS_S3_ENDPOINT: {{ .Values.nemoGuardrails.contentSafety.storage.endpoint | toString | b64enc | quote }}
+  AWS_SECRET_ACCESS_KEY: {{ .Values.nemoGuardrails.contentSafety.storage.secretKey | toString | b64enc | quote }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: vllm-nemoguard-runtime
+  annotations:
+    opendatahub.io/apiProtocol: REST
+    opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
+    opendatahub.io/template-display-name: vLLM ServingRuntime for NemoGuard
+    openshift.io/display-name: vLLM ServingRuntime for NemoGuard
+  labels:
+    {{- include "mortgage-ai.nemo-guardrails.labels" . | nindent 4 }}
+    opendatahub.io/dashboard: 'true'
+spec:
+  annotations:
+    prometheus.io/port: '8080'
+    prometheus.io/path: '/metrics'
+  multiModel: false
+  supportedModelFormats:
+    - autoSelect: true
+      name: vLLM
+  containers:
+    - name: kserve-container
+      image: {{ .Values.nemoGuardrails.contentSafety.runtime.image }}
+      command:
+        - python
+        - -m
+        - vllm.entrypoints.openai.api_server
+      args:
+        - "--port=8080"
+        - "--model=/mnt/models"
+        - "--served-model-name={{`{{.Name}}`}}"
+        - "--gpu-memory-utilization=0.95"
+        - "--max-model-len=4096"
+        - "--enforce-eager"
+      env:
+        - name: HF_HOME
+          value: /tmp/hf_home
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+---
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: content-safety-detector
+  labels:
+    {{- include "mortgage-ai.nemo-guardrails.labels" . | nindent 4 }}
+    opendatahub.io/dashboard: 'true'
+    kueue.x-k8s.io/queue-name: unreserved
+  annotations:
+    openshift.io/display-name: content-safety-detector
+    serving.knative.openshift.io/enablePassthrough: 'true'
+    sidecar.istio.io/inject: 'true'
+    security.opendatahub.io/enable-auth: 'false'
+    sidecar.istio.io/rewriteAppHTTPProbers: 'true'
+    serving.kserve.io/deploymentMode: RawDeployment
+spec:
+  predictor:
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      modelFormat:
+        name: vLLM
+      name: ''
+      resources:
+        limits:
+          cpu: '2'
+          memory: 8Gi
+          {{ .Values.nemoGuardrails.contentSafety.gpu.resourceType }}: {{ .Values.nemoGuardrails.contentSafety.gpu.count | quote }}
+        requests:
+          cpu: '2'
+          memory: 8Gi
+          {{ .Values.nemoGuardrails.contentSafety.gpu.resourceType }}: {{ .Values.nemoGuardrails.contentSafety.gpu.count | quote }}
+      runtime: vllm-nemoguard-runtime
+      storage:
+        key: nemo-model-storage
+        path: {{ .Values.nemoGuardrails.contentSafety.modelPath }}
+{{- end }}

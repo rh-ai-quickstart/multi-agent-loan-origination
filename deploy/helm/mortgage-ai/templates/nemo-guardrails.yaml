@@ -1,0 +1,49 @@
+{{- if .Values.nemoGuardrails.enabled }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nemo-guardrails-api-key
+  labels:
+    {{- include "mortgage-ai.nemo-guardrails.labels" . | nindent 4 }}
+type: Opaque
+data:
+  token: {{ .Values.nemoGuardrails.llm.apiKey | toString | b64enc | quote }}
+---
+apiVersion: trustyai.opendatahub.io/v1alpha1
+kind: NemoGuardrails
+metadata:
+  name: nemo-guardrails
+  annotations:
+    security.opendatahub.io/enable-auth: 'false'
+  labels:
+    {{- include "mortgage-ai.nemo-guardrails.labels" . | nindent 4 }}
+spec:
+  nemoConfigs:
+    - name: nemo-guardrails-config
+      configMaps:
+        - nemo-guardrails-config
+  env:
+    - name: "OPENAI_API_KEY"
+      valueFrom:
+        secretKeyRef:
+          name: "nemo-guardrails-api-key"
+          key: "token"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nemo-guardrails-internal
+  labels:
+    {{- include "mortgage-ai.nemo-guardrails.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: nemo-guardrails
+    component: nemo-guardrails
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  type: ClusterIP
+{{- end }}

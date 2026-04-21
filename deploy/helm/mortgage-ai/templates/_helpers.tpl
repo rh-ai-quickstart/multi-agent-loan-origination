@@ -183,3 +183,19 @@ LlamaStack selector labels
 app.kubernetes.io/component: llamastack
 {{- end }}
 
+{{/*
+NeMo Guardrails labels
+*/}}
+{{- define "mortgage-ai.nemo-guardrails.labels" -}}
+{{ include "mortgage-ai.labels" . }}
+app.kubernetes.io/component: nemo-guardrails
+{{- end }}
+
+{{/*
+NeMo Guardrails selector labels
+*/}}
+{{- define "mortgage-ai.nemo-guardrails.selectorLabels" -}}
+{{ include "mortgage-ai.selectorLabels" . }}
+app.kubernetes.io/component: nemo-guardrails
+{{- end }}
+
