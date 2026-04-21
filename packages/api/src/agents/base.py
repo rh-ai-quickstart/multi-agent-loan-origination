@@ -4,12 +4,12 @@
 Graph structure:
     input_shield -> agent -> tools <-> agent -> output_shield -> END
 
-The input_shield node calls Llama Guard on the user's message.  If unsafe, it
-short-circuits to END with a refusal message.  The output_shield node checks the
-agent's completed response and replaces it with a refusal if unsafe.
+The input_shield node calls NeMo Guardrails on the user's message.  If unsafe,
+it short-circuits to END with a refusal message.  The output_shield node checks
+the agent's completed response and replaces it with a refusal if unsafe.
 
-Shields are active when SAFETY_MODEL is configured; otherwise they are no-ops.
-On any safety-model error the check is skipped (fail-open).
+Shields are active when NEMO_GUARDRAILS_ENDPOINT is configured; otherwise they
+are no-ops.  On any error the check fails closed (blocks the message).
 """
 
 import logging
@@ -127,7 +127,7 @@ def build_agent_graph_compiled(
     """
 
     async def input_shield(state: AgentState) -> dict:
-        """Check user input against Llama Guard safety categories."""
+        """Check user input against NeMo Guardrails safety rails."""
         checker = get_safety_checker()
         if not checker:
             return {"safety_blocked": False}
@@ -227,7 +227,7 @@ def build_agent_graph_compiled(
         return "tools"
 
     async def output_shield(state: AgentState) -> dict:
-        """Check agent output against Llama Guard safety categories."""
+        """Check agent output against NeMo Guardrails safety rails."""
         checker = get_safety_checker()
         if not checker:
             return {}

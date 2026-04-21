@@ -56,6 +56,54 @@ helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
 | `secrets.VISION_BASE_URL` | Vision model endpoint (optional, falls back to LLM_BASE_URL) | `""` |
 | `secrets.VISION_API_KEY` | Vision model API key (optional, falls back to LLM_API_KEY) | `""` |
 
+### NeMo Guardrails (Safety Shields)
+
+NeMo Guardrails provides input/output safety filtering via the TrustyAI operator.
+When enabled, the API routes all user messages and agent responses through NeMo's
+rails (forbidden words, PII detection, content safety) before processing.
+
+#### Quick Start
+
+```bash
+helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
+  --set nemoGuardrails.enabled=true \
+  --set nemoGuardrails.llm.baseUrl=https://<llm-endpoint>/v1 \
+  --set nemoGuardrails.llm.modelName=<model-name> \
+  --set nemoGuardrails.llm.apiKey=<api-key>
+```
+
+When `nemoGuardrails.enabled=true`, the chart automatically sets
+`NEMO_GUARDRAILS_ENDPOINT` to the in-cluster NeMo service
+(`http://nemo-guardrails-internal:8000`). No manual endpoint configuration needed.
+
+#### Configuration Reference
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `nemoGuardrails.enabled` | Deploy NeMo Guardrails CR and wire endpoint | `false` |
+| `nemoGuardrails.llm.baseUrl` | LLM endpoint for NeMo response generation | `""` |
+| `nemoGuardrails.llm.modelName` | LLM model name | `""` |
+| `nemoGuardrails.llm.apiKey` | LLM API key | `""` |
+| `secrets.NEMO_GUARDRAILS_ENDPOINT` | Override auto-wired endpoint (external NeMo) | `""` |
+
+#### Testing
+
+```bash
+GUARDRAILS_URL=https://<nemo-route> scripts/test-guardrails.sh
+```
+
+#### How It Works
+
+The API's `input_shield` and `output_shield` LangGraph nodes call the NeMo server
+before and after agent processing. NeMo applies Colang-defined rails:
+
+- **Forbidden words**: Security terms (hack, exploit), inappropriate content, competitor names
+- **PII detection**: Email addresses and other sensitive data
+- **Content safety**: Via NemoGuard 8B content safety model (optional)
+
+When NeMo blocks a message, the agent returns a refusal. When NeMo allows it,
+the agent processes normally with its own LLM call.
+
 ### MLflow Observability (RHOAI 3.4+)
 
 Enable MLflow tracing when deploying with Red Hat OpenShift AI.

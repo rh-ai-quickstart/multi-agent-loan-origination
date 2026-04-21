@@ -6,39 +6,31 @@
 # and LLM passthrough for normal messages.
 #
 # Usage:
-#   scripts/test-guardrails.sh                          # auto port-forward
-#   GUARDRAILS_URL=http://localhost:8000 scripts/test-guardrails.sh  # existing endpoint
-#   NAMESPACE=my-ns scripts/test-guardrails.sh          # custom namespace
+#   GUARDRAILS_URL=https://nemo-guardrails-mortgage-ai.apps.example.com scripts/test-guardrails.sh
+#   MODEL=llama-4-scout-17b GUARDRAILS_URL=https://... scripts/test-guardrails.sh
 
 set -euo pipefail
 
-NAMESPACE="${NAMESPACE:-mortgage-ai}"
-SERVICE="${SERVICE:-nemo-guardrails}"
-SERVICE_PORT="${SERVICE_PORT:-80}"
-LOCAL_PORT="${LOCAL_PORT:-18000}"
 GUARDRAILS_URL="${GUARDRAILS_URL:-}"
 MODEL="${MODEL:-llama-scout-17b}"
-TIMEOUT="${TIMEOUT:-15}"
+TIMEOUT="${TIMEOUT:-30}"
 
 PASSED=0
 FAILED=0
-PF_PID=""
+
+if [ -z "$GUARDRAILS_URL" ]; then
+    echo "Error: GUARDRAILS_URL is required"
+    echo "Usage: GUARDRAILS_URL=https://nemo-guardrails-mortgage-ai.apps.example.com $0"
+    exit 1
+fi
 
 log()  { printf "\033[1;34m[guardrails]\033[0m %s\n" "$*"; }
 pass() { printf "\033[1;32m  PASS\033[0m %s\n" "$*"; PASSED=$((PASSED + 1)); }
 fail() { printf "\033[1;31m  FAIL\033[0m %s\n" "$*"; FAILED=$((FAILED + 1)); }
 
-cleanup() {
-    if [ -n "$PF_PID" ]; then
-        kill "$PF_PID" 2>/dev/null || true
-        wait "$PF_PID" 2>/dev/null || true
-    fi
-}
-trap cleanup EXIT
-
 send_message() {
     local content="$1"
-    curl -s --max-time "$TIMEOUT" "http://localhost:${LOCAL_PORT}/v1/chat/completions" \
+    curl -sk --max-time "$TIMEOUT" "${GUARDRAILS_URL}/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d "{\"model\": \"${MODEL}\", \"messages\": [{\"role\": \"user\", \"content\": \"${content}\"}]}" 2>/dev/null
 }
@@ -60,10 +52,12 @@ check_blocked() {
     local response
     response=$(send_message "$message" | extract_response)
 
+    printf "\033[0;36m  Q:\033[0m %s\n" "$message"
+    printf "\033[0;33m  A:\033[0m %s\n" "$response"
     if echo "$response" | grep -qi "can't help\|cannot help\|don't know\|blocked"; then
         pass "$label -> blocked"
     else
-        fail "$label -> expected block, got: $(echo "$response" | head -c 80)"
+        fail "$label -> expected block"
     fi
 }
 
@@ -73,10 +67,12 @@ check_passthrough() {
     local response
     response=$(send_message "$message" | extract_response)
 
+    printf "\033[0;36m  Q:\033[0m %s\n" "$message"
+    printf "\033[0;33m  A:\033[0m %s\n" "$response"
     if [ "$response" = "ERROR" ] || [ -z "$response" ]; then
         fail "$label -> no response"
     elif echo "$response" | grep -qi "internal server error\|can't help\|cannot help"; then
-        fail "$label -> unexpected block/error: $(echo "$response" | head -c 80)"
+        fail "$label -> unexpected block/error"
     else
         pass "$label -> LLM responded ($(echo "$response" | wc -c | tr -d ' ') chars)"
     fi
@@ -84,22 +80,7 @@ check_passthrough() {
 
 # -- Setup -------------------------------------------------------------------
 
-if [ -z "$GUARDRAILS_URL" ]; then
-    log "Starting port-forward to ${SERVICE}:${SERVICE_PORT} in namespace ${NAMESPACE}..."
-    oc port-forward "svc/${SERVICE}" "${LOCAL_PORT}:${SERVICE_PORT}" -n "$NAMESPACE" >/dev/null 2>&1 &
-    PF_PID=$!
-    sleep 3
-
-    if ! kill -0 "$PF_PID" 2>/dev/null; then
-        log "Port-forward failed. Is the NeMo Guardrails pod running?"
-        log "Check: oc get pods -n ${NAMESPACE} | grep nemo"
-        exit 1
-    fi
-else
-    LOCAL_PORT=$(echo "$GUARDRAILS_URL" | sed 's|.*:\([0-9]*\).*|\1|')
-fi
-
-log "Testing NeMo Guardrails at http://localhost:${LOCAL_PORT}"
+log "Testing NeMo Guardrails at ${GUARDRAILS_URL}"
 log "Model: ${MODEL}"
 echo ""
 

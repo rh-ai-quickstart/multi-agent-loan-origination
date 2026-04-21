@@ -42,3 +42,12 @@ mlflow:
 
 mcpRiskServer:
   enabled: true
+
+# NeMo Guardrails (safety shields)
+# When enabled, deploys NeMo Guardrails and auto-wires the API to use it.
+nemoGuardrails:
+  enabled: false
+  llm:
+    baseUrl: ""       # e.g. https://litellm-prod.apps.maas.example.com/v1
+    modelName: ""     # e.g. llama-scout-17b
+    apiKey: ""

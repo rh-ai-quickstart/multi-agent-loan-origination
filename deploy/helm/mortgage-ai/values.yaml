@@ -67,10 +67,10 @@ secrets:
   MCP_RISK_SERVER_URL: "http://mcp-risk-server:8081/mcp"
   PREDICTIVE_MODEL_MCP_URL: ""
 
-  # Safety / Shields (optional)
-  SAFETY_MODEL: ""
-  SAFETY_ENDPOINT: ""
-  SAFETY_API_KEY: ""
+  # NeMo Guardrails (safety shields)
+  # Auto-populated when nemoGuardrails.enabled=true (points to in-cluster service).
+  # Set explicitly to use an external NeMo Guardrails server.
+  NEMO_GUARDRAILS_ENDPOINT: ""
 
   # Observability (MLflow) -- leave blank to disable MLflow tracing
   MLFLOW_TRACKING_URI: ""
