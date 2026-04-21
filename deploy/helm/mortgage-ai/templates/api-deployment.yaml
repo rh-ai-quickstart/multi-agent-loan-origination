@@ -300,18 +300,20 @@ spec:
             httpGet:
               path: {{ .Values.api.healthCheck.path }}
               port: http
-            failureThreshold: 30
+            failureThreshold: 60
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: {{ .Values.api.healthCheck.path }}
               port: http
             periodSeconds: {{ .Values.api.healthCheck.periodSeconds }}
+            failureThreshold: {{ .Values.api.healthCheck.failureThreshold | default 3 }}
           readinessProbe:
             httpGet:
               path: {{ .Values.api.healthCheck.path }}
               port: http
             periodSeconds: {{ .Values.api.healthCheck.periodSeconds }}
+            failureThreshold: {{ .Values.api.healthCheck.failureThreshold | default 3 }}
           {{- end }}
           resources:
             {{- toYaml .Values.api.resources | nindent 12 }}

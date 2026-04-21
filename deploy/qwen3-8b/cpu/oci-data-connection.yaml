@@ -1,0 +1,13 @@
+kind: Secret
+apiVersion: v1
+metadata:
+  name: qwen3-8b-instruct
+  labels:
+    opendatahub.io/dashboard: 'true'
+  annotations:
+    opendatahub.io/connection-type-ref: uri-v1
+    openshift.io/description: ''
+    openshift.io/display-name: qwen3-8b-instruct
+data:
+  URI: b2NpOi8vcXVheS5pby9yZWRoYXQtYWktc2VydmljZXMvbW9kZWxjYXItY2F0YWxvZzpxd2VuLTMtOGItaW5zdHJ1Y3Q=
+type: Opaque

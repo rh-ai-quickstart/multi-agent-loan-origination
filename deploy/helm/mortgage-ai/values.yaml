@@ -68,6 +68,10 @@ secrets:
   SAFETY_ENDPOINT: ""
   SAFETY_API_KEY: ""
 
+  # MCP servers
+  MCP_RISK_SERVER_URL: "http://mcp-risk-server:8081/mcp"
+  PREDICTIVE_MODEL_MCP_URL: "http://mcp-risk-server:8081/mcp"
+
   # Observability (MLflow) -- leave blank to disable MLflow tracing
   MLFLOW_TRACKING_URI: ""
   # Auth mode: set to "kubernetes" on RHOAI 3.4+ for automatic SA token auth.
@@ -219,6 +223,29 @@ mlflow:
     pipelineRunner:
       enabled: false  # Enable when DSPA is deployed in this namespace
       serviceAccountName: pipeline-runner-dspa  # SA created by DSPA operator
+
+# MCP Risk Server (optional)
+mcpRiskServer:
+  enabled: true
+  name: mcp-risk-server
+  replicas: 1
+  image:
+    repository: mortgage-ai-api
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 8081
+  healthCheck:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 15
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "384Mi"
+      cpu: "500m"
 
 # LlamaStack model serving
 llamastack:

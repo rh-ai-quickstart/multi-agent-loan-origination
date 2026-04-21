@@ -132,6 +132,52 @@ make status      # Show deployment status
 make undeploy    # Remove deployment
 ```
 
+#### OpenShift AI CPU model serving (Qwen3-8B example)
+
+For OpenShift deployments that use CPU model serving, this repository includes KServe/vLLM manifests in `deploy/qwen3-8b/cpu/`.
+
+This CPU-serving configuration supports x86_64 server CPUs, including Intel Xeon platforms.
+
+Treat this as a separate model-serving deployment from the application Helm chart if you dont have an active OpenAI-compatible API and are interested to try CPU serving
+
+**Hardware Requirements**
+
+- Intel Xeon processor-based worker nodes
+- 32 CPU cores minimum per node
+- 64GB RAM minimum per node
+
+1. Deploy the model serving resources:
+
+```bash
+oc apply -k deploy/qwen3-8b/cpu
+```
+
+2. Wait for the InferenceService to become ready:
+
+```bash
+oc get inferenceservice qwen3-8b-cpu -w
+```
+
+3. Capture the endpoint URL:
+
+```bash
+ISVC_URL=$(oc get inferenceservice qwen3-8b-cpu -o jsonpath='{.status.url}')
+echo "$ISVC_URL"
+```
+
+4. Deploy the application chart and point it to that OpenAI-compatible endpoint:
+
+```bash
+helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
+  --set secrets.LLM_BASE_URL="${ISVC_URL}/v1" \
+  --set secrets.LLM_API_KEY="not-needed" \
+  --set secrets.LLM_MODEL="Qwen/Qwen3-8B"
+```
+
+You do not need to package the Qwen CPU manifests into this chart unless you specifically want single-command infrastructure + app provisioning.
+
+`LLM_BASE_URL` should point to the OpenAI-compatible API root and include `/v1`.
+
 See the [documentation site](https://rh-ai-quickstart.github.io/multi-agent-loan-origination/) for detailed OpenShift deployment configuration, resource requirements, and troubleshooting.
 
 ### Delete
@@ -253,6 +299,8 @@ LLM_BASE_URL=http://localhost:1234/v1
 LLM_API_KEY=not-needed
 LLM_MODEL=qwen3-30b-a3b
 ```
+
+`LLM_BASE_URL` must point to the OpenAI-compatible API root and should include `/v1`.
 
 See `.env.example` for all available settings including database connection, authentication, safety shields, and MLflow observability.
 

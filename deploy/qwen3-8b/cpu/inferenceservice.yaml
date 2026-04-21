@@ -1,0 +1,43 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  annotations:
+    openshift.io/display-name: qwen3-8b-cpu
+    serving.kserve.io/deploymentMode: RawDeployment
+  name: qwen3-8b-cpu
+  labels:
+    opendatahub.io/dashboard: 'true'
+spec:
+  predictor:
+    maxReplicas: 1
+    minReplicas: 1
+    model:
+      modelFormat:
+        name: vLLM
+      name: ''
+      env:
+        - name: VLLM_CACHE_DIR
+          value: "/tmp/vllm_cache"
+        - name: XDG_CACHE_HOME
+          value: "/tmp/.cache"
+        - name: VLLM_CPU_KVCACHE_SPACE
+          value: "4"
+        - name: VLLM_RPC_TIMEOUT
+          value: "100000"
+        - name: VLLM_ALLOW_LONG_MAX_MODEL_LEN
+          value: "1"
+        - name: VLLM_ENGINE_ITERATION_TIMEOUT_S
+          value: "120"
+        - name: VLLM_CPU_SGL_KERNEL
+          value: "1"
+        - name: HF_HUB_DISABLE_XET
+          value: "1"
+      resources:
+        limits:
+          cpu: '16'
+          memory: 32Gi
+        requests:
+          cpu: '16'
+          memory: 32Gi
+      runtime: qwen3-8b-cpu
+      storageUri: 'hf://Qwen/Qwen3-8B'
