@@ -39,3 +39,6 @@ keycloak:
 mlflow:
   rbac:
     enabled: true
+
+mcpRiskServer:
+  enabled: true
