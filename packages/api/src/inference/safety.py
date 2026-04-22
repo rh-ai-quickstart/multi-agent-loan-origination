@@ -41,6 +41,7 @@ class NeMoGuardrailsChecker:
         "i can't help with that",
         "i cannot help with that",
         "i don't know the answer",
+        "i'm sorry, i can't respond to that",
     ]
 
     def __init__(self, *, endpoint: str) -> None:

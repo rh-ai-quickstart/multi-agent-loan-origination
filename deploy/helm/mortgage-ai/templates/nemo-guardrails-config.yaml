@@ -31,23 +31,44 @@ data:
       {{- end }}
     rails:
       config:
-        sensitive_data_detection:
+        regex_detection:
           input:
-            entities:
-              - EMAIL_ADDRESS
+            patterns:
+              # Sensitive data patterns
+              - "\\d{3}-\\d{2}-\\d{4}"                                    # SSN
+              - "\\d{4}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}"               # Credit card
+              - "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"       # Email
+              - "\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}"            # Phone number
+              # Security keywords
+              - "\\b(password|hack|exploit|vulnerability|secret|api[_-]?key|token)\\b"
+              # Inappropriate content
+              - "\\b(violence|illegal|harmful)\\b"
+              # Competitor names
+              - "\\b(chatgpt|openai|claude|anthropic)\\b"
+              - "\\b(green\\s*aura|black\\s*aura|rob\\s*aura)\\b"
+            case_insensitive: true
+          output:
+            patterns:
+              # Competitor mentions in responses
+              - "\\b(chatgpt|openai|claude|anthropic)\\b"
+              - "\\b(green\\s*aura|black\\s*aura|rob\\s*aura)\\b"
+              # Confidential markers
+              - "\\b(confidential|internal[_-]?only|do[_-]?not[_-]?share)\\b"
+            case_insensitive: true
+        sensitive_data_detection:
           output:
             entities:
               - PERSON
       input:
         flows:
-          - detect sensitive data on input
-          - check forbidden words
+          - regex check input
           {{- if .Values.nemoGuardrails.contentSafety.deploy }}
           - content safety check input $model=content_safety
           {{- end }}
       output:
         flows:
           - detect sensitive data on output
+          - regex check output
           {{- if .Values.nemoGuardrails.contentSafety.deploy }}
           - content safety check output $model=content_safety
           {{- end }}
@@ -145,31 +166,6 @@ data:
     {{- end }}
 
   rails.co: |
-    define flow check forbidden words
-      $forbidden_result = execute check_forbidden_words
-      if $forbidden_result != "allowed"
-        bot inform forbidden content
-        stop
-
-    define bot inform forbidden content
-      "I can't help with that type of request. Please ask something else."
-
-  actions.py: |
-    from typing import Optional
-    from nemoguardrails.actions import action
-
-    @action(is_system_action=True)
-    async def check_forbidden_words(context: Optional[dict] = None) -> str:
-        """Check for forbidden words or topics."""
-        user_message = context.get("user_message", "").lower()
-        forbidden_topics = {
-            "security": ["password", "hack", "exploit", "vulnerability"],
-            "inappropriate": ["violence", "illegal", "harmful"],
-            "competitors": ["chatgpt", "openai", "claude", "anthropic", "green aura", "black aura", "rob aura"],
-        }
-        for category, words in forbidden_topics.items():
-            for word in words:
-                if word in user_message:
-                    return f"blocked_{category}_{word}"
-        return "allowed"
+    # All rails use built-in flows (regex check, detect sensitive data).
+    # No custom Colang flows needed.
 {{- end }}

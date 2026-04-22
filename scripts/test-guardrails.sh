@@ -54,7 +54,7 @@ check_blocked() {
 
     printf "\033[0;36m  Q:\033[0m %s\n" "$message"
     printf "\033[0;33m  A:\033[0m %s\n" "$response"
-    if echo "$response" | grep -qi "can't help\|cannot help\|don't know\|blocked"; then
+    if echo "$response" | grep -qi "can't help\|cannot help\|don't know\|can't respond\|blocked"; then
         pass "$label -> blocked"
     else
         fail "$label -> expected block"
@@ -71,7 +71,7 @@ check_passthrough() {
     printf "\033[0;33m  A:\033[0m %s\n" "$response"
     if [ "$response" = "ERROR" ] || [ -z "$response" ]; then
         fail "$label -> no response"
-    elif echo "$response" | grep -qi "internal server error\|can't help\|cannot help"; then
+    elif echo "$response" | grep -qi "internal server error\|can't help\|cannot help\|can't respond"; then
         fail "$label -> unexpected block/error"
     else
         pass "$label -> LLM responded ($(echo "$response" | wc -c | tr -d ' ') chars)"
