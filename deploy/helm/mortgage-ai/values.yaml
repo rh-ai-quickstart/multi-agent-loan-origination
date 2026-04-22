@@ -74,9 +74,6 @@ secrets:
 
   # Observability (MLflow) -- leave blank to disable MLflow tracing
   MLFLOW_TRACKING_URI: ""
-  # Auth mode: set to "kubernetes" on RHOAI 3.4+ for automatic SA token auth.
-  # When set, MLFLOW_TRACKING_TOKEN is not needed.
-  MLFLOW_TRACKING_AUTH: ""
   MLFLOW_EXPERIMENT_NAME: ""
   MLFLOW_WORKSPACE: ""
   MLFLOW_TRACKING_TOKEN: ""
