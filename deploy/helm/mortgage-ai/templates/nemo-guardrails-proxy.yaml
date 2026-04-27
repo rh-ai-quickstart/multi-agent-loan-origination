@@ -1,0 +1,124 @@
+{{- if and .Values.nemoGuardrails.enabled .Values.nemoGuardrails.proxy.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nemo-guardrails-proxy-config
+  labels:
+    {{- include "mortgage-ai.nemo-guardrails.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    worker_processes 1;
+    error_log /dev/stderr debug;
+    pid /tmp/nginx.pid;
+    events { worker_connections 128; }
+    http {
+      client_body_temp_path /tmp/client_temp;
+      proxy_temp_path /tmp/proxy_temp;
+      fastcgi_temp_path /tmp/fastcgi_temp;
+      uwsgi_temp_path /tmp/uwsgi_temp;
+      scgi_temp_path /tmp/scgi_temp;
+      log_format debug_log '$remote_addr - $request_uri - $status - body: $request_body';
+      access_log /dev/stdout debug_log;
+      resolver {{ printf "%s" "172.30.0.10" }} valid=30s;
+
+      # HTTP->HTTPS proxy for MaaS LLM endpoint
+      server {
+        listen 8081;
+        location / {
+          set $upstream {{ .Values.nemoGuardrails.proxy.maas.upstream }};
+          rewrite ^/v1/(.*)$ /{{ .Values.nemoGuardrails.proxy.maas.pathPrefix }}/v1/$1 break;
+          rewrite ^/tokenize$ /{{ .Values.nemoGuardrails.proxy.maas.pathPrefix }}/tokenize break;
+          proxy_pass $upstream;
+          proxy_http_version 1.1;
+          proxy_ssl_server_name on;
+          {{- $host := .Values.nemoGuardrails.proxy.maas.upstream | trimPrefix "https://" | trimPrefix "http://" }}
+          proxy_ssl_name {{ $host }};
+          proxy_ssl_protocols TLSv1.2 TLSv1.3;
+          proxy_set_header Host {{ $host }};
+          proxy_set_header Connection "";
+          proxy_read_timeout 120s;
+          proxy_connect_timeout 10s;
+          proxy_buffering off;
+        }
+      }
+
+      # HTTP proxy for content safety detector (NemoGuard via vLLM)
+      server {
+        listen 8085;
+        location / {
+          set $nemoguard http://content-safety-detector-predictor.{{ .Release.Namespace }}.svc.cluster.local:8080;
+          proxy_pass $nemoguard;
+          proxy_http_version 1.1;
+          proxy_set_header Host content-safety-detector-predictor;
+          proxy_set_header Connection "";
+          proxy_read_timeout 120s;
+          proxy_connect_timeout 10s;
+          proxy_buffering off;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nemo-guardrails-proxy
+  labels:
+    {{- include "mortgage-ai.nemo-guardrails.labels" . | nindent 4 }}
+    app: nemo-guardrails-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nemo-guardrails-proxy
+  template:
+    metadata:
+      labels:
+        app: nemo-guardrails-proxy
+        {{- include "mortgage-ai.nemo-guardrails.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: nginx
+          image: {{ .Values.nemoGuardrails.proxy.image }}
+          command: ["nginx", "-g", "daemon off;"]
+          ports:
+            - containerPort: 8081
+              protocol: TCP
+            - containerPort: 8085
+              protocol: TCP
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          resources:
+            {{- toYaml .Values.nemoGuardrails.proxy.resources | nindent 12 }}
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nemo-guardrails-proxy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nemo-guardrails-proxy
+  labels:
+    {{- include "mortgage-ai.nemo-guardrails.labels" . | nindent 4 }}
+    app: nemo-guardrails-proxy
+spec:
+  selector:
+    app: nemo-guardrails-proxy
+  ports:
+    - port: 8081
+      targetPort: 8081
+      protocol: TCP
+      name: maas
+    - port: 8085
+      targetPort: 8085
+      protocol: TCP
+      name: content-safety
+  type: ClusterIP
+{{- end }}

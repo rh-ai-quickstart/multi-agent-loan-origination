@@ -20,11 +20,10 @@ secrets:
   COMPANY_NAME: ""
   AGENT_NAME: ""
   MLFLOW_TRACKING_URI: ""
-  MLFLOW_TRACKING_AUTH: "kubernetes"  # RHOAI 3.4+: auto SA token auth (no manual token needed)
   MLFLOW_EXPERIMENT_NAME: ""          # e.g. "mortgage-ai"
   MLFLOW_WORKSPACE: ""                # e.g. "mortgage-ai" (auto-detected from pod namespace if empty)
   MLFLOW_TRACKING_INSECURE_TLS: ""
-  # MLFLOW_TRACKING_TOKEN: ""         # Not needed when MLFLOW_TRACKING_AUTH=kubernetes
+  # MLFLOW_TRACKING_TOKEN: ""         # Auto-read from mounted SA token when mlflow.rbac.enabled=true
 
 seed:
   enabled: true
@@ -42,3 +41,12 @@ mlflow:
 
 mcpRiskServer:
   enabled: true
+
+# NeMo Guardrails (safety shields)
+# When enabled, deploys NeMo Guardrails and auto-wires the API to use it.
+nemoGuardrails:
+  enabled: false
+  llm:
+    baseUrl: ""       # e.g. https://litellm-prod.apps.maas.example.com/v1
+    modelName: ""     # e.g. llama-scout-17b
+    apiKey: ""

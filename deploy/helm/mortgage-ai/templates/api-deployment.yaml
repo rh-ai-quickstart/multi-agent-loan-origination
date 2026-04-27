@@ -235,31 +235,16 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: PREDICTIVE_MODEL_MCP_URL
-            - name: SAFETY_MODEL
+            - name: NEMO_GUARDRAILS_ENDPOINT
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: SAFETY_MODEL
-            - name: SAFETY_ENDPOINT
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: SAFETY_ENDPOINT
-            - name: SAFETY_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: SAFETY_API_KEY
+                  key: NEMO_GUARDRAILS_ENDPOINT
             - name: MLFLOW_TRACKING_URI
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: MLFLOW_TRACKING_URI
-            - name: MLFLOW_TRACKING_AUTH
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: MLFLOW_TRACKING_AUTH
             - name: MLFLOW_EXPERIMENT_NAME
               valueFrom:
                 secretKeyRef:

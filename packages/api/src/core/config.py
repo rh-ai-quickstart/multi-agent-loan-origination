@@ -75,18 +75,10 @@ class Settings(BaseSettings):
         description="Secret key for SQLAdmin session cookies. Must be stable across restarts.",
     )
 
-    # -- Safety / Shields --
-    SAFETY_MODEL: str | None = Field(
+    # -- Safety / NeMo Guardrails --
+    NEMO_GUARDRAILS_ENDPOINT: str | None = Field(
         default=None,
-        description="Llama Guard model name. When set, safety shields are active.",
-    )
-    SAFETY_ENDPOINT: str | None = Field(
-        default=None,
-        description="Safety model endpoint. Defaults to LLM_BASE_URL if not set.",
-    )
-    SAFETY_API_KEY: str | None = Field(
-        default=None,
-        description="Safety model API key. Defaults to LLM_API_KEY if not set.",
+        description="NeMo Guardrails server endpoint. When set, safety shields are active.",
     )
 
     # -- LLM --
