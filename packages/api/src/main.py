@@ -237,7 +237,7 @@ if settings.KAGENTI_ENABLED:
                     }
                 )
 
-        base_port = AGENT_A2A_CONFIG["public-assistant"]["port"]
+        service_name = settings.KAGENTI_SERVICE_NAME
         return {
             "name": f"{settings.COMPANY_NAME} - Mortgage AI Agents",
             "description": (
@@ -245,7 +245,7 @@ if settings.KAGENTI_ENABLED:
                 "Public Assistant, Borrower Assistant, Loan Officer, Underwriter, "
                 "and CEO Dashboard."
             ),
-            "url": f"http://mortgage-ai-api:{base_port}/",
+            "url": f"http://{service_name}:8000/",
             "version": "1.0.0",
             "capabilities": {"streaming": True},
             "defaultInputModes": ["text", "text/plain"],

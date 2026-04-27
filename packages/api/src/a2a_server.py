@@ -195,15 +195,45 @@ AGENT_A2A_CONFIG: dict[str, dict] = {
 
 
 def _build_agent_card(agent_name: str, host: str, port: int) -> AgentCard:
-    """Build an A2A AgentCard for the given agent."""
+    """Build an A2A AgentCard for the given agent.
+
+    Kagenti's backend fetches the agent card from port 8080 (its default
+    discovery port).  When building the card for that port we return a
+    combined card with all skills so the Kagenti UI shows the full catalog.
+    """
+    from .core.config import settings
+
     config = AGENT_A2A_CONFIG[agent_name]
+    service_name = settings.KAGENTI_SERVICE_NAME
     endpoint = (
         os.getenv(
             "AGENT_ENDPOINT",
-            f"http://{host}:{port}",
+            f"http://{service_name}:{port}",
         ).rstrip("/")
         + "/"
     )
+
+    is_discovery_port = port == AGENT_A2A_CONFIG["public-assistant"]["port"]
+    if is_discovery_port:
+        all_skills = []
+        for cfg in AGENT_A2A_CONFIG.values():
+            all_skills.extend(cfg["skills"])
+        return AgentCard(
+            name=f"{settings.COMPANY_NAME} - Mortgage AI Agents",
+            description=(
+                "Multi-agent mortgage lending system with 5 specialized agents: "
+                "Public Assistant, Borrower Assistant, Loan Officer, Underwriter, "
+                "and CEO Dashboard."
+            ),
+            supported_interfaces=[
+                AgentInterface(url=endpoint, protocol_binding="JSONRPC"),
+            ],
+            version="1.0.0",
+            default_input_modes=["text", "text/plain"],
+            default_output_modes=["text", "text/plain"],
+            capabilities=AgentCapabilities(streaming=True),
+            skills=all_skills,
+        )
 
     return AgentCard(
         name=config["display_name"],
@@ -348,7 +378,7 @@ async def run_a2a_server(
     )
 
     routes = create_agent_card_routes(agent_card) + create_jsonrpc_routes(
-        request_handler, rpc_url="/"
+        request_handler, rpc_url="/", enable_v0_3_compat=True
     )
     app = Starlette(routes=routes)
 

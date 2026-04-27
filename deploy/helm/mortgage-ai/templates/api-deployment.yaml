@@ -307,6 +307,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: KAGENTI_ENABLED
+            - name: KAGENTI_SERVICE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: KAGENTI_SERVICE_NAME
           {{- if .Values.api.healthCheck.enabled }}
           startupProbe:
             httpGet:
