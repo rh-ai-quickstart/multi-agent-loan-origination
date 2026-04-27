@@ -7,6 +7,8 @@ KAGENTI_ENABLED environment variable.
 """
 
 import asyncio
+import base64
+import json
 import logging
 import os
 
@@ -39,12 +41,55 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# SPIRE identity (read once at startup, tagged onto MLflow traces)
+# ---------------------------------------------------------------------------
+
+_SVID_DIR = os.environ.get("SPIFFE_SVID_DIR", "/spiffe")
+_JWT_SVID_PATH = os.path.join(_SVID_DIR, "jwt_svid.token")
+_X509_SVID_PATH = os.path.join(_SVID_DIR, "svid.pem")
+
+
+def _load_spire_identity() -> dict[str, str]:
+    """Read SPIRE SVID files and extract identity claims."""
+    identity: dict[str, str] = {}
+    try:
+        if os.path.isfile(_JWT_SVID_PATH):
+            with open(_JWT_SVID_PATH) as f:
+                jwt_token = f.read().strip()
+            parts = jwt_token.split(".")
+            if len(parts) >= 2:
+                padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+                payload = json.loads(base64.urlsafe_b64decode(padded))
+                identity["spiffe.id"] = payload.get("sub", "")
+                identity["spiffe.audience"] = str(payload.get("aud", ""))
+                identity["spiffe.issuer"] = payload.get("iss", "")
+                identity["spiffe.expiry"] = str(payload.get("exp", ""))
+            identity["spiffe.jwt_svid"] = jwt_token[:80] + "..."
+    except Exception as exc:
+        logger.debug("Failed to read JWT SVID: %s", exc)
+    try:
+        if os.path.isfile(_X509_SVID_PATH):
+            with open(_X509_SVID_PATH) as f:
+                cert_pem = f.read().strip()
+            identity["spiffe.x509_svid"] = cert_pem[:120] + "..."
+    except Exception as exc:
+        logger.debug("Failed to read X.509 SVID: %s", exc)
+    return identity
+
+
+_spire_identity: dict[str, str] = _load_spire_identity()
+if _spire_identity:
+    logger.info("SPIRE identity loaded: %s", _spire_identity.get("spiffe.id", "unknown"))
+
+
+# ---------------------------------------------------------------------------
 # Agent A2A configuration: name -> (port, display_name, description, skills)
 # ---------------------------------------------------------------------------
 
 AGENT_A2A_CONFIG: dict[str, dict] = {
     "public-assistant": {
         "port": 8080,
+        "default_role": "prospect",
         "display_name": "Mortgage AI - Public Assistant",
         "description": (
             "AI assistant for prospective mortgage borrowers.  Answers questions "
@@ -69,6 +114,7 @@ AGENT_A2A_CONFIG: dict[str, dict] = {
     },
     "borrower-assistant": {
         "port": 8081,
+        "default_role": "borrower",
         "display_name": "Mortgage AI - Borrower Assistant",
         "description": (
             "Guides authenticated borrowers through the mortgage application process, "
@@ -100,6 +146,7 @@ AGENT_A2A_CONFIG: dict[str, dict] = {
     },
     "loan-officer-assistant": {
         "port": 8082,
+        "default_role": "loan_officer",
         "display_name": "Mortgage AI - Loan Officer Assistant",
         "description": (
             "Pipeline management for loan officers: track applications, review "
@@ -131,6 +178,7 @@ AGENT_A2A_CONFIG: dict[str, dict] = {
     },
     "underwriter-assistant": {
         "port": 8083,
+        "default_role": "underwriter",
         "display_name": "Mortgage AI - Underwriter Assistant",
         "description": (
             "Risk assessment and compliance verification for mortgage underwriters.  "
@@ -162,6 +210,7 @@ AGENT_A2A_CONFIG: dict[str, dict] = {
     },
     "ceo-assistant": {
         "port": 8084,
+        "default_role": "ceo",
         "display_name": "Mortgage AI - CEO Dashboard Assistant",
         "description": (
             "Executive analytics and oversight: portfolio metrics, denial trends, "
@@ -278,10 +327,15 @@ class LoanAgentExecutor(AgentExecutor):
         except Exception:
             has_interrupt = False
 
+        default_role = AGENT_A2A_CONFIG[self._agent_name].get("default_role", "prospect")
+
         if has_interrupt:
             inputs = Command(resume=query)
         else:
-            inputs = {"messages": [HumanMessage(content=query)]}
+            inputs = {
+                "messages": [HumanMessage(content=query)],
+                "user_role": default_role,
+            }
 
         try:
             await updater.start_work(
@@ -294,6 +348,8 @@ class LoanAgentExecutor(AgentExecutor):
             )
 
             result = await graph.ainvoke(inputs, config)
+
+            self._tag_trace_with_spire()
 
             interrupt_values = []
             for item in result.get("__interrupt__", []) or []:
@@ -332,6 +388,37 @@ class LoanAgentExecutor(AgentExecutor):
                     task_id=task_id,
                 ),
             )
+
+    @staticmethod
+    def _tag_trace_with_spire() -> None:
+        """Tag the latest MLflow trace with SPIRE identity metadata."""
+        if not _spire_identity:
+            return
+        try:
+            from .observability import _autolog_enabled
+
+            if not _autolog_enabled:
+                return
+
+            import mlflow
+
+            from .core.config import settings
+
+            client = mlflow.MlflowClient()
+            experiment = client.get_experiment_by_name(settings.MLFLOW_EXPERIMENT_NAME)
+            if not experiment:
+                return
+            traces = client.search_traces(
+                experiment_ids=[experiment.experiment_id],
+                max_results=1,
+            )
+            if traces:
+                request_id = traces[0].info.request_id
+                for key, value in _spire_identity.items():
+                    client.set_trace_tag(request_id, key, value)
+                logger.info("Tagged trace %s with SPIRE identity", request_id)
+        except Exception as exc:
+            logger.debug("Failed to tag trace with SPIRE identity: %s", exc)
 
     @staticmethod
     def _extract_response(result: dict) -> str:
