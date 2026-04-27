@@ -317,6 +317,7 @@ kagenti:
   enabled: false
   a2aBasePort: 8080
   inboundPortsExclude: "8000"
+  outboundPortsExclude: "5432,9000,8081"
 
 # Seed data (demo data for demos / dev environments)
 seed:

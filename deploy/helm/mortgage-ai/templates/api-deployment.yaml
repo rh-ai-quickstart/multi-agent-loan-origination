@@ -5,6 +5,10 @@ metadata:
   name: {{ .Values.api.name }}
   labels:
     {{- include "mortgage-ai.api.labels" . | nindent 4 }}
+    {{- if .Values.kagenti.enabled }}
+    kagenti.io/type: agent
+    protocol.kagenti.io/a2a: ""
+    {{- end }}
   annotations:
     app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"StatefulSet","name":"{{ .Values.database.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.keycloak.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.minio.name }}"}]'
 spec:
@@ -19,12 +23,14 @@ spec:
         monitoring.opendatahub.io/scrape: 'true'
         {{- if .Values.kagenti.enabled }}
         kagenti.io/type: agent
+        protocol.kagenti.io/a2a: ""
         {{- end }}
       {{- if .Values.kagenti.enabled }}
       annotations:
         kagenti.io/inject: "enabled"
         kagenti.io/spire: "enabled"
         kagenti.io/inbound-ports-exclude: {{ .Values.kagenti.inboundPortsExclude | quote }}
+        kagenti.io/outbound-ports-exclude: {{ .Values.kagenti.outboundPortsExclude | quote }}
       {{- end }}
     spec:
       {{- if .Values.mlflow.rbac.enabled }}

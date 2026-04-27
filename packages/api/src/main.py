@@ -214,6 +214,46 @@ async def feature_flags() -> dict[str, bool]:
     }
 
 
+if settings.KAGENTI_ENABLED:
+    from .a2a_server import AGENT_A2A_CONFIG
+
+    @app.get("/.well-known/agent-card.json")
+    async def agent_card_discovery():
+        """Serve a combined A2A agent card for Kagenti discovery.
+
+        Kagenti's AgentCard controller fetches from this endpoint (port 8000)
+        to discover agents. The card's URL points to the A2A server port.
+        """
+        all_skills = []
+        for cfg in AGENT_A2A_CONFIG.values():
+            for skill in cfg["skills"]:
+                all_skills.append(
+                    {
+                        "id": skill.id,
+                        "name": skill.name,
+                        "description": skill.description,
+                        "tags": list(skill.tags),
+                        "examples": list(skill.examples),
+                    }
+                )
+
+        base_port = AGENT_A2A_CONFIG["public-assistant"]["port"]
+        return {
+            "name": f"{settings.COMPANY_NAME} - Mortgage AI Agents",
+            "description": (
+                "Multi-agent mortgage lending system with 5 specialized agents: "
+                "Public Assistant, Borrower Assistant, Loan Officer, Underwriter, "
+                "and CEO Dashboard."
+            ),
+            "url": f"http://mortgage-ai-api:{base_port}/",
+            "version": "1.0.0",
+            "capabilities": {"streaming": True},
+            "defaultInputModes": ["text", "text/plain"],
+            "defaultOutputModes": ["text", "text/plain"],
+            "skills": all_skills,
+        }
+
+
 @app.get("/")
 async def root() -> dict[str, str]:
     """Root endpoint"""
