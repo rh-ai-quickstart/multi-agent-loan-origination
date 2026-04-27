@@ -31,6 +31,16 @@ class Settings(BaseSettings):
     AGENT_NAME: str = ""
     DEBUG: bool = False
 
+    # -- Kagenti / A2A --
+    KAGENTI_ENABLED: bool = Field(
+        default=False,
+        description="Enable A2A protocol servers for Kagenti agent discovery.",
+    )
+    KAGENTI_SERVICE_NAME: str = Field(
+        default="mortgage-ai-api",
+        description="Kubernetes Service name used in A2A agent card URLs.",
+    )
+
     # -- CORS --
     ALLOWED_HOSTS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 

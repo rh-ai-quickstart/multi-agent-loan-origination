@@ -81,9 +81,27 @@ async def lifespan(_app: FastAPI):
         predictive_model_url=settings.PREDICTIVE_MODEL_MCP_URL,
     )
     await _auto_seed()
+
+    a2a_task = None
+    if settings.KAGENTI_ENABLED:
+        import asyncio
+
+        from .a2a_server import run_all_a2a_servers
+
+        logger.info("Kagenti A2A integration enabled -- starting A2A servers")
+        a2a_task = asyncio.create_task(run_all_a2a_servers(), name="a2a-servers")
+
     yield
+
+    if a2a_task and not a2a_task.done():
+        a2a_task.cancel()
+        try:
+            await a2a_task
+        except asyncio.CancelledError:
+            pass
     await shutdown_mcp_client()
     await conversation_service.shutdown()
+    logger.info("Shutdown complete")
 
 
 app = FastAPI(
@@ -192,7 +210,48 @@ async def feature_flags() -> dict[str, bool]:
     """Expose optional feature availability to the UI."""
     return {
         "predictive_model": settings.PREDICTIVE_MODEL_MCP_URL is not None,
+        "kagenti_a2a": settings.KAGENTI_ENABLED,
     }
+
+
+if settings.KAGENTI_ENABLED:
+    from .a2a_server import AGENT_A2A_CONFIG
+
+    @app.get("/.well-known/agent-card.json")
+    async def agent_card_discovery():
+        """Serve a combined A2A agent card for Kagenti discovery.
+
+        Kagenti's AgentCard controller fetches from this endpoint (port 8000)
+        to discover agents. The card's URL points to the A2A server port.
+        """
+        all_skills = []
+        for cfg in AGENT_A2A_CONFIG.values():
+            for skill in cfg["skills"]:
+                all_skills.append(
+                    {
+                        "id": skill.id,
+                        "name": skill.name,
+                        "description": skill.description,
+                        "tags": list(skill.tags),
+                        "examples": list(skill.examples),
+                    }
+                )
+
+        service_name = settings.KAGENTI_SERVICE_NAME
+        return {
+            "name": f"{settings.COMPANY_NAME} - Mortgage AI Agents",
+            "description": (
+                "Multi-agent mortgage lending system with 5 specialized agents: "
+                "Public Assistant, Borrower Assistant, Loan Officer, Underwriter, "
+                "and CEO Dashboard."
+            ),
+            "url": f"http://{service_name}:8000/",
+            "version": "1.0.0",
+            "capabilities": {"streaming": True},
+            "defaultInputModes": ["text", "text/plain"],
+            "defaultOutputModes": ["text", "text/plain"],
+            "skills": all_skills,
+        }
 
 
 @app.get("/")
