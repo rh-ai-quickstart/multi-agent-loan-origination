@@ -4,10 +4,6 @@
 Exposes each LangGraph agent as an A2A-compatible endpoint so Kagenti
 can discover, authenticate, and invoke them.  Feature-gated by the
 KAGENTI_ENABLED environment variable.
-
-Reference implementation:
-  https://github.com/rh-aiservices-bu/bank-voice-agent/blob/main/
-  ai-voice-agent/backend/src/a2a_server.py
 """
 
 import asyncio
