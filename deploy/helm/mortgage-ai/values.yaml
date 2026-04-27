@@ -79,6 +79,9 @@ secrets:
   MLFLOW_TRACKING_TOKEN: ""
   MLFLOW_TRACKING_INSECURE_TLS: "false"
 
+  # Kagenti A2A
+  KAGENTI_ENABLED: "false"
+
   # Admin panel
   SQLADMIN_USER: "admin"
   SQLADMIN_PASSWORD: "admin"
@@ -308,6 +311,12 @@ nemoGuardrails:
       limits:
         cpu: "500m"
         memory: "256Mi"
+
+# Kagenti A2A integration
+kagenti:
+  enabled: false
+  a2aBasePort: 8080
+  inboundPortsExclude: "8000"
 
 # Seed data (demo data for demos / dev environments)
 seed:

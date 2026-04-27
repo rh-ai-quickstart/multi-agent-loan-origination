@@ -81,9 +81,27 @@ async def lifespan(_app: FastAPI):
         predictive_model_url=settings.PREDICTIVE_MODEL_MCP_URL,
     )
     await _auto_seed()
+
+    a2a_task = None
+    if settings.KAGENTI_ENABLED:
+        import asyncio
+
+        from .a2a_server import run_all_a2a_servers
+
+        logger.info("Kagenti A2A integration enabled -- starting A2A servers")
+        a2a_task = asyncio.create_task(run_all_a2a_servers(), name="a2a-servers")
+
     yield
+
+    if a2a_task and not a2a_task.done():
+        a2a_task.cancel()
+        try:
+            await a2a_task
+        except asyncio.CancelledError:
+            pass
     await shutdown_mcp_client()
     await conversation_service.shutdown()
+    logger.info("Shutdown complete")
 
 
 app = FastAPI(
@@ -192,6 +210,7 @@ async def feature_flags() -> dict[str, bool]:
     """Expose optional feature availability to the UI."""
     return {
         "predictive_model": settings.PREDICTIVE_MODEL_MCP_URL is not None,
+        "kagenti_a2a": settings.KAGENTI_ENABLED,
     }
 
 
