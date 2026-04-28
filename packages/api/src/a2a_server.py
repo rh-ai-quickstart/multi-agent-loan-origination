@@ -77,9 +77,58 @@ def _load_spire_identity() -> dict[str, str]:
     return identity
 
 
-_spire_identity: dict[str, str] = _load_spire_identity()
-if _spire_identity:
-    logger.info("SPIRE identity loaded: %s", _spire_identity.get("spiffe.id", "unknown"))
+_spire_identity: dict[str, str] = {}
+
+
+def _get_spire_identity() -> dict[str, str]:
+    """Return cached SPIRE identity, loading lazily on first call.
+
+    The spiffe-helper sidecar may not have written SVID files by the time
+    this module is imported, so we defer loading until first use.
+    """
+    global _spire_identity  # noqa: PLW0603
+    if not _spire_identity:
+        _spire_identity = _load_spire_identity()
+        if _spire_identity:
+            logger.info("SPIRE identity loaded: %s", _spire_identity.get("spiffe.id", "unknown"))
+    return _spire_identity
+
+
+def tag_trace_with_spire() -> None:
+    """Tag the latest MLflow trace with SPIRE identity metadata."""
+    identity = _get_spire_identity()
+    logger.info("[spire] identity keys: %s", list(identity.keys()) if identity else "empty")
+    try:
+        from .observability import _autolog_enabled
+
+        if not _autolog_enabled:
+            logger.info("[spire] autolog not enabled, skipping trace tagging")
+            return
+
+        import mlflow
+
+        from .core.config import settings
+
+        client = mlflow.MlflowClient()
+        experiment = client.get_experiment_by_name(settings.MLFLOW_EXPERIMENT_NAME)
+        if not experiment:
+            logger.info("[spire] experiment '%s' not found", settings.MLFLOW_EXPERIMENT_NAME)
+            return
+        traces = client.search_traces(
+            experiment_ids=[experiment.experiment_id],
+            max_results=1,
+        )
+        logger.info(
+            "[spire] found %d traces in experiment %s", len(traces), experiment.experiment_id
+        )
+        if traces:
+            request_id = traces[0].info.request_id
+            if identity:
+                for key, value in identity.items():
+                    client.set_trace_tag(request_id, key, value)
+                logger.info("[spire] tagged trace %s with SPIRE identity", request_id)
+    except Exception as exc:
+        logger.warning("Failed to tag trace with SPIRE identity: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -349,7 +398,7 @@ class LoanAgentExecutor(AgentExecutor):
 
             result = await graph.ainvoke(inputs, config)
 
-            self._tag_trace_with_spire()
+            tag_trace_with_spire()
 
             interrupt_values = []
             for item in result.get("__interrupt__", []) or []:
@@ -388,37 +437,6 @@ class LoanAgentExecutor(AgentExecutor):
                     task_id=task_id,
                 ),
             )
-
-    @staticmethod
-    def _tag_trace_with_spire() -> None:
-        """Tag the latest MLflow trace with SPIRE identity metadata."""
-        if not _spire_identity:
-            return
-        try:
-            from .observability import _autolog_enabled
-
-            if not _autolog_enabled:
-                return
-
-            import mlflow
-
-            from .core.config import settings
-
-            client = mlflow.MlflowClient()
-            experiment = client.get_experiment_by_name(settings.MLFLOW_EXPERIMENT_NAME)
-            if not experiment:
-                return
-            traces = client.search_traces(
-                experiment_ids=[experiment.experiment_id],
-                max_results=1,
-            )
-            if traces:
-                request_id = traces[0].info.request_id
-                for key, value in _spire_identity.items():
-                    client.set_trace_tag(request_id, key, value)
-                logger.info("Tagged trace %s with SPIRE identity", request_id)
-        except Exception as exc:
-            logger.debug("Failed to tag trace with SPIRE identity: %s", exc)
 
     @staticmethod
     def _extract_response(result: dict) -> str:
