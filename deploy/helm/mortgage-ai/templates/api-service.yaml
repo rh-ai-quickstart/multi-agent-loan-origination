@@ -12,6 +12,14 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    {{- if .Values.kagenti.enabled }}
+    {{- range $i, $name := list "public" "borrower" "lo" "uw" "ceo" }}
+    - port: {{ add $.Values.kagenti.a2aBasePort $i }}
+      targetPort: a2a-{{ $name }}
+      protocol: TCP
+      name: a2a-{{ $name }}
+    {{- end }}
+    {{- end }}
   selector:
     {{- include "mortgage-ai.api.selectorLabels" . | nindent 4 }}
 {{- end }}

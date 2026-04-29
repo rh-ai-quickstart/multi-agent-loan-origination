@@ -341,6 +341,13 @@ async def run_agent_stream(
                 )
                 continue
 
+            try:
+                from ..a2a_server import tag_trace_with_spire
+
+                tag_trace_with_spire()
+            except Exception:
+                pass
+
             # Strip think tags, markdown bold markers, and stray tool-call
             # text that small models (e.g. Llama) sometimes emit inline
             # instead of using the structured tool-calling format.

@@ -43,6 +43,7 @@ dependencies = [
     "prometheus-fastapi-instrumentator>=7.0.0",
     "mcp>=1.0.0,<2.0",
     "langchain-mcp-adapters>=0.2.0,<1.0",
+    "a2a-sdk[http-server]>=0.2.0",
 ]
 
 [project.optional-dependencies]

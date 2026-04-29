@@ -1,0 +1,15 @@
+{{- if .Values.kagenti.enabled }}
+apiVersion: agent.kagenti.dev/v1alpha1
+kind: AgentRuntime
+metadata:
+  name: {{ .Values.api.name }}
+  labels:
+    {{- include "mortgage-ai.api.labels" . | nindent 4 }}
+    kagenti.io/type: agent
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Values.api.name }}
+  type: agent
+{{- end }}

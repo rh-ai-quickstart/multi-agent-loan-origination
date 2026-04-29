@@ -5,6 +5,10 @@ metadata:
   name: {{ .Values.api.name }}
   labels:
     {{- include "mortgage-ai.api.labels" . | nindent 4 }}
+    {{- if .Values.kagenti.enabled }}
+    kagenti.io/type: agent
+    protocol.kagenti.io/a2a: ""
+    {{- end }}
   annotations:
     app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"StatefulSet","name":"{{ .Values.database.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.keycloak.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.minio.name }}"}]'
 spec:
@@ -17,6 +21,17 @@ spec:
       labels:
         {{- include "mortgage-ai.api.selectorLabels" . | nindent 8 }}
         monitoring.opendatahub.io/scrape: 'true'
+        {{- if .Values.kagenti.enabled }}
+        kagenti.io/type: agent
+        protocol.kagenti.io/a2a: ""
+        {{- end }}
+      {{- if .Values.kagenti.enabled }}
+      annotations:
+        kagenti.io/inject: "enabled"
+        kagenti.io/spire: "enabled"
+        kagenti.io/inbound-ports-exclude: {{ .Values.kagenti.inboundPortsExclude | quote }}
+        kagenti.io/outbound-ports-exclude: {{ .Values.kagenti.outboundPortsExclude | quote }}
+      {{- end }}
     spec:
       {{- if .Values.mlflow.rbac.enabled }}
       serviceAccountName: {{ include "mortgage-ai.fullname" . }}-mlflow-client
@@ -82,6 +97,13 @@ spec:
             - name: http
               containerPort: 8000
               protocol: TCP
+            {{- if .Values.kagenti.enabled }}
+            {{- range $i, $name := list "public" "borrower" "lo" "uw" "ceo" }}
+            - name: a2a-{{ $name }}
+              containerPort: {{ add $.Values.kagenti.a2aBasePort $i }}
+              protocol: TCP
+            {{- end }}
+            {{- end }}
           env:
             {{- if .Values.database.enabled }}
             - name: DATABASE_URL
@@ -280,6 +302,16 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: SQLADMIN_SECRET_KEY
+            - name: KAGENTI_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: KAGENTI_ENABLED
+            - name: KAGENTI_SERVICE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: KAGENTI_SERVICE_NAME
           {{- if .Values.api.healthCheck.enabled }}
           startupProbe:
             httpGet:
@@ -298,8 +330,19 @@ spec:
               port: http
             periodSeconds: {{ .Values.api.healthCheck.periodSeconds }}
           {{- end }}
+          {{- if .Values.kagenti.enabled }}
+          volumeMounts:
+            - name: svid-output
+              mountPath: /spiffe
+              readOnly: true
+          {{- end }}
           resources:
             {{- toYaml .Values.api.resources | nindent 12 }}
+      {{- if .Values.kagenti.enabled }}
+      volumes:
+        - name: svid-output
+          emptyDir: {}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
