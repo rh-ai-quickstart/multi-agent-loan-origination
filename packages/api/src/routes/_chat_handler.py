@@ -14,7 +14,7 @@ import uuid
 import jwt as pyjwt
 from db.enums import UserRole
 from fastapi import APIRouter, Depends, Query, WebSocket
-from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
 from ..agents.registry import get_agent
 from ..core.auth import build_data_scope
@@ -287,7 +287,7 @@ async def run_agent_stream(
             # Inject system context once on the first message of the conversation
             context_msgs: list = []
             if system_context:
-                context_msgs = [SystemMessage(content=system_context)]
+                context_msgs = [HumanMessage(content=system_context)]
                 system_context = ""  # Only inject once
 
             if use_checkpointer:
