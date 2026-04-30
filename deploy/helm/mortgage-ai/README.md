@@ -172,6 +172,84 @@ When `mlflow.rbac.enabled=true`, the chart creates:
 
 - **ClusterRoleBinding**: Connects the ServiceAccount to the ClusterRole
 
+### Kagenti A2A Integration
+
+Enable [Kagenti](https://github.com/kagenti/kagenti) to expose all 5 LangGraph agents as [A2A (Agent-to-Agent)](https://google.github.io/A2A/) endpoints. Other agents, orchestrators, or the Kagenti UI can then discover and invoke them programmatically.
+
+See [docs/kagenti.md](../../docs/kagenti.md) for full architecture details, screenshots, and SPIFFE identity tagging.
+
+#### Prerequisites
+
+- Kagenti operator installed on the cluster
+- SPIRE server running (provides workload identity via SPIFFE)
+- Target namespace labeled: `oc label namespace <ns> kagenti-enabled=true`
+- `kagenti-authbridge` SCC granted to the API service account:
+  ```bash
+  oc adm policy add-scc-to-user kagenti-authbridge -z mortgage-ai-mlflow-client -n <ns>
+  ```
+
+#### Quick Start
+
+```bash
+helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
+  -n <ns> \
+  --set kagenti.enabled=true \
+  --set secrets.KAGENTI_ENABLED=true \
+  --set api.image.tag=kagentiv1
+```
+
+#### Configuration Reference
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `kagenti.enabled` | Enable Kagenti labels, annotations, ports, and AgentRuntime CR | `false` |
+| `kagenti.a2aBasePort` | First A2A port (agents use 8080-8084) | `8080` |
+| `kagenti.inboundPortsExclude` | Ports excluded from AuthBridge inbound proxying | `"8000"` |
+| `kagenti.outboundPortsExclude` | Ports excluded from AuthBridge outbound proxying | `"5432,9000,8081"` |
+| `secrets.KAGENTI_ENABLED` | Feature flag read by the API at runtime | `false` |
+| `secrets.KAGENTI_SERVICE_NAME` | Service name used in A2A agent card endpoints | `"mortgage-ai-api"` |
+
+#### What the Chart Creates
+
+When `kagenti.enabled=true`, the chart adds:
+
+- **Deployment metadata labels**: `kagenti.io/type: agent`, `protocol.kagenti.io/a2a: ""`
+- **Pod template annotations**: `kagenti.io/inject: "enabled"`, `kagenti.io/spire: "enabled"`, port exclusions
+- **Container ports**: 5 additional ports (8080-8084) for the A2A servers
+- **SVID volume mount**: `svid-output` emptyDir mounted at `/spiffe` in the API container for SPIRE identity access
+- **AgentRuntime CR**: `kagenti-agentruntime.yaml` -- tells Kagenti to manage this deployment
+
+Kagenti's webhook then injects two sidecars into the pod:
+
+| Container | Purpose |
+|-----------|---------|
+| `envoy-proxy` | AuthBridge -- enforces mTLS and JWT auth on A2A ports |
+| `spiffe-helper` | Fetches and rotates SPIFFE identity (X.509 certs + JWT SVIDs) |
+
+#### Verify
+
+```bash
+# Check all 3 containers are running (api + 2 Kagenti sidecars)
+oc get pod -l app.kubernetes.io/component=api -n <ns> \
+  -o jsonpath='{range .items[0].spec.containers[*]}{.name}{"\n"}{end}'
+# Expected: api, envoy-proxy, spiffe-helper
+
+# Check AgentCard was created and synced
+oc get agentcard -n <ns>
+
+# Check SPIFFE identity is available in the API container
+oc exec deploy/mortgage-ai-api -c api -n <ns> -- ls /spiffe/
+# Expected: jwt_svid.token  svid.pem  svid_key.pem  svid_bundle.pem
+
+# Test agent card endpoint
+oc exec deploy/mortgage-ai-api -c api -n <ns> -- \
+  curl -s localhost:8000/.well-known/agent-card.json | python3 -m json.tool
+```
+
+#### SPIFFE Identity in MLflow Traces
+
+When Kagenti/SPIRE is active, every MLflow trace is tagged with the workload's SPIFFE identity (`spiffe.id`, `spiffe.audience`, `spiffe.issuer`, `spiffe.expiry`, `spiffe.jwt_svid`, `spiffe.x509_svid`). This works on both the A2A path (Kagenti UI) and the WebSocket path (regular UI). See [docs/kagenti.md](../../docs/kagenti.md) for the full tag reference and screenshots.
+
 ## External Services
 
 To use external services instead of the chart-provided ones:
