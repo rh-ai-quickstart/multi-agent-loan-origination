@@ -32,9 +32,9 @@ This AI quickstart showcases how multi-agent orchestration on Red Hat® OpenShif
 
 Built for financial services teams exploring AI automation, this reference application demonstrates specialized AI agents working together across the complete lending lifecycle: from prospect inquiry and borrower application intake, through loan officer pipeline management and underwriter risk assessment, to executive analytics and audit. Each persona interacts with a dedicated LangGraph agent equipped with role-appropriate tools, compliance knowledge retrieval, and audit trails.
 
-![Screenshot of fictitious bank Fed Aura Capital](docs/images/fed-aura-capital-ui.png)
-
 You'll see production-ready AI patterns for regulated industries: role-based access control (RBAC) for agent routing, pgvector-powered compliance knowledge bases with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, PII masking for sensitive data, vision-based document extraction, and hash-chained audit events. Deploy to Red Hat OpenShift AI in production or run locally for development and exploration.
+
+![Screenshot of fictitious bank Fed Aura Capital](docs/images/fed-aura-capital-ui.png)
 
 > **Regulatory disclaimer:** All compliance content (HMDA, ECOA, TRID, ATR/QM, FCRA) is simulated for demonstration purposes and does not constitute legal or regulatory advice.
 
