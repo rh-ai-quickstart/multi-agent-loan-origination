@@ -2,7 +2,7 @@
 
 # Automate mortgage lending with multi-agent AI
 
-Red Hat AI reference application demonstrating agentic AI orchestration across the mortgage lending lifecycle, from prospect inquiry to underwriting approval.
+Demonstrate multi-agent AI orchestration for mortgage lending on Red Hat OpenShift AI—from prospect inquiry through underwriting approval.
 
 ## Table of contents
 
@@ -28,17 +28,17 @@ Red Hat AI reference application demonstrating agentic AI orchestration across t
 
 ## Detailed description
 
-This Red Hat AI reference application showcases multi-agent AI systems on Red Hat OpenShift AI through a realistic, regulated-industry use case. Built for Red Hat Summit, this application uses a fictional mortgage lender to demonstrate how AI can orchestrate complex, multi-persona workflows in financial services.
+This AI quickstart showcases how multi-agent orchestration on Red Hat® OpenShift® AI can transform complex, regulated-industry workflows—using mortgage lending as a realistic example.
 
-The application covers the complete mortgage lending lifecycle with five distinct persona experiences: prospect inquiry, borrower application intake, loan officer pipeline management, underwriter compliance checks and risk assessment, and executive analytics. Each persona interacts with a specialized LangGraph agent backed by role-scoped tools, compliance knowledge retrieval, and comprehensive audit trails.
+Built for financial services teams exploring AI automation, this reference application demonstrates specialized AI agents working together across the complete lending lifecycle: from prospect inquiry and borrower application intake, through loan officer pipeline management and underwriter risk assessment, to executive analytics and audit. Each persona interacts with a dedicated LangGraph agent equipped with role-appropriate tools, compliance knowledge retrieval, and audit trails.
 
-This quickstart demonstrates AI patterns for regulated industries including role-based access control (RBAC) scoped agent routing, pgvector-based compliance knowledge base with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, personally identifiable information (PII) masking, vision-based document extraction, and hash-chained audit events. The architecture deploys to OpenShift AI but also runs locally for development and exploration.
+You'll see production-ready AI patterns for regulated industries: role-based access control (RBAC) for agent routing, pgvector-powered compliance knowledge bases with regulatory source tiering, HMDA demographic data isolation, fair lending safeguards, PII masking for sensitive data, vision-based document extraction, and hash-chained audit events. Deploy to Red Hat OpenShift AI in production or run locally for development and exploration.
 
 > **Regulatory disclaimer:** All compliance content (HMDA, ECOA, TRID, ATR/QM, FCRA) is simulated for demonstration purposes and does not constitute legal or regulatory advice.
 
 ### See it in action
 
-Demo video inclusion/timeline TBD.
+[:play_or_pause_button: View interactive demo](https://interact.redhat.com/share/UgvwvL982CGksrFdjHT1)
 
 ### Architecture diagrams
 
@@ -72,7 +72,7 @@ Demo video inclusion/timeline TBD.
 - Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 - Podman 4+ and podman-compose
 - PostgreSQL 16 (provided via compose for local development)
-- An OpenAI-compatible LLM endpoint (local inference server, OpenShift AI model serving, vLLM, or any compatible API)
+- An OpenAI-compatible LLM endpoint (local inference server, Red Hat OpenShift AI model serving, vLLM, or any compatible API)
 
 ## Deploy
 
@@ -151,7 +151,7 @@ make undeploy   # Remove Helm deployment
 
 ## References
 
-- [Documentation Site](https://rh-ai-quickstart.github.io/multi-agent-loan-origination/)
+- [Complete deployment and architecture documentation](https://rh-ai-quickstart.github.io/multi-agent-loan-origination/)
 - [API Documentation](http://localhost:8000/docs) (available when running locally)
 - [Red Hat AI Quickstart Catalog](https://github.com/rh-ai-quickstart)
 - Package READMEs:
@@ -310,7 +310,7 @@ When the variable is unset or empty, the feature is disabled and the underwriter
 
 ## Tags
 
-- **Industry**: Financial Services
-- **Product**: OpenShift AI
+- **Industry**: Banking and securities
+- **Product**: Red Hat OpenShift AI
 - **Use case**: Multi-agent orchestration
 - **Contributor org**: Red Hat
