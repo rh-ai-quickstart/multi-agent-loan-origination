@@ -1,5 +1,5 @@
 # This project was developed with assistance from AI tools.
-{{- if .Values.mlflow.rbac.enabled }}
+{{- if and .Values.mlflow.rbac.enabled (not .Values.kagenti.enabled) }}
 ---
 # MLflow integration ClusterRole for RHOAI 3.4+ MLflow server access.
 # This ClusterRole grants permissions to interact with MLflow CRDs

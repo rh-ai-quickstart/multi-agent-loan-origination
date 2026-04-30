@@ -33,7 +33,7 @@ spec:
         kagenti.io/outbound-ports-exclude: {{ .Values.kagenti.outboundPortsExclude | quote }}
       {{- end }}
     spec:
-      {{- if .Values.mlflow.rbac.enabled }}
+      {{- if and .Values.mlflow.rbac.enabled (not .Values.kagenti.enabled) }}
       serviceAccountName: {{ include "mortgage-ai.fullname" . }}-mlflow-client
       {{- else }}
       serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
@@ -262,6 +262,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: NEMO_GUARDRAILS_ENDPOINT
+            {{- if not .Values.kagenti.enabled }}
             - name: MLFLOW_TRACKING_URI
               valueFrom:
                 secretKeyRef:
@@ -287,6 +288,7 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: MLFLOW_TRACKING_INSECURE_TLS
+            {{- end }}
             - name: SQLADMIN_USER
               valueFrom:
                 secretKeyRef:
