@@ -38,7 +38,7 @@ This quickstart demonstrates AI patterns for regulated industries including role
 
 ### See it in action
 
-Demo video inclusion/timeline TBD.
+[Interactive walkthrough on Red Hat Interact](https://interact.redhat.com/share/UgvwvL982CGksrFdjHT1)
 
 ### Architecture diagrams
 
