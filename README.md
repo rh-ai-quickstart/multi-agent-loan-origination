@@ -65,7 +65,7 @@ This quickstart demonstrates AI patterns for regulated industries including role
 - OpenShift cluster with Red Hat OpenShift AI installed
 - LLM access via either:
   - Model-as-a-Service (MaaS) endpoint (no GPU required on cluster), or
-  - GPU node for on-cluster model serving (NVIDIA A10G or equivalent recommended)
+  - GPU node for on-cluster model serving (sized for your chosen model)
 - Persistent volume claims: 10Gi for PostgreSQL, 10Gi for MinIO object storage
 - See the [documentation site](https://rh-ai-quickstart.github.io/multi-agent-loan-origination/) for detailed cluster sizing and configuration
 
