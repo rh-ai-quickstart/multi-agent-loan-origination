@@ -41,7 +41,7 @@ Maturity level is **MVP**. See `.claude/rules/maturity-expectations.md` for what
 
 - **Python 3.11+** backend (stakeholder mandate)
 - **LangGraph** for agent orchestration (stakeholder mandate)
-- **LangFuse** self-hosted for observability -- must run as a container, not their cloud service (stakeholder mandate)
+- **MLflow** for observability -- integrated with RHOAI 3.4+ for production; self-hosted container for local dev (stakeholder mandate)
 - **LlamaStack** for model serving abstraction (stakeholder mandate)
 - **FastAPI** + **Pydantic 2.x** (stakeholder mandate)
 - **uv** for Python package management, **Ruff** for linting, **pytest** for testing (stakeholder mandate)
@@ -57,7 +57,7 @@ Maturity level is **MVP**. See `.claude/rules/maturity-expectations.md` for what
 - **Language (Backend):** Python 3.11+
 - **Language (Frontend):** TypeScript 5.x
 - **AI/Agent Framework:** LangGraph
-- **Observability:** LangFuse (self-hosted)
+- **Observability:** MLflow (RHOAI 3.4+ / self-hosted)
 - **LLM Stack:** LlamaStack (model serving abstraction)
 - **Model Hosting:** OpenShift AI (prod); local or OpenAI API-compatible (dev)
 - **Web Framework:** FastAPI

@@ -36,7 +36,7 @@ cd packages/db && pnpm migrate:new -m "description"  # Create migration
 cd packages/db && pnpm migrate                       # Apply migrations
 
 # Containers
-make run                # Full stack (postgres, api, ui, keycloak, langfuse)
+make run                # Full stack (postgres, api, ui, keycloak, mlflow)
 make run-minimal        # Just postgres + api + ui
 make stop               # Stop all
 
@@ -116,7 +116,7 @@ input -> input_shield -> classify (rule-based) -> agent_fast / agent_capable
 - **Embeddings:** Local by default (`nomic-ai/nomic-embed-text-v1.5`); optional remote via `EMBEDDING_PROVIDER=openai_compatible`
 - **Auth:** Keycloak OIDC; bypass with `AUTH_DISABLED=true` for dev
 - **Storage:** MinIO S3-compatible for documents
-- **Observability:** LangFuse for agent tracing (optional)
+- **Observability:** MLflow for agent tracing (optional)
 
 ## Critical Patterns
 
