@@ -19,6 +19,7 @@ secrets:
   # VISION_API_KEY: ""
   COMPANY_NAME: ""
   AGENT_NAME: ""
+  AUTH_DISABLED: "true"
   MLFLOW_TRACKING_URI: ""
   MLFLOW_EXPERIMENT_NAME: ""          # e.g. "mortgage-ai"
   MLFLOW_WORKSPACE: ""                # e.g. "mortgage-ai" (auto-detected from pod namespace if empty)
