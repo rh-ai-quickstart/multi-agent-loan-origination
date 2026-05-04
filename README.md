@@ -67,7 +67,6 @@ This quickstart demonstrates AI patterns for regulated industries including role
   - Model-as-a-Service (MaaS) endpoint (no GPU required on cluster), or
   - GPU node for on-cluster model serving (sized for your chosen model)
 - Persistent volume claims: 10Gi for PostgreSQL, 10Gi for MinIO object storage
-- See the [documentation site](https://rh-ai-quickstart.github.io/multi-agent-loan-origination/) for detailed cluster sizing and configuration
 
 ### Minimum software requirements
 
@@ -142,8 +141,6 @@ make status      # Show deployment status
 make undeploy    # Remove deployment
 ```
 
-See the [documentation site](https://rh-ai-quickstart.github.io/multi-agent-loan-origination/) for detailed OpenShift deployment configuration, resource requirements, and troubleshooting.
-
 ### Delete
 
 To tear down the local development environment:
@@ -161,7 +158,6 @@ make undeploy   # Remove Helm deployment
 
 ## References
 
-- [Documentation Site](https://rh-ai-quickstart.github.io/multi-agent-loan-origination/)
 - [API Documentation](http://localhost:8000/docs) (available when running locally)
 - [Red Hat AI Quickstart Catalog](https://github.com/rh-ai-quickstart)
 - Package READMEs:
