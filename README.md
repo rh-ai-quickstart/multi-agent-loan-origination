@@ -60,19 +60,22 @@ Demo video inclusion/timeline TBD.
 - 20GB available disk space for container images and model files
 - Multi-core CPU (4+ cores recommended)
 
-**For OpenShift deployment:**
+**For OpenShift deployment (tested with OpenShift 4.21):**
 
-- OpenShift cluster with OpenShift AI installed
-- Persistent volume claims for PostgreSQL and MinIO storage
-- See the [documentation site](https://rh-ai-quickstart.github.io/multi-agent-loan-origination/) for detailed cluster requirements
+- OpenShift cluster with Red Hat OpenShift AI installed
+- LLM access via either:
+  - Model-as-a-Service (MaaS) endpoint (no GPU required on cluster), or
+  - GPU node for on-cluster model serving (NVIDIA A10G or equivalent recommended)
+- Persistent volume claims: 10Gi for PostgreSQL, 10Gi for MinIO object storage
+- See the [documentation site](https://rh-ai-quickstart.github.io/multi-agent-loan-origination/) for detailed cluster sizing and configuration
 
 ### Minimum software requirements
 
-- Node.js 18+ and pnpm 9+
-- Python 3.11+ and [uv](https://docs.astral.sh/uv/)
-- Podman 4+ and podman-compose
-- PostgreSQL 16 (provided via compose for local development)
-- An OpenAI-compatible LLM endpoint (local inference server, OpenShift AI model serving, vLLM, or any compatible API)
+- Node.js 22+ and pnpm 9+ (tested with Node.js 22 LTS, pnpm 9.15)
+- Python 3.11+ and [uv](https://docs.astral.sh/uv/) (tested with Python 3.13, uv 0.11)
+- Podman 4+ and podman-compose (tested with Podman 4.9)
+- PostgreSQL 16 with pgvector (provided via compose for local development)
+- An OpenAI-compatible LLM endpoint (local inference server, OpenShift AI model serving, or any compatible API)
 
 ## Deploy
 
@@ -118,6 +121,13 @@ To run the full stack including Keycloak:
 ```bash
 make run      # Start all containers
 make stop     # Stop all containers
+```
+
+To build and push container images, use the Docker CLI to avoid podman compatibility issues with certain dependencies:
+
+```bash
+make build-images CONTAINER_CLI=docker
+make push-images CONTAINER_CLI=docker
 ```
 
 Run `make help` for additional container targets including individual service profiles, image builds, and log streaming.
@@ -311,6 +321,3 @@ When the variable is unset or empty, the feature is disabled and the underwriter
 ## Tags
 
 - **Industry**: Financial Services
-- **Product**: OpenShift AI
-- **Use case**: Multi-agent orchestration
-- **Contributor org**: Red Hat
