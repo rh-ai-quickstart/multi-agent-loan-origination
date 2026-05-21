@@ -9,7 +9,7 @@
 
       "WebFetch(domain:github.com)",
       "WebFetch(domain:docs.github.com)",
-      "WebFetch(domain:raw.githubcontent.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:developer.mozilla.org)",
       "WebFetch(domain:nodejs.org)",
       "WebFetch(domain:typescriptlang.org)",
