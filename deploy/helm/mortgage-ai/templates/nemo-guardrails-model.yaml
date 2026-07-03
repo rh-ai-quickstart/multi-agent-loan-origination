@@ -79,6 +79,10 @@ spec:
   predictor:
     maxReplicas: 1
     minReplicas: 1
+    {{- with .Values.nemoGuardrails.contentSafety.tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
     model:
       modelFormat:
         name: vLLM
