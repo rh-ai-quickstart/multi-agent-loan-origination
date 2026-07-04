@@ -149,7 +149,7 @@ oc rollout restart deployment/mortgage-ai-api -n mortgage-ai
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `mlflow.rbac.enabled` | Create MLflow RBAC resources | `false` |
+| `mlflow.rbac.enabled` | Create MLflow RBAC resources | `true` |
 | `secrets.MLFLOW_TRACKING_URI` | MLflow server URL | `""` |
 | `secrets.MLFLOW_TRACKING_AUTH` | Auth mode (`kubernetes` for auto SA auth) | `""` |
 | `secrets.MLFLOW_EXPERIMENT_NAME` | Experiment name | `""` |
@@ -171,6 +171,23 @@ When `mlflow.rbac.enabled=true`, the chart creates:
 - **ServiceAccount** (`mortgage-ai-mlflow-client`): Identity for MLflow authentication
 
 - **ClusterRoleBinding**: Connects the ServiceAccount to the ClusterRole
+
+### MCP Gateway (MCPServerRegistration)
+
+Enable MCPServerRegistration custom resources to register MCP servers with the
+Kuadrant/Kagenti MCP Gateway. Only enable when the `MCPServerRegistration` CRD
+(`mcp.kagenti.com/v1alpha1`) is installed in the cluster.
+
+```bash
+helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
+  --set mcpGateway.enabled=true
+```
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `mcpGateway.enabled` | Create MCPServerRegistration CRs for enabled MCP servers | `false` |
+| `mcpRiskServer.enabled` | Include risk server registration | `true` |
+| `mcpWeatherServer.enabled` | Include weather server registration | `true` |
 
 ### Kagenti A2A Integration
 

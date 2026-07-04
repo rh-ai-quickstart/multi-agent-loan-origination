@@ -1,0 +1,26 @@
+{{- if or .Values.mcpRiskServer.enabled .Values.mcpWeatherServer.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gen-ai-aa-mcp-servers
+  namespace: redhat-ods-applications
+  labels:
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
+data:
+  {{- if .Values.mcpRiskServer.enabled }}
+  Risk-MCP-Server: |
+    {
+      "url": "http://{{ .Values.mcpRiskServer.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.mcpRiskServer.service.port }}/mcp",
+      "transport": "sse",
+      "description": "An MCP server for mortgage risk assessment and analysis."
+    }
+  {{- end }}
+  {{- if .Values.mcpWeatherServer.enabled }}
+  Weather-MCP-Server: |
+    {
+      "url": "http://{{ .Values.mcpWeatherServer.name }}.{{ .Release.Namespace }}.svc.cluster.local/sse",
+      "transport": "sse",
+      "description": "An MCP server for getting real-time weather data."
+    }
+  {{- end }}
+{{- end }}

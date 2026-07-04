@@ -199,3 +199,19 @@ NeMo Guardrails selector labels
 app.kubernetes.io/component: nemo-guardrails
 {{- end }}
 
+{{/*
+MCP Weather Server labels
+*/}}
+{{- define "mortgage-ai.mcp-weather.labels" -}}
+{{ include "mortgage-ai.labels" . }}
+app.kubernetes.io/component: mcp-weather
+{{- end }}
+
+{{/*
+MCP Weather Server selector labels
+*/}}
+{{- define "mortgage-ai.mcp-weather.selectorLabels" -}}
+{{ include "mortgage-ai.selectorLabels" . }}
+app.kubernetes.io/component: mcp-weather
+{{- end }}
+
