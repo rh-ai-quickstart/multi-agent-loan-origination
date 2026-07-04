@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    evalhub.trustyai.opendatahub.io/tenant: "true"
+    opendatahub.io/dashboard: "true"
+  name: evaluations

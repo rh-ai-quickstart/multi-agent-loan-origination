@@ -1,0 +1,32 @@
+# Grant EvalHub main service SA access to MLflow K8s resources.
+# Required because MLflow uses --app-name=kubernetes-auth which performs
+# Kubernetes RBAC authorization via SubjectAccessReview.
+# Without these bindings, EvalHub gets 403 PERMISSION_DENIED from MLflow.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: evalhub-service-mlflow-integration
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mlflow-operator-mlflow-integration
+subjects:
+  - kind: ServiceAccount
+    name: evalhub-service
+    namespace: redhat-ods-applications
+---
+# Grant EvalHub job runner SA access to MLflow K8s resources.
+# Jobs use a separate SA that also needs MLflow permissions to
+# create experiments and log results.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: evalhub-jobs-mlflow-integration
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mlflow-operator-mlflow-integration
+subjects:
+  - kind: ServiceAccount
+    name: evalhub-redhat-ods-applications-job
+    namespace: redhat-ods-applications

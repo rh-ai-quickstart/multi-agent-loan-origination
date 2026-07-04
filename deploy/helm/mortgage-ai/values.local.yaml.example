@@ -7,24 +7,28 @@
 #   cp values.local.yaml.example values.local.yaml
 #   # Edit values.local.yaml with your cluster-specific settings
 #   make deploy
-#
+
+global:
+  imageTag: "1.0.1"
 
 secrets:
-  LLM_BASE_URL: ""
+  LLM_BASE_URL: ""                     # e.g. https://maas.apps.example.com/v1
   LLM_API_KEY: ""
-  LLM_MODEL: ""
+  LLM_MODEL: ""                        # e.g. gpt-oss-120b
   # Vision model (optional -- falls back to main LLM when empty)
   # VISION_MODEL: ""
   # VISION_BASE_URL: ""
   # VISION_API_KEY: ""
-  COMPANY_NAME: ""
-  AGENT_NAME: ""
+  COMPANY_NAME: ""                     # e.g. "Acme FinTech Company"
   AUTH_DISABLED: "true"
-  MLFLOW_TRACKING_URI: ""
+  MLFLOW_TRACKING_URI: ""             # e.g. https://mlflow.redhat-ods-applications.svc.cluster.local:8443
   MLFLOW_EXPERIMENT_NAME: ""          # e.g. "mortgage-ai"
-  MLFLOW_WORKSPACE: ""                # e.g. "mortgage-ai" (auto-detected from pod namespace if empty)
   MLFLOW_TRACKING_INSECURE_TLS: ""
-  # MLFLOW_TRACKING_TOKEN: ""         # Auto-read from mounted SA token when mlflow.rbac.enabled=true
+  MLFLOW_WORKSPACE: ""                # e.g. "wksp-user1"
+  # KAGENTI_ENABLED: "true"
+
+keycloak:
+  enabled: false
 
 seed:
   enabled: true
@@ -33,9 +37,6 @@ routes:
   # Set to: <project>-<namespace>.apps.<cluster-domain>
   sharedHost: ""
 
-keycloak:
-  enabled: false
-
 mlflow:
   rbac:
     enabled: true
@@ -43,11 +44,23 @@ mlflow:
 mcpRiskServer:
   enabled: true
 
+# Kagenti A2A integration
+# Requires Kagenti operator installed in the cluster.
+kagenti:
+  enabled: false
+  # a2aBasePort: 8090
+
 # NeMo Guardrails (safety shields)
 # When enabled, deploys NeMo Guardrails and auto-wires the API to use it.
 nemoGuardrails:
   enabled: false
   llm:
-    baseUrl: ""       # e.g. https://litellm-prod.apps.maas.example.com/v1
-    modelName: ""     # e.g. llama-scout-17b
+    baseUrl: ""                        # e.g. https://litellm.apps.example.com/v1
+    modelName: ""                      # e.g. Qwen3.6-35B-A3B
     apiKey: ""
+  proxy:
+    maas:
+      upstream: ""                     # e.g. https://litellm.apps.example.com
+      pathPrefix: ""
+  contentSafety:
+    deploy: false

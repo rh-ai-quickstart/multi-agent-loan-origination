@@ -1,0 +1,31 @@
+name: "openllm-leaderboard-v2"
+model:
+  url: "https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1"
+  name: "Qwen3.6-35B-A3B"
+  auth:
+    secret_ref: "model-api-key"
+benchmarks:
+  - id: leaderboard_ifeval
+    provider_id: lm_evaluation_harness
+    parameters:
+      tokenizer: "Qwen/Qwen3.6-35B-A3B"
+  - id: leaderboard_bbh
+    provider_id: lm_evaluation_harness
+    parameters:
+      tokenizer: "Qwen/Qwen3.6-35B-A3B"
+  - id: leaderboard_gpqa
+    provider_id: lm_evaluation_harness
+    parameters:
+      tokenizer: "Qwen/Qwen3.6-35B-A3B"
+  - id: leaderboard_mmlu_pro
+    provider_id: lm_evaluation_harness
+    parameters:
+      tokenizer: "Qwen/Qwen3.6-35B-A3B"
+  - id: leaderboard_musr
+    provider_id: lm_evaluation_harness
+    parameters:
+      tokenizer: "Qwen/Qwen3.6-35B-A3B"
+  - id: leaderboard_math_hard
+    provider_id: lm_evaluation_harness
+    parameters:
+      tokenizer: "Qwen/Qwen3.6-35B-A3B"

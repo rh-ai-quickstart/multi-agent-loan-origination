@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespace.yaml
+  - 01-evalhub-cr.yaml
+  - 02-dspa.yaml
+  - 03-rbac-evaluations.yaml
+  - 04-rbac-mlflow.yaml
+  - 05-secret-patcher.yaml
+  - 06-rbac-tenant.yaml

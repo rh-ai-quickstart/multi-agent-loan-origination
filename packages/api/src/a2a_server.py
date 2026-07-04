@@ -135,9 +135,11 @@ def tag_trace_with_spire() -> None:
 # Agent A2A configuration: name -> (port, display_name, description, skills)
 # ---------------------------------------------------------------------------
 
+_A2A_BASE_PORT = int(os.environ.get("A2A_BASE_PORT", "8080"))
+
 AGENT_A2A_CONFIG: dict[str, dict] = {
     "public-assistant": {
-        "port": 8080,
+        "port": _A2A_BASE_PORT,
         "default_role": "prospect",
         "display_name": "Mortgage AI - Public Assistant",
         "description": (
@@ -162,7 +164,7 @@ AGENT_A2A_CONFIG: dict[str, dict] = {
         ],
     },
     "borrower-assistant": {
-        "port": 8081,
+        "port": _A2A_BASE_PORT + 1,
         "default_role": "borrower",
         "display_name": "Mortgage AI - Borrower Assistant",
         "description": (
@@ -194,7 +196,7 @@ AGENT_A2A_CONFIG: dict[str, dict] = {
         ],
     },
     "loan-officer-assistant": {
-        "port": 8082,
+        "port": _A2A_BASE_PORT + 2,
         "default_role": "loan_officer",
         "display_name": "Mortgage AI - Loan Officer Assistant",
         "description": (
@@ -226,7 +228,7 @@ AGENT_A2A_CONFIG: dict[str, dict] = {
         ],
     },
     "underwriter-assistant": {
-        "port": 8083,
+        "port": _A2A_BASE_PORT + 3,
         "default_role": "underwriter",
         "display_name": "Mortgage AI - Underwriter Assistant",
         "description": (
@@ -258,7 +260,7 @@ AGENT_A2A_CONFIG: dict[str, dict] = {
         ],
     },
     "ceo-assistant": {
-        "port": 8084,
+        "port": _A2A_BASE_PORT + 4,
         "default_role": "ceo",
         "display_name": "Mortgage AI - CEO Dashboard Assistant",
         "description": (

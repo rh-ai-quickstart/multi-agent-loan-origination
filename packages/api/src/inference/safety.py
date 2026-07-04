@@ -46,7 +46,7 @@ class NeMoGuardrailsChecker:
 
     def __init__(self, *, endpoint: str) -> None:
         self._endpoint = endpoint.rstrip("/")
-        self._client = httpx.AsyncClient(timeout=30.0)
+        self._client = httpx.AsyncClient(timeout=120.0)
 
     def _is_refusal(self, content: str) -> bool:
         lower = content.lower()
@@ -74,9 +74,7 @@ class NeMoGuardrailsChecker:
             return SafetyResult(is_safe=True)
 
         except Exception:
-            logger.error(
-                "NeMo Guardrails check failed, blocking (fail-closed)", exc_info=True
-            )
+            logger.error("NeMo Guardrails check failed, blocking (fail-closed)", exc_info=True)
             return SafetyResult(is_safe=False, explanation="Safety check unavailable")
 
     async def check_input(self, user_message: str) -> SafetyResult:

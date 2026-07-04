@@ -1,0 +1,44 @@
+# Role granting EvalHub job runner access to DSPA API
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: evalhub-jobs-dspa-api
+  namespace: evaluations
+rules:
+  - apiGroups:
+      - datasciencepipelinesapplications.opendatahub.io
+    resources:
+      - datasciencepipelinesapplications/api
+    verbs:
+      - get
+      - create
+---
+# Bind EvalHub job runner SA to DSPA API role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: evalhub-jobs-dspa-api
+  namespace: evaluations
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: evalhub-jobs-dspa-api
+subjects:
+  - kind: ServiceAccount
+    name: evalhub-redhat-ods-applications-job
+    namespace: evaluations
+---
+# Bind EvalHub job runner SA to the pipeline management role (created by DSPA)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: evalhub-jobs-pipeline-management
+  namespace: evaluations
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ds-pipeline-dspa
+subjects:
+  - kind: ServiceAccount
+    name: evalhub-redhat-ods-applications-job
+    namespace: evaluations
