@@ -1,0 +1,82 @@
+{{- if .Values.mcpGateway.enabled }}
+{{- if .Values.mcpRiskServer.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mcp-risk-server-route
+  labels:
+    {{- include "mortgage-ai.mcp-risk.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.mcpGateway.gateway.name }}
+      namespace: {{ .Values.mcpGateway.gateway.namespace }}
+      sectionName: {{ .Values.mcpGateway.gateway.sectionName }}
+  hostnames:
+    - "{{ .Values.mcpRiskServer.name }}.mcp.local"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Values.mcpRiskServer.name }}
+          port: {{ .Values.mcpRiskServer.service.port }}
+{{- end }}
+---
+{{- if .Values.mcpWeatherServer.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mcp-weather-route
+  labels:
+    {{- include "mortgage-ai.mcp-weather.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.mcpGateway.gateway.name }}
+      namespace: {{ .Values.mcpGateway.gateway.namespace }}
+      sectionName: {{ .Values.mcpGateway.gateway.sectionName }}
+  hostnames:
+    - "{{ .Values.mcpWeatherServer.name }}.mcp.local"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ .Values.mcpWeatherServer.name }}
+          port: {{ .Values.mcpWeatherServer.service.port }}
+{{- end }}
+---
+{{- if .Values.mcpRiskServer.enabled }}
+apiVersion: mcp.kagenti.com/v1alpha1
+kind: MCPServerRegistration
+metadata:
+  name: mcp-risk-server
+  labels:
+    "kagenti/mcp": "true"
+    {{- include "mortgage-ai.mcp-risk.labels" . | nindent 4 }}
+spec:
+  toolPrefix: risk_
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: mcp-risk-server-route
+{{- end }}
+---
+{{- if .Values.mcpWeatherServer.enabled }}
+apiVersion: mcp.kagenti.com/v1alpha1
+kind: MCPServerRegistration
+metadata:
+  name: mcp-weather
+  labels:
+    "kagenti/mcp": "true"
+    {{- include "mortgage-ai.mcp-weather.labels" . | nindent 4 }}
+spec:
+  toolPrefix: weather_
+  path: /sse
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: mcp-weather-route
+{{- end }}
+{{- end }}

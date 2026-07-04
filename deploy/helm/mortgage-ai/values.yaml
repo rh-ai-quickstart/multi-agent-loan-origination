@@ -256,6 +256,46 @@ mcpRiskServer:
       memory: "512Mi"
       cpu: "500m"
 
+# MCP Weather Server (optional)
+mcpWeatherServer:
+  enabled: true
+  name: mcp-weather
+  image:
+    registry: quay.io
+    repository: rh-aiservices-bu/mcp-weather
+    tag: "0.1.0-amd64"
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 80
+  containerPort: 3001
+  env:
+    MCP_SERVER_HOST: "0.0.0.0"
+    MCP_SERVER_PORT: "3001"
+    WEATHER_CACHE_TTL: "300"
+    WEATHER_API_KEY: "demo-key"
+    WEATHER_PROVIDER: "openweathermap"
+    WEATHER_DEMO_MODE: "true"
+  healthCheck:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+
+# MCP Gateway (Kuadrant/Kagenti MCPServerRegistration CRs)
+# Enable only when the MCP Gateway CRD is installed in the cluster.
+mcpGateway:
+  enabled: false
+  gateway:
+    name: mcp-gateway
+    namespace: gateway-system
+    sectionName: mcps
+
 # LlamaStack model serving
 llamastack:
   enabled: false
