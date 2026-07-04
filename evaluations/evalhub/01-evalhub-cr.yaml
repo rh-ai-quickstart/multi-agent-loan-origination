@@ -1,0 +1,18 @@
+apiVersion: trustyai.opendatahub.io/v1alpha1
+kind: EvalHub
+metadata:
+  name: evalhub
+  namespace: redhat-ods-applications
+spec:
+  database:
+    type: sqlite
+  env:
+    - name: MLFLOW_TRACKING_URI
+      value: https://mlflow.redhat-ods-applications.svc.cluster.local:8443
+    - name: MLFLOW_WORKSPACE
+      value: evaluations
+  providers:
+    - garak
+    - garak-kfp
+    - lm-evaluation-harness
+  replicas: 1

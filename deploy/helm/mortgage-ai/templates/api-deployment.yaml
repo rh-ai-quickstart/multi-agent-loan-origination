@@ -93,6 +93,10 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: {{ include "mortgage-ai.image" (dict "name" .Values.api.image.repository "tag" .Values.api.image.tag "Values" .Values) }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- if .Values.kagenti.enabled }}
+          command: ["uvicorn"]
+          args: ["src.main:app", "--host", "0.0.0.0", "--port", "8001"]
+          {{- end }}
           ports:
             - name: http
               containerPort: 8000
@@ -319,12 +323,16 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: KAGENTI_SERVICE_NAME
+            {{- if .Values.kagenti.enabled }}
+            - name: A2A_BASE_PORT
+              value: {{ .Values.kagenti.a2aBasePort | quote }}
+            {{- end }}
           {{- if .Values.api.healthCheck.enabled }}
           startupProbe:
             httpGet:
               path: {{ .Values.api.healthCheck.path }}
               port: http
-            failureThreshold: 30
+            failureThreshold: 60
             periodSeconds: 10
           livenessProbe:
             httpGet:

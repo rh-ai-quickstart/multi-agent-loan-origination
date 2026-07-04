@@ -56,11 +56,19 @@ data:
               - "\\b(confidential|internal[_-]?only|do[_-]?not[_-]?share)\\b"
             case_insensitive: true
         sensitive_data_detection:
+          input:
+            entities:
+              - CREDIT_CARD
+              - US_SSN
+              - EMAIL_ADDRESS
+              - PHONE_NUMBER
           output:
             entities:
-              - PERSON
+              - CREDIT_CARD
+              - US_SSN
       input:
         flows:
+          - detect sensitive data on input
           - regex check input
           {{- if .Values.nemoGuardrails.contentSafety.deploy }}
           - content safety check input $model=content_safety

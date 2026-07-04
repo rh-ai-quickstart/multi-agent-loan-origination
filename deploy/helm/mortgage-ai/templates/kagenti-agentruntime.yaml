@@ -12,4 +12,6 @@ spec:
     kind: Deployment
     name: {{ .Values.api.name }}
   type: agent
+  mtlsMode: permissive
+  egressEnforcement: none
 {{- end }}

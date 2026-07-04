@@ -227,7 +227,18 @@ def build_agent_graph_compiled(
         return "tools"
 
     async def output_shield(state: AgentState) -> dict:
-        """Check agent output against NeMo Guardrails safety rails."""
+        """Check agent output against NeMo Guardrails safety rails.
+
+        Skipped when OUTPUT_SHIELD_DISABLED=true because the NeMo Guardrails
+        output check re-sends the full assistant response as a new user message,
+        triggering a full LLM call (32s+) that exceeds the httpx 30s timeout
+        and causes fail-closed blocking of every response.
+        """
+        from ..core.config import settings
+
+        if getattr(settings, "OUTPUT_SHIELD_DISABLED", False):
+            return {}
+
         checker = get_safety_checker()
         if not checker:
             return {}

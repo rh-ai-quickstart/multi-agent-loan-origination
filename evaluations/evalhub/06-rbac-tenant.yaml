@@ -1,0 +1,44 @@
+# Grant EvalHub service SA permissions to create configmaps in tenant namespaces.
+# EvalHub stores benchmark job specs as configmaps in the tenant namespace.
+# The operator only binds its controller-manager SA, not the runtime SA.
+# Without this, benchmarks fail with "configmaps is forbidden" in the tenant namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: evalhub-service-job-config
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: trustyai-service-operator-evalhub-job-config
+subjects:
+  - kind: ServiceAccount
+    name: evalhub-service
+    namespace: redhat-ods-applications
+---
+# Grant EvalHub service SA permissions to create batch jobs in tenant namespaces.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: evalhub-service-jobs-writer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: trustyai-service-operator-evalhub-jobs-writer
+subjects:
+  - kind: ServiceAccount
+    name: evalhub-service
+    namespace: redhat-ods-applications
+---
+# Grant EvalHub service SA the manager role (namespace list/watch, job management).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: evalhub-service-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: trustyai-service-operator-evalhub-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: evalhub-service
+    namespace: redhat-ods-applications
