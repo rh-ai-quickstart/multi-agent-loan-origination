@@ -1,0 +1,15 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir streamlit requests
+
+COPY mcp-gateway-ui.py .
+COPY test-mcp-gateway.sh .
+RUN chmod +x test-mcp-gateway.sh
+
+EXPOSE 8501
+
+ENTRYPOINT ["python", "-m", "streamlit", "run", "mcp-gateway-ui.py", \
+            "--server.address=0.0.0.0", "--server.port=8501", \
+            "--server.headless=true", "--"]
