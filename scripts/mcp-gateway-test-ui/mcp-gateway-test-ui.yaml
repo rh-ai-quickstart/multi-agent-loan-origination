@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-gateway-ui
+  labels:
+    app: mcp-gateway-ui
+    app.kubernetes.io/part-of: mortgage-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-gateway-ui
+  template:
+    metadata:
+      labels:
+        app: mcp-gateway-ui
+    spec:
+      containers:
+        - name: ui
+          image: quay.io/rh-ai-quickstart/mortgage-ai-api-mcp-gateway:1.0.3
+          args:
+            - "--url"
+            - "https://mcp-gateway-gateway-system.apps.cluster-8g8ql.dynamic2.redhatworkshops.io"
+          ports:
+            - name: http
+              containerPort: 8501
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /_stcore/health
+              port: 8501
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-gateway-ui
+  labels:
+    app: mcp-gateway-ui
+spec:
+  selector:
+    app: mcp-gateway-ui
+  ports:
+    - name: http
+      port: 8501
+      targetPort: 8501
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: mcp-gateway-ui
+  labels:
+    app: mcp-gateway-ui
+spec:
+  to:
+    kind: Service
+    name: mcp-gateway-ui
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
