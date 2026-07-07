@@ -1,9 +1,10 @@
 # This project was developed with assistance from AI tools.
 """Safety shields via NeMo Guardrails.
 
-Calls a NeMo Guardrails server through its OpenAI-compatible API to check
-user inputs and agent outputs against configured rails (forbidden words,
-PII detection, content safety).
+Calls a NeMo Guardrails server through its /v1/guardrail/checks API to run
+configured rails (regex patterns, PII detection, content safety NIM) against
+user inputs and agent outputs.  This endpoint runs ONLY the rails -- it does
+not trigger a full LLM inference, keeping check latency under ~5s.
 
 Design principle: shields ON by default when NEMO_GUARDRAILS_ENDPOINT is set,
 degrade gracefully (no-op + warning) when not configured.  Both input and
@@ -31,45 +32,38 @@ class SafetyResult:
 class NeMoGuardrailsChecker:
     """Safety checker via NeMo Guardrails server.
 
-    Sends messages to NeMo's /v1/chat/completions endpoint.  NeMo runs
-    input rails (forbidden words, PII detection, content safety) and
-    either blocks with a canned refusal or passes through to the LLM.
-    Blocking is detected by matching the response against known refusal phrases.
+    Uses NeMo's /v1/guardrail/checks endpoint to run configured rails (regex
+    patterns, PII detection, content safety NIM) WITHOUT triggering a full
+    LLM inference.  The previous /v1/chat/completions approach routed every
+    check through the main LLM (~45s per call); /v1/guardrail/checks runs only
+    the rails and returns in <5s.
     """
-
-    _REFUSAL_PATTERNS = [
-        "i can't help with that",
-        "i cannot help with that",
-        "i don't know the answer",
-        "i'm sorry, i can't respond to that",
-    ]
 
     def __init__(self, *, endpoint: str) -> None:
         self._endpoint = endpoint.rstrip("/")
-        self._client = httpx.AsyncClient(timeout=120.0)
+        self._client = httpx.AsyncClient(timeout=30.0)
 
-    def _is_refusal(self, content: str) -> bool:
-        lower = content.lower()
-        return any(pattern in lower for pattern in self._REFUSAL_PATTERNS)
-
-    async def _call_nemo(self, message: str) -> SafetyResult:
+    async def _call_nemo(self, messages: list[dict[str, str]]) -> SafetyResult:
         try:
             response = await self._client.post(
-                f"{self._endpoint}/v1/chat/completions",
+                f"{self._endpoint}/v1/guardrail/checks",
                 json={
                     "model": "nemo-guardrails",
-                    "messages": [{"role": "user", "content": message}],
+                    "messages": messages,
                 },
             )
             response.raise_for_status()
             data = response.json()
-            content = data["choices"][0]["message"]["content"]
 
-            if self._is_refusal(content):
+            if data.get("status") == "blocked":
+                activated = (
+                    data.get("guardrails_data", {}).get("log", {}).get("activated_rails", [])
+                )
+                rail_names = ", ".join(activated) if activated else "unknown"
                 return SafetyResult(
                     is_safe=False,
-                    violation_categories=["nemo_blocked"],
-                    explanation=f"NeMo Guardrails blocked: {content}",
+                    violation_categories=activated or ["nemo_blocked"],
+                    explanation=f"NeMo Guardrails blocked (rails: {rail_names})",
                 )
             return SafetyResult(is_safe=True)
 
@@ -79,11 +73,16 @@ class NeMoGuardrailsChecker:
 
     async def check_input(self, user_message: str) -> SafetyResult:
         """Check a user message for unsafe content via NeMo Guardrails."""
-        return await self._call_nemo(user_message)
+        return await self._call_nemo([{"role": "user", "content": user_message}])
 
     async def check_output(self, user_message: str, assistant_response: str) -> SafetyResult:
         """Check an assistant response for unsafe content via NeMo Guardrails."""
-        return await self._call_nemo(assistant_response)
+        return await self._call_nemo(
+            [
+                {"role": "user", "content": user_message},
+                {"role": "assistant", "content": assistant_response},
+            ]
+        )
 
 
 _checker_instance: NeMoGuardrailsChecker | None = None
