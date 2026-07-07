@@ -91,12 +91,10 @@ class Settings(BaseSettings):
         description="NeMo Guardrails server endpoint. When set, safety shields are active.",
     )
     OUTPUT_SHIELD_DISABLED: bool = Field(
-        default=True,
-        description="Disable the output safety shield. Defaults to True because "
-        "NeMo Guardrails output checks re-send the full assistant response as a "
-        "new user message, triggering a full LLM call (32s+) that exceeds the "
-        "httpx timeout and causes fail-closed blocking of every response. "
-        "Input shield + regex output rails provide sufficient coverage.",
+        default=False,
+        description="Disable the output safety shield. Now defaults to False "
+        "because the /v1/guardrail/checks endpoint runs only rails without "
+        "triggering a full LLM call, completing in <1s.",
     )
 
     # -- LLM --
