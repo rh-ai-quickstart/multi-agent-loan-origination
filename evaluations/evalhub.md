@@ -110,9 +110,9 @@ Job `update-secret-minio` - patches `ds-pipeline-s3-dspa` secret with AWS-style 
 
 ## Running Benchmarks
 
-The EvalHub UI "API key" field expects a **Kubernetes secret name**, not a raw key (RHOAIENG-68008).
+### 1. Create the model auth secret
 
-1. Create a secret with key `api-key` (hyphen, not underscore):
+The EvalHub UI "API key" field expects a **Kubernetes secret name**, not a raw key (RHOAIENG-68008). Create the secret first:
 
 ```bash
 oc create secret generic model-api-key \
@@ -120,7 +120,7 @@ oc create secret generic model-api-key \
   -n evaluations
 ```
 
-2. Submit via CLI (recommended over UI):
+### 2. Configure the SDK
 
 ```bash
 pip install "eval-hub-sdk[cli]"
@@ -128,22 +128,49 @@ pip install "eval-hub-sdk[cli]"
 evalhub config set base_url https://$(oc get route evalhub -n redhat-ods-applications -o jsonpath='{.spec.host}')
 evalhub config set token $(oc whoami -t)
 evalhub config set tenant evaluations
+```
 
-evalhub eval run --config evaluations/eval-leaderboard-v2.yaml
+### 3. Run an evaluation with envsubst
+
+The eval configs use `${VAR}` placeholders so you can target any model without editing the files. Set the variables and pipe through `envsubst`:
+
+```bash
+export MODEL_URL="https://litellm-litemaas.apps.prod.rhoai.rh-aiservices-bu.com/v1"
+export MODEL_NAME="Qwen3.6-35B-A3B"
+export MODEL_TOKENIZER="Qwen/Qwen3.6-35B-A3B"
+export MODEL_AUTH_SECRET="model-api-key"
+```
+
+| Variable | Description |
+|----------|-------------|
+| `MODEL_URL` | OpenAI-compatible model endpoint |
+| `MODEL_NAME` | Model name as known by the serving endpoint |
+| `MODEL_TOKENIZER` | HuggingFace tokenizer path (for lm-evaluation-harness) |
+| `MODEL_AUTH_SECRET` | Name of the K8s secret in the `evaluations` namespace containing key `api-key` |
+
+**ARC-Easy:**
+
+```bash
+envsubst < evaluations/eval-arceasy.yaml | evalhub eval run --config -
 evalhub eval status
 ```
 
-Example config (`eval-leaderboard-v2.yaml`):
+**OpenLLM Leaderboard v2** (full suite - IFEval, BBH, GPQA, MMLU-Pro, MuSR, MATH-Hard):
 
-```yaml
-name: "openllm-leaderboard-v2"
-model:
-  url: "https://your-model-endpoint/v1"
-  name: "your-model-name"
-  auth:
-    secret_ref: "model-api-key"
-collection:
-  id: "leaderboard-v2"
+```bash
+envsubst < evaluations/eval-leaderboard-v2.yaml | evalhub eval run --config -
+evalhub eval status
+```
+
+To evaluate a different model, just change the exports:
+
+```bash
+export MODEL_URL="https://my-other-endpoint/v1"
+export MODEL_NAME="granite-3.3-8b-instruct"
+export MODEL_TOKENIZER="ibm-granite/granite-3.3-8b-instruct"
+export MODEL_AUTH_SECRET="other-model-key"
+
+envsubst < evaluations/eval-arceasy.yaml | evalhub eval run --config -
 ```
 
 ## ArgoCD Note
