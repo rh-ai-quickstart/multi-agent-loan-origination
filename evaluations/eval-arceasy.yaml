@@ -1,0 +1,11 @@
+name: "arc-easy"
+model:
+  url: "${MODEL_URL}"
+  name: "${MODEL_NAME}"
+  auth:
+    secret_ref: "${MODEL_AUTH_SECRET}"
+benchmarks:
+  - id: arc_easy
+    provider_id: lm_evaluation_harness
+    parameters:
+      tokenizer: "${MODEL_TOKENIZER}"
