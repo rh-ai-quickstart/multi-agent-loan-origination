@@ -176,6 +176,8 @@ async def run_agent_stream(
         full_response = ""
         safety_blocked = False
         safety_override_content = ""
+        from ..core.config import settings
+
         async for event in graph.astream_events(
             {
                 "messages": input_messages,
@@ -183,6 +185,7 @@ async def run_agent_stream(
                 "user_id": user_id,
                 "user_email": user_email,
                 "user_name": user_name,
+                "enable_thinking": settings.ENABLE_THINKING,
             },
             config=config,
             version="v2",
