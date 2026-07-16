@@ -364,11 +364,11 @@ def build_agent_graph(
 
     model_cfg = get_model_config("llm")
 
-    model_kwargs: dict[str, Any] = {}
-    if Settings().ENABLE_THINKING:
-        model_kwargs["extra_body"] = {
-            "chat_template_kwargs": {"enable_thinking": True},
-        }
+    model_kwargs: dict[str, Any] = {
+        "extra_body": {
+            "chat_template_kwargs": {"enable_thinking": Settings().ENABLE_THINKING},
+        },
+    }
 
     llm = ChatOpenAI(
         model=model_cfg["model_name"],
