@@ -113,6 +113,10 @@ class Settings(BaseSettings):
         default="gpt-4o-mini",
         description="Model name for the primary LLM.",
     )
+    ENABLE_THINKING: bool = Field(
+        default=False,
+        description="Pass chat_template_kwargs.enable_thinking=true to the LLM (vLLM reasoning).",
+    )
 
     # -- Vision model (optional, falls back to main LLM when unset) --
     VISION_MODEL: str | None = Field(

@@ -363,10 +363,18 @@ def build_agent_graph(
             tool_allowed_roles[name] = allowed
 
     model_cfg = get_model_config("llm")
+
+    model_kwargs: dict[str, Any] = {}
+    if Settings().ENABLE_THINKING:
+        model_kwargs["extra_body"] = {
+            "chat_template_kwargs": {"enable_thinking": True},
+        }
+
     llm = ChatOpenAI(
         model=model_cfg["model_name"],
         base_url=model_cfg["endpoint"],
         api_key=model_cfg.get("api_key", "not-needed"),
+        model_kwargs=model_kwargs,
     )
 
     return build_agent_graph_compiled(
