@@ -1,12 +1,13 @@
 # This project was developed with assistance from AI tools.
-"""Tests for safety shields (Llama Guard integration)."""
+"""Tests for NeMo Guardrails safety shields."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from src.core.config import settings
-from src.inference.safety import SafetyChecker, get_safety_checker
+from src.inference.safety import NeMoGuardrailsChecker, get_safety_checker
 
 
 @pytest.fixture(autouse=True)
@@ -24,166 +25,77 @@ def _clear_checker_cache():
     safety_mod._checker_instance = None
 
 
-# -- Response parsing (the real logic) --
+@pytest.fixture
+def checker():
+    return NeMoGuardrailsChecker(endpoint="http://localhost:8080")
 
 
-def test_parse_safe_verdict():
-    """should return is_safe=True when Llama Guard says 'safe'."""
-    result = SafetyChecker._parse_response("safe")
-    assert result.is_safe is True
-    assert result.violation_categories == []
-
-
-def test_parse_unsafe_verdict_with_categories():
-    """should return is_safe=False with parsed categories from second line."""
-    result = SafetyChecker._parse_response("unsafe\nS1,S3")
-    assert result.is_safe is False
-    assert result.violation_categories == ["S1", "S3"]
-
-
-def test_parse_empty_response_treated_as_safe():
-    """should treat empty/malformed response as safe (fail-open at parse level)."""
-    result = SafetyChecker._parse_response("")
-    assert result.is_safe is True
-
-
-# -- Failure behavior (both fail-closed) --
+def _nemo_response(content: str) -> httpx.Response:
+    """Build a fake NeMo Guardrails chat/completions response."""
+    return httpx.Response(
+        200,
+        json={"choices": [{"message": {"content": content}}]},
+        request=httpx.Request("POST", "http://localhost:8080/v1/chat/completions"),
+    )
 
 
 @pytest.mark.asyncio
-async def test_input_check_fails_closed_on_llm_error():
-    """should return is_safe=False when the safety model is unreachable (fail-closed)."""
-    mock_llm = AsyncMock()
-    mock_llm.ainvoke.side_effect = ConnectionError("model unreachable")
+async def test_check_input_safe(checker):
+    """should return is_safe=True when NeMo passes the message through."""
+    with patch.object(checker, "_client") as mock_client:
+        mock_client.post = AsyncMock(return_value=_nemo_response("Your mortgage options are..."))
+        result = await checker.check_input("What rates do you offer?")
 
-    checker = SafetyChecker(model="test", endpoint="http://test", api_key="key")
-    checker._llm = mock_llm
+    assert result.is_safe is True
 
-    result = await checker.check_input("anything")
+
+@pytest.mark.asyncio
+async def test_check_input_blocked(checker):
+    """should return is_safe=False when NeMo returns a refusal."""
+    with patch.object(checker, "_client") as mock_client:
+        mock_client.post = AsyncMock(return_value=_nemo_response("I can't help with that"))
+        result = await checker.check_input("something bad")
+
+    assert result.is_safe is False
+    assert "nemo_blocked" in result.violation_categories
+
+
+@pytest.mark.asyncio
+async def test_check_fails_closed_on_error(checker):
+    """should return is_safe=False when the NeMo server is unreachable (fail-closed)."""
+    with patch.object(checker, "_client") as mock_client:
+        mock_client.post = AsyncMock(side_effect=httpx.ConnectError("unreachable"))
+        result = await checker.check_input("anything")
+
     assert result.is_safe is False
     assert result.explanation == "Safety check unavailable"
 
 
 @pytest.mark.asyncio
-async def test_output_check_fails_closed_on_llm_error():
-    """should return is_safe=False when output check errors (fail-closed)."""
-    mock_llm = AsyncMock()
-    mock_llm.ainvoke.side_effect = RuntimeError("timeout")
+async def test_check_output_calls_nemo(checker):
+    """should send the assistant response to NeMo for output checking."""
+    with patch.object(checker, "_client") as mock_client:
+        mock_client.post = AsyncMock(return_value=_nemo_response("Looks good"))
+        result = await checker.check_output("question", "We offer 30-year fixed at 6.5%.")
 
-    checker = SafetyChecker(model="test", endpoint="http://test", api_key="key")
-    checker._llm = mock_llm
-
-    result = await checker.check_output("q", "a")
-    assert result.is_safe is False
-    assert result.explanation == "Safety check unavailable"
-
-
-# -- Prompt formatting (verify correct template is used) --
-
-
-@pytest.mark.asyncio
-async def test_check_input_sends_user_message_in_prompt():
-    """should include the user message in the Llama Guard prompt."""
-    mock_llm = AsyncMock()
-    mock_llm.ainvoke.return_value = AsyncMock(content="safe")
-
-    checker = SafetyChecker(model="test", endpoint="http://test", api_key="key")
-    checker._llm = mock_llm
-
-    await checker.check_input("What mortgage rates do you offer?")
-
-    prompt_sent = mock_llm.ainvoke.call_args[0][0]
-    assert "What mortgage rates do you offer?" in prompt_sent
-    assert "User" in prompt_sent
-
-
-@pytest.mark.asyncio
-async def test_check_input_excludes_privacy_and_advice_categories():
-    """Input checks should not flag S6 (Specialized Advice) or S7 (Privacy).
-
-    Users voluntarily provide PII during mortgage intake, and asking for
-    mortgage advice is the application's purpose.
-    """
-    mock_llm = AsyncMock()
-    mock_llm.ainvoke.return_value = AsyncMock(content="safe")
-
-    checker = SafetyChecker(model="test", endpoint="http://test", api_key="key")
-    checker._llm = mock_llm
-
-    await checker.check_input("My SSN is 078-05-1120 and income is $8500/month")
-
-    prompt_sent = mock_llm.ainvoke.call_args[0][0]
-    assert "S7: Privacy" not in prompt_sent
-    assert "S6: Specialized Advice" not in prompt_sent
-    # Other categories should still be present
-    assert "S1: Violent Crimes" in prompt_sent
-
-
-@pytest.mark.asyncio
-async def test_check_output_excludes_privacy_and_advice_categories():
-    """Output checks should also exclude S6 and S7 for mortgage intake.
-
-    The agent must ask for PII (S7) and provide mortgage guidance (S6) as
-    part of its core function.  Data-scope filtering prevents cross-user
-    PII leaks at the DB layer; disclaimers are handled in the system prompt.
-    """
-    mock_llm = AsyncMock()
-    mock_llm.ainvoke.return_value = AsyncMock(content="safe")
-
-    checker = SafetyChecker(model="test", endpoint="http://test", api_key="key")
-    checker._llm = mock_llm
-
-    await checker.check_output("what rates?", "We offer 30-year fixed at 6.5%.")
-
-    prompt_sent = mock_llm.ainvoke.call_args[0][0]
-    assert "S7: Privacy" not in prompt_sent
-    assert "S6: Specialized Advice" not in prompt_sent
-    # Other categories should still be present
-    assert "S1: Violent Crimes" in prompt_sent
-
-
-@pytest.mark.asyncio
-async def test_check_output_sends_both_messages_in_prompt():
-    """should include both user and assistant messages in the output check prompt."""
-    mock_llm = AsyncMock()
-    mock_llm.ainvoke.return_value = AsyncMock(content="safe")
-
-    checker = SafetyChecker(model="test", endpoint="http://test", api_key="key")
-    checker._llm = mock_llm
-
-    await checker.check_output("what rates?", "We offer 30-year fixed at 6.5%.")
-
-    prompt_sent = mock_llm.ainvoke.call_args[0][0]
-    assert "what rates?" in prompt_sent
-    assert "We offer 30-year fixed at 6.5%." in prompt_sent
-    assert "Agent" in prompt_sent
-
-
-# -- Factory (config-driven activation) --
+    assert result.is_safe is True
+    mock_client.post.assert_called_once()
 
 
 def test_get_safety_checker_returns_none_when_not_configured(monkeypatch):
-    """should return None when SAFETY_MODEL is not set."""
-    monkeypatch.setattr(settings, "SAFETY_MODEL", None)
+    """should return None when NEMO_GUARDRAILS_ENDPOINT is not set."""
+    monkeypatch.setattr(settings, "NEMO_GUARDRAILS_ENDPOINT", None)
     assert get_safety_checker() is None
 
 
 def test_get_safety_checker_returns_instance_when_configured(monkeypatch):
-    """should return a SafetyChecker instance when SAFETY_MODEL is set."""
-    monkeypatch.setattr(settings, "SAFETY_MODEL", "meta-llama/Llama-Guard-3-8B")
-    monkeypatch.setattr(settings, "SAFETY_ENDPOINT", None)
-    monkeypatch.setattr(settings, "SAFETY_API_KEY", None)
-
+    """should return a NeMoGuardrailsChecker when endpoint is set."""
+    monkeypatch.setattr(settings, "NEMO_GUARDRAILS_ENDPOINT", "http://nemo:8080")
     checker = get_safety_checker()
-    assert isinstance(checker, SafetyChecker)
+    assert isinstance(checker, NeMoGuardrailsChecker)
 
 
 def test_get_safety_checker_caches_instance(monkeypatch):
     """should return the same instance on subsequent calls."""
-    monkeypatch.setattr(settings, "SAFETY_MODEL", "meta-llama/Llama-Guard-3-8B")
-    monkeypatch.setattr(settings, "SAFETY_ENDPOINT", None)
-    monkeypatch.setattr(settings, "SAFETY_API_KEY", None)
-
-    first = get_safety_checker()
-    second = get_safety_checker()
-    assert first is second
+    monkeypatch.setattr(settings, "NEMO_GUARDRAILS_ENDPOINT", "http://nemo:8080")
+    assert get_safety_checker() is get_safety_checker()

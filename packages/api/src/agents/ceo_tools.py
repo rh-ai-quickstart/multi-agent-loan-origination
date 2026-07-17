@@ -497,8 +497,8 @@ async def ceo_model_latency(
         )
         await session.commit()
 
-    if not summary.langfuse_available:
-        return "Model monitoring unavailable (LangFuse not configured)."
+    if not summary.mlflow_available:
+        return "Model monitoring unavailable (MLflow not configured)."
 
     lat = summary.latency
     lines = [
@@ -549,8 +549,8 @@ async def ceo_model_token_usage(
         )
         await session.commit()
 
-    if not summary.langfuse_available:
-        return "Model monitoring unavailable (LangFuse not configured)."
+    if not summary.mlflow_available:
+        return "Model monitoring unavailable (MLflow not configured)."
 
     tok = summary.token_usage
     lines = [
@@ -595,8 +595,8 @@ async def ceo_model_errors(
         )
         await session.commit()
 
-    if not summary.langfuse_available:
-        return "Model monitoring unavailable (LangFuse not configured)."
+    if not summary.mlflow_available:
+        return "Model monitoring unavailable (MLflow not configured)."
 
     err = summary.errors
     lines = [
@@ -641,8 +641,8 @@ async def ceo_model_routing(
         )
         await session.commit()
 
-    if not summary.langfuse_available:
-        return "Model monitoring unavailable (LangFuse not configured)."
+    if not summary.mlflow_available:
+        return "Model monitoring unavailable (MLflow not configured)."
 
     routing = summary.routing
     lines = [
