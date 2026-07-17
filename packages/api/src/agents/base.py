@@ -47,6 +47,7 @@ class AgentState(MessagesState):
     user_name: str
     tool_allowed_roles: dict[str, list[str]]
     decision_proposals: dict
+    enable_thinking: bool
 
 
 def _record_token_usage(
@@ -151,7 +152,12 @@ def build_agent_graph_compiled(
 
     async def agent(state: AgentState) -> dict:
         """Call the LLM with tools bound."""
-        bound_llm = llm.bind_tools(tools)
+        thinking = state.get("enable_thinking", False)
+        bound_llm = llm.bind_tools(tools).bind(
+            extra_body={
+                "chat_template_kwargs": {"enable_thinking": thinking},
+            }
+        )
         messages = [SystemMessage(content=system_prompt), *state["messages"]]
 
         persona = state.get("user_role", "unknown")
