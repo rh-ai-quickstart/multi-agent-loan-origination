@@ -113,6 +113,11 @@ class Settings(BaseSettings):
         default="gpt-4o-mini",
         description="Model name for the primary LLM.",
     )
+    LLM_STREAMING: bool = Field(
+        default=True,
+        description="Enable streaming for LLM calls. Disable when the inference "
+        "proxy does not support reliable streaming (e.g. LiteMaaS).",
+    )
 
     # -- Vision model (optional, falls back to main LLM when unset) --
     VISION_MODEL: str | None = Field(
