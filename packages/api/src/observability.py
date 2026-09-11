@@ -56,7 +56,6 @@ def _configure_auth() -> None:
     # When set, the Red Hat MLflow fork reads the SA token and derives
     # the workspace from the pod namespace automatically.
     if os.environ.get("MLFLOW_TRACKING_AUTH") == "kubernetes":
-        logger.info("MLflow auth: using Kubernetes plugin (MLFLOW_TRACKING_AUTH=kubernetes)")
         # Auto-detect workspace from pod namespace if not explicitly set
         if not settings.MLFLOW_WORKSPACE and _SA_NAMESPACE_PATH.is_file():
             try:
@@ -66,7 +65,17 @@ def _configure_auth() -> None:
                     logger.info("MLflow workspace auto-detected from pod namespace: %s", namespace)
             except OSError:
                 logger.debug("Could not read namespace from %s", _SA_NAMESPACE_PATH)
-        return
+
+        try:
+            import kubernetes as _k8s  # noqa: F401 -- installed by mlflow[kubernetes]
+
+            logger.info("MLflow auth: using Kubernetes plugin (MLFLOW_TRACKING_AUTH=kubernetes)")
+            return
+        except ImportError:
+            logger.warning(
+                "MLFLOW_TRACKING_AUTH=kubernetes is set but mlflow[kubernetes] extra "
+                "is not installed -- falling through to SA token file"
+            )
 
     # Mode 2: Explicit token from settings or env var.
     if settings.MLFLOW_TRACKING_TOKEN:

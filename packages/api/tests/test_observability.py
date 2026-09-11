@@ -161,10 +161,16 @@ def test_log_status_when_configured(monkeypatch, reset_autolog, caplog):
 def test_configure_auth_kubernetes_mode(monkeypatch, caplog):
     """should use Kubernetes auth plugin when MLFLOW_TRACKING_AUTH=kubernetes."""
     import logging
+    import sys
+    import types
 
     monkeypatch.setattr(settings, "MLFLOW_TRACKING_TOKEN", None)
     monkeypatch.setattr(settings, "MLFLOW_WORKSPACE", None)
     monkeypatch.setenv("MLFLOW_TRACKING_AUTH", "kubernetes")
+
+    # Ensure the kubernetes package appears importable
+    if "kubernetes" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "kubernetes", types.ModuleType("kubernetes"))
 
     with caplog.at_level(logging.INFO):
         _configure_auth()
@@ -177,6 +183,8 @@ def test_configure_auth_kubernetes_auto_detects_namespace(monkeypatch, tmp_path,
     """should auto-detect workspace from pod namespace when MLFLOW_TRACKING_AUTH=kubernetes."""
     import logging
     import os
+    import sys
+    import types
 
     import src.observability as obs
 
@@ -186,6 +194,9 @@ def test_configure_auth_kubernetes_auto_detects_namespace(monkeypatch, tmp_path,
     monkeypatch.setattr(settings, "MLFLOW_TRACKING_TOKEN", None)
     monkeypatch.setattr(settings, "MLFLOW_WORKSPACE", None)
     monkeypatch.setenv("MLFLOW_TRACKING_AUTH", "kubernetes")
+
+    if "kubernetes" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "kubernetes", types.ModuleType("kubernetes"))
 
     with caplog.at_level(logging.INFO):
         _configure_auth()
@@ -252,6 +263,8 @@ def test_configure_auth_no_credentials(monkeypatch, tmp_path, caplog):
 def test_configure_auth_kubernetes_skips_namespace_when_workspace_set(monkeypatch, tmp_path):
     """should not override MLFLOW_WORKSPACE when explicitly set."""
     import os
+    import sys
+    import types
 
     import src.observability as obs
 
@@ -262,6 +275,9 @@ def test_configure_auth_kubernetes_skips_namespace_when_workspace_set(monkeypatc
     monkeypatch.setattr(settings, "MLFLOW_WORKSPACE", "explicit-workspace")
     monkeypatch.setenv("MLFLOW_TRACKING_AUTH", "kubernetes")
 
+    if "kubernetes" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "kubernetes", types.ModuleType("kubernetes"))
+
     _configure_auth()
 
     # Should NOT be overridden by auto-detection
@@ -270,15 +286,53 @@ def test_configure_auth_kubernetes_skips_namespace_when_workspace_set(monkeypatc
     monkeypatch.delenv("MLFLOW_WORKSPACE", raising=False)
 
 
+def test_configure_auth_kubernetes_fallback_when_plugin_missing(monkeypatch, tmp_path, caplog):
+    """should fall through to SA token when mlflow[kubernetes] is not installed."""
+    import builtins
+    import logging
+    import os
+
+    import src.observability as obs
+
+    token_file = tmp_path / "token"
+    token_file.write_text("sa-fallback-token")
+    monkeypatch.setattr(obs, "_SA_TOKEN_PATH", token_file)
+    monkeypatch.setattr(settings, "MLFLOW_TRACKING_TOKEN", None)
+    monkeypatch.setattr(settings, "MLFLOW_WORKSPACE", None)
+    monkeypatch.setenv("MLFLOW_TRACKING_AUTH", "kubernetes")
+
+    original_import = builtins.__import__
+
+    def mock_import(name, *args, **kwargs):
+        if name == "kubernetes":
+            raise ImportError("No module named 'kubernetes'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", mock_import)
+
+    with caplog.at_level(logging.WARNING):
+        _configure_auth()
+
+    assert "mlflow[kubernetes] extra is not installed" in caplog.text
+    assert os.environ.get("MLFLOW_TRACKING_TOKEN") == "sa-fallback-token"
+    monkeypatch.delenv("MLFLOW_TRACKING_AUTH", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_TOKEN", raising=False)
+
+
 def test_init_tracing_uses_kubernetes_auth(monkeypatch, reset_autolog):
     """should use _configure_auth with kubernetes mode during init."""
     import os
+    import sys
+    import types
 
     monkeypatch.setattr(settings, "MLFLOW_TRACKING_URI", "http://mlflow:5000")
     monkeypatch.setattr(settings, "MLFLOW_TRACKING_TOKEN", None)
     monkeypatch.setattr(settings, "MLFLOW_WORKSPACE", "test-ws")
     monkeypatch.setattr(settings, "MLFLOW_TRACKING_INSECURE_TLS", False)
     monkeypatch.setenv("MLFLOW_TRACKING_AUTH", "kubernetes")
+
+    if "kubernetes" not in sys.modules:
+        monkeypatch.setitem(sys.modules, "kubernetes", types.ModuleType("kubernetes"))
 
     with patch("threading.Thread"):
         init_mlflow_tracing()
