@@ -120,7 +120,11 @@ api:
   name: mortgage-ai-api
   image:
     repository: mortgage-ai-api
-    tag: "1.0.3"
+    # 1.0.3 is broken: it shipped transformers 5.17.0, which removed
+    # ModuleUtilsMixin.get_extended_attention_mask and so broke local embeddings.
+    # Bump this to the image built from this branch (with transformers capped
+    # below 5.17) once CI has published it.
+    tag: "1.0.2"
   service:
     type: ClusterIP
     port: 8000
