@@ -30,12 +30,19 @@ dependencies = [
     "langgraph>=0.2.0",
     "langchain-openai>=0.2.0",
     "langchain-core>=0.3.0",
-    "mlflow>=3.1.0,<3.11",
+    "mlflow[kubernetes]>=3.11",
     "langgraph-checkpoint-postgres>=2.0.0",
     "psycopg[binary]>=3.1.0",
     "boto3>=1.34.0",
     "pymupdf>=1.24.0",
     "sentence-transformers>=3.0.0",
+    # Cap transformers below 5.17: it removed ModuleUtilsMixin.get_extended_attention_mask,
+    # which the nomic-bert-2048 remote code used for local embeddings still calls. With
+    # 5.17 every knowledge-base document fails to embed:
+    #   AttributeError: 'NomicBertModel' object has no attribute 'get_extended_attention_mask'
+    # and chunks are stored without embeddings, silently degrading RAG. Raising mlflow to
+    # >=3.11 pulled 5.17 into the lock, which is how image 1.0.3 shipped broken embeddings.
+    "transformers>=5.13,<5.17",
     "einops>=0.7.0",
     "mortgage-ai-db",
     "kfp>=2.16.0",

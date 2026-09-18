@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Kubernetes ServiceAccount paths (auto-mounted by the kubelet)
 _SA_TOKEN_PATH = Path("/run/secrets/kubernetes.io/serviceaccount/token")
 _SA_NAMESPACE_PATH = Path("/run/secrets/kubernetes.io/serviceaccount/namespace")
+_MLFLOW_AUTH_ENTRY_POINT_GROUP = "mlflow.request_auth_provider"
 
 _autolog_enabled = False
 
@@ -56,7 +57,6 @@ def _configure_auth() -> None:
     # When set, the Red Hat MLflow fork reads the SA token and derives
     # the workspace from the pod namespace automatically.
     if os.environ.get("MLFLOW_TRACKING_AUTH") == "kubernetes":
-        logger.info("MLflow auth: using Kubernetes plugin (MLFLOW_TRACKING_AUTH=kubernetes)")
         # Auto-detect workspace from pod namespace if not explicitly set
         if not settings.MLFLOW_WORKSPACE and _SA_NAMESPACE_PATH.is_file():
             try:
@@ -66,7 +66,16 @@ def _configure_auth() -> None:
                     logger.info("MLflow workspace auto-detected from pod namespace: %s", namespace)
             except OSError:
                 logger.debug("Could not read namespace from %s", _SA_NAMESPACE_PATH)
-        return
+
+        if _kubernetes_auth_provider_registered():
+            logger.info("MLflow auth: using Kubernetes plugin (MLFLOW_TRACKING_AUTH=kubernetes)")
+            return
+
+        logger.warning(
+            "MLFLOW_TRACKING_AUTH=kubernetes is set but no 'kubernetes' "
+            "mlflow.request_auth_provider is registered -- MLflow would send no "
+            "Authorization header, so falling through to token auth"
+        )
 
     # Mode 2: Explicit token from settings or env var.
     if settings.MLFLOW_TRACKING_TOKEN:
@@ -88,6 +97,36 @@ def _configure_auth() -> None:
         logger.debug("Could not read SA token at %s", _SA_TOKEN_PATH, exc_info=True)
 
     logger.warning("MLflow auth: no credentials found -- requests may fail")
+
+
+def _kubernetes_auth_provider_registered() -> bool:
+    """Whether MLflow can actually resolve MLFLOW_TRACKING_AUTH=kubernetes.
+
+    MLflow looks the value up in the "mlflow.request_auth_provider" entry point
+    group. Importing the `kubernetes` package is not a usable signal: the
+    mlflow[kubernetes] extra installs the Kubernetes *client* (for the job runner),
+    which leaves that group empty. Checking the import therefore always succeeded,
+    _configure_auth returned early, no token was ever set, and MLflow logged
+
+        Could not find any registered plugin for kubernetes.
+        No authentication header will be added.
+
+    before the server rejected every request with 401.
+    """
+    try:
+        from importlib.metadata import entry_points
+    except ImportError:  # pragma: no cover -- Python < 3.8
+        return False
+
+    try:
+        try:
+            providers = entry_points(group=_MLFLOW_AUTH_ENTRY_POINT_GROUP)
+        except TypeError:  # pragma: no cover -- Python < 3.10 API
+            providers = entry_points().get(_MLFLOW_AUTH_ENTRY_POINT_GROUP, [])
+        return any(ep.name == "kubernetes" for ep in providers)
+    except Exception:  # pragma: no cover -- never block startup on this
+        logger.debug("Could not inspect mlflow request auth providers", exc_info=True)
+        return False
 
 
 def _do_mlflow_init() -> None:
