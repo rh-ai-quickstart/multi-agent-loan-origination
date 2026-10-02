@@ -59,7 +59,7 @@ This Quickstart demonstrates AI patterns for regulated industries:
 | **Database** | PostgreSQL 16 with pgvector for embeddings |
 | **Frontend** | React 19 with TanStack Router and Query, Tailwind CSS, shadcn/ui components |
 | **Identity** | Keycloak (OIDC) with role-based access control |
-| **Storage** | MinIO (S3-compatible) for document storage |
+| **Storage** | S4 (S3-compatible) for document storage |
 | **Fairness Metrics** | TrustyAI Python library for bias detection |
 | **Build System** | Turborepo monorepo with pnpm (Node.js) and uv (Python) |
 | **Deployment** | Helm charts for OpenShift / Kubernetes |

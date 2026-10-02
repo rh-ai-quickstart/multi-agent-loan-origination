@@ -53,7 +53,7 @@ dev = [
     "httpx>=0.25.0",
     "ruff>=0.1.0",
     "mypy>=1.7.0",
-    "testcontainers[postgres,minio]>=4.0.0",
+    "testcontainers[postgres]>=4.0.0",
     "psycopg2-binary>=2.9.0",
 ]
 
@@ -81,7 +81,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "functional: functional tests using the real FastAPI app with all middleware",
-    "integration: integration tests against real PostgreSQL + MinIO (requires Docker)",
+    "integration: integration tests against real PostgreSQL + S4 (requires Docker)",
 ]
 
 [tool.mypy]

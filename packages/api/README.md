@@ -33,7 +33,7 @@ src/
     public.py          # Public endpoints (products, affordability)
     applications.py    # Application CRUD + status
     decisions.py       # Decision history (read-only)
-    documents.py       # Document upload + MinIO storage
+    documents.py       # Document upload + S4 storage
     hmda.py            # HMDA demographics (isolated schema)
     analytics.py       # Pipeline + denial + LO performance
     model_monitoring.py # Model monitoring metrics
@@ -64,7 +64,7 @@ src/
 tests/
   test_*.py            # Unit tests
   functional/          # Persona functional tests
-  integration/         # DB + MinIO integration tests
+  integration/         # DB + S4 integration tests
 ```
 
 ## Agents
@@ -93,13 +93,13 @@ All agents share a common base graph (`agents/base.py`) with:
 Full REST API for application management, document handling, analytics, and audit trails. Authentication via Keycloak JWT (or `AUTH_DISABLED=true` for dev).
 
 **Key routes:**
-- `GET /health/` - Service health (DB + S3 + LLM status)
+- `GET /health/` - Service health (API + DB status)
 - `GET /api/public/products` - Mortgage product catalog (unauthenticated)
 - `POST /api/public/calculate-affordability` - Affordability calculator (unauthenticated)
 - `GET /api/applications/` - List applications (paginated, role-scoped, sortable by urgency)
 - `POST /api/applications/` - Create application (borrower, admin)
 - `PATCH /api/applications/{id}` - Update application (LO, UW, admin)
-- `POST /api/applications/{id}/documents` - Upload document (MinIO storage)
+- `POST /api/applications/{id}/documents` - Upload document (S4 storage)
 - `GET /api/applications/{id}/completeness` - Check document completeness
 - `POST /api/hmda/collect` - Collect demographics (isolated schema)
 - `GET /api/analytics/pipeline` - Pipeline summary (admin + CEO)
@@ -212,7 +212,7 @@ Environment variables loaded via Pydantic Settings (`src/core/config.py`). See `
 - `AUTH_DISABLED` - Bypass auth for local dev (default: false)
 
 **Storage:**
-- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` - MinIO/S3 config
+- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` - S4/S3 config
 
 **LLM:**
 - `LLM_BASE_URL`, `LLM_API_KEY` - OpenAI-compatible endpoint
@@ -257,6 +257,8 @@ AUTH_DISABLED=true uv run pytest -k "test_health" # Pattern match
 # Coverage
 AUTH_DISABLED=true uv run pytest --cov=src --cov-report=term-missing
 ```
+
+The S4 integration-test image targets `linux/amd64`; arm64 hosts need container-runtime emulation.
 
 **Linting and formatting:**
 ```bash

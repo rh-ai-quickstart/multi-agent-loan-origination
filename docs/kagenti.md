@@ -163,7 +163,7 @@ kagenti:
   enabled: false              # Set to true to enable A2A integration
   a2aBasePort: 8080           # First A2A port (agents use 8080-8084)
   inboundPortsExclude: "8000" # Don't proxy FastAPI (uses Keycloak auth)
-  outboundPortsExclude: "5432,9000,8081"  # Don't proxy DB, MinIO, MCP
+  outboundPortsExclude: "5432,7480,8081"  # Don't proxy DB, S4, MCP
 ```
 
 When `kagenti.enabled=true`, the Helm chart adds:
@@ -179,7 +179,7 @@ protocol.kagenti.io/a2a: ""
 kagenti.io/inject: "enabled"
 kagenti.io/spire: "enabled"
 kagenti.io/inbound-ports-exclude: "8000"
-kagenti.io/outbound-ports-exclude: "5432,9000,8081"
+kagenti.io/outbound-ports-exclude: "5432,7480,8081"
 ```
 
 **Container ports:** 5 additional ports (8080-8084) for the A2A servers.

@@ -1,5 +1,5 @@
 # This project was developed with assistance from AI tools.
-"""Document upload/list/get with real MinIO storage."""
+"""Document upload/list/get with real S4 storage."""
 
 import io
 
@@ -19,8 +19,8 @@ def _make_pdf_bytes() -> bytes:
     )
 
 
-async def test_upload_writes_to_minio(client_factory, seed_data):
-    """POST upload -> Document row in DB + file retrievable from MinIO."""
+async def test_upload_writes_to_s4(client_factory, seed_data):
+    """POST upload -> Document row in DB + file retrievable from S4."""
     from unittest.mock import patch
 
     from src.services.storage import get_storage_service
@@ -41,7 +41,7 @@ async def test_upload_writes_to_minio(client_factory, seed_data):
     data = resp.json()
     assert data["file_path"] is not None
 
-    # Verify file exists in MinIO
+    # Verify file exists in S4
     storage = get_storage_service()
     downloaded = await storage.download_file(data["file_path"])
     assert downloaded == pdf

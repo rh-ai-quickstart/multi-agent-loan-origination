@@ -1,0 +1,46 @@
+# aws-compatible-storage 0.1.0 defaults to quay.io/rh-aiservices-bu/s4:0.3.2.
+# Keep S3 data-connection and UI credentials separate: DSPA needs only S3.
+fullnameOverride: s4
+
+# S4 0.3.2 is published only for amd64.
+nodeSelector:
+  kubernetes.io/arch: amd64
+
+s3:
+  existingSecret: ds-pipeline-s3-dspa
+
+# The data connection uses the service FQDN. S4 itself must keep its local RGW
+# endpoint even though it reads the same Secret through envFrom.
+extraEnv:
+  - name: AWS_S3_ENDPOINT
+    value: http://localhost:7480
+  - name: AWS_DEFAULT_REGION
+    value: us-east-1
+  - name: UI_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: s4-ui-credentials
+        key: username
+  - name: UI_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: s4-ui-credentials
+        key: password
+  - name: JWT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: s4-ui-credentials
+        key: jwt
+
+# The service is cluster-internal and its UI remains authenticated.
+auth:
+  enabled: true
+  cookieRequireHttps: false
+route:
+  enabled: false
+  s3Api:
+    enabled: false
+
+storage:
+  data:
+    size: 10Gi

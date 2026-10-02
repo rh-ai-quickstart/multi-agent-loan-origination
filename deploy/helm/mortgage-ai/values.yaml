@@ -5,14 +5,14 @@
 #                       --set secrets.DATABASE_URL=postgresql+asyncpg://...
 #   External Keycloak:  --set keycloak.enabled=false
 #                       --set secrets.KEYCLOAK_URL=https://...
-#   External MinIO/S3:  --set minio.enabled=false
+#   External S3:        --set s4.enabled=false
 #                       --set secrets.S3_ENDPOINT=https://...
 global:
   imageRegistry: quay.io
   imageRepository: rh-ai-quickstart
   imageTag: "latest"
   imagePullPolicy: Always
-  storageClass: ""
+  storageClass: "" # PostgreSQL only; configure S4 under s4.storage.data.
 
 # Secrets -- override these for real deployments via --set or external Secret
 secrets:
@@ -37,10 +37,12 @@ secrets:
   KEYCLOAK_CLIENT_ID: "mortgage-ai-ui"
   JWKS_CACHE_TTL: "300"
 
-  # Storage (S3 / MinIO)
-  S3_ENDPOINT: "http://minio:9000"
-  S3_ACCESS_KEY: "minio"
-  S3_SECRET_KEY: "miniosecret"
+  # Storage (S3 / S4)
+  # These are used when s4.enabled=false. Bundled S4 credentials come from
+  # the s4-credentials Secret instead.
+  S3_ENDPOINT: "http://s4:7480"
+  S3_ACCESS_KEY: "s4admin"
+  S3_SECRET_KEY: "s4secret"
   S3_BUCKET: "documents"
   S3_REGION: "us-east-1"
   UPLOAD_MAX_SIZE_MB: "50"
@@ -91,10 +93,6 @@ secrets:
   # Keycloak admin
   KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
   KC_BOOTSTRAP_ADMIN_PASSWORD: "admin"
-
-  # MinIO
-  MINIO_ROOT_USER: "minio"
-  MINIO_ROOT_PASSWORD: "miniosecret"
 
 # OpenShift Routes configuration
 routes:
@@ -196,23 +194,46 @@ keycloak:
       memory: "1536Mi"
       cpu: "1000m"
 
-# MinIO configuration
-minio:
+# aws-compatible-storage (S4) subchart. Its service stays `s4` so the API
+# reaches its S3-compatible endpoint at http://s4:7480.
+s4:
   enabled: true
-  name: minio
+  fullnameOverride: s4
   image:
-    repository: minio/minio
-    tag: latest
-  persistence:
+    repository: quay.io/rh-aiservices-bu/s4
+    tag: "0.3.2"
+    pullPolicy: IfNotPresent
+  # S4 0.3.2 is published only for amd64.
+  nodeSelector:
+    kubernetes.io/arch: amd64
+  s3:
+    region: us-east-1
+    accessKeyId: s4admin
+    secretAccessKey: s4secret
+  # Demo-only UI credentials. Override these for a non-demo deployment.
+  auth:
     enabled: true
-    size: 10Gi
-  resources:
-    requests:
-      memory: "128Mi"
-      cpu: "100m"
-    limits:
-      memory: "384Mi"
-      cpu: "500m"
+    username: admin
+    password: changeme
+    cookieRequireHttps: false
+  # Storage routes are deliberately disabled; the API consumes S4 in-cluster.
+  route:
+    enabled: false
+    s3Api:
+      enabled: false
+  storage:
+    data:
+      size: 10Gi
+      # The S4 subchart does not inherit global.storageClass.
+      storageClass: ""
+
+# Parent-owned bootstrap because aws-compatible-storage only supplies the S3
+# server. This regular Job is waited on by Helm, rather than running as a hook.
+s4Buckets:
+  create: true
+  names:
+    - documents
+    - mlflow
 
 # MLflow observability (RHOAI 3.4+)
 # When kagenti.mlflow.autoManaged=true, the Kagenti Operator MLflow controller
@@ -339,7 +360,7 @@ nemoGuardrails:
       count: "1"
     # S3 storage for model weights (must contain the model at modelPath)
     storage:
-      endpoint: ""           # e.g. http://minio-llms.voice-agents.svc.cluster.local:9000
+      endpoint: ""           # e.g. http://s4:7480
       bucket: "llms"
       accessKey: ""
       secretKey: ""
@@ -366,7 +387,7 @@ kagenti:
   enabled: false
   a2aBasePort: 8080
   inboundPortsExclude: "8000"
-  outboundPortsExclude: "5432,9000,8081"
+  outboundPortsExclude: "5432,7480,8081"
   # When true, delegate MLflow RBAC + env var injection to the Kagenti Operator
   # MLflow controller. Requires Kagenti version with MLflow controller support.
   # Keep false until the Kagenti MLflow controller is available in your cluster.

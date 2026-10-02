@@ -6,5 +6,5 @@ resources:
   - 02-dspa.yaml
   - 03-rbac-evaluations.yaml
   - 04-rbac-mlflow.yaml
-  - 05-secret-patcher.yaml
+  - 06-s4-bucket-bootstrap.yaml
   - 06-rbac-tenant.yaml

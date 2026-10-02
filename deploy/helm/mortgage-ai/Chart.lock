@@ -1,0 +1,6 @@
+dependencies:
+- name: aws-compatible-storage
+  repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
+  version: 0.1.0
+digest: sha256:becb949b86ef5e9b23edf289905fa75e9c5d0dbe0a8106df36f53af853e5f901
+generated: "2026-10-02T08:17:11.079472-05:00"

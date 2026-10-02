@@ -1,27 +1,83 @@
 # EvalHub on RHOAI
 
-TrustyAI EvalHub is the evaluation harness for Red Hat OpenShift AI (RHOAI). It provides a framework for evaluating and validating AI/ML models using multiple evaluation providers and benchmark collections. The deployment stack combines EvalHub (evaluation engine), MLflow (experiment tracking), and DSPA (Data Science Pipelines for orchestrating evaluation pipelines via Kubeflow Pipelines v2).
+TrustyAI EvalHub is the evaluation harness for Red Hat OpenShift AI (RHOAI). It
+combines EvalHub, MLflow, and a KFP v2 Data Science Pipelines Application
+(DSPA).
+
+The DSPA stores artifacts in the standalone S4 service in the `evaluations`
+namespace. It does not deploy or depend on an operator-managed object store.
 
 ## Prerequisites
 
 - RHOAI 3.4+ with MLflow and TrustyAI operators installed
 - MLflow CR deployed with `--app-name=kubernetes-auth` and `--enable-workspaces`
-- Cluster admin access
+- Cluster-admin access for the EvalHub and MLflow RBAC resources
+- The shared `aws-compatible-storage-0.1.0.tgz` dependency under
+  `deploy/helm/mortgage-ai/charts/`
 
 ## Install
 
+The S4 data-connection Secret must exist before Helm installs the chart because
+the values overlay uses it as `s3.existingSecret`. The bucket must exist before
+the DSPA is created.
+
 ```bash
+# 1. Create the namespace, direct S3 data connection, and S4 UI credentials.
+# Supply non-demo S3 credentials and a local UI credential env file.
+oc apply -f evaluations/evalhub/00-namespace.yaml
+: "${S4_ACCESS_KEY_ID:?set S4_ACCESS_KEY_ID}"
+: "${S4_SECRET_ACCESS_KEY:?set S4_SECRET_ACCESS_KEY}"
+: "${S4_UI_CREDENTIALS_FILE:?set a local credentials env-file path}"
+oc create secret generic ds-pipeline-s3-dspa -n evaluations \
+  --from-literal=AWS_ACCESS_KEY_ID="$S4_ACCESS_KEY_ID" \
+  --from-literal=AWS_SECRET_ACCESS_KEY="$S4_SECRET_ACCESS_KEY" \
+  --from-literal=AWS_S3_ENDPOINT=http://s4.evaluations.svc.cluster.local:7480 \
+  --from-literal=AWS_S3_BUCKET=mlpipeline \
+  --from-literal=AWS_DEFAULT_REGION=us-east-1 \
+  --dry-run=client -o yaml | oc apply -f -
+oc label secret ds-pipeline-s3-dspa -n evaluations opendatahub.io/dashboard=true --overwrite
+oc annotate secret ds-pipeline-s3-dspa -n evaluations \
+  opendatahub.io/connection-type=s3 \
+  openshift.io/display-name='Evaluation Pipeline Artifacts (S4)' --overwrite
+oc create secret generic s4-ui-credentials -n evaluations \
+  --from-env-file="$S4_UI_CREDENTIALS_FILE" \
+  --dry-run=client -o yaml | oc apply -f -
+
+# 2. Install the shared S4 chart. Chart 0.1.0 defaults to S4 0.3.2.
+helm upgrade --install evalhub-s4 \
+  deploy/helm/mortgage-ai/charts/aws-compatible-storage-0.1.0.tgz \
+  --namespace evaluations \
+  --values evaluations/evalhub-s4-values.yaml \
+  --wait
+
+# 3. Reuse the shared, provider-neutral bucket bootstrap script for mlpipeline.
+oc create configmap s4-bucket-bootstrap -n evaluations \
+  --from-file=create-buckets.py=deploy/helm/mortgage-ai/files/create-buckets.py \
+  --dry-run=client -o yaml | oc apply -f -
+oc apply -f evaluations/evalhub/06-s4-bucket-bootstrap.yaml
+oc wait --for=condition=complete job/s4-create-mlpipeline -n evaluations --timeout=5m
+
+# 4. Create EvalHub, the DSPA, and their RBAC.
 oc apply -k evaluations/evalhub/
 ```
 
-Wait ~2-3 min for DSPA pods, then verify:
+Verify the prerequisites and resulting services:
 
 ```bash
+oc get secret ds-pipeline-s3-dspa s4-ui-credentials -n evaluations
+oc get job s4-create-mlpipeline -n evaluations
+oc get svc s4 -n evaluations
+oc get dspa -n evaluations
 oc get evalhub -n redhat-ods-applications
 oc get pods -n evaluations
-oc get dspa -n evaluations
-oc get routes -n evaluations
-oc get routes -n redhat-ods-applications | grep evalhub
+```
+
+S4 is internal only: both the UI and S3 API Routes are disabled by default. To
+inspect it, port-forward in separate terminals:
+
+```bash
+oc port-forward -n evaluations service/s4 5000:5000  # S4 UI
+oc port-forward -n evaluations service/s4 7480:7480  # S3 API
 ```
 
 ## What Gets Deployed
@@ -30,83 +86,35 @@ oc get routes -n redhat-ods-applications | grep evalhub
 |------|------|-----------|
 | 00-namespace | `evaluations` namespace with tenant labels | - |
 | 01-evalhub-cr | EvalHub CR (sqlite, 3 providers) | redhat-ods-applications |
-| 02-dspa | DataSciencePipelinesApplication (KFP v2, in-cluster MinIO) | evaluations |
-| 03-rbac-evaluations | Role + 2 RoleBindings for job runner DSPA access | evaluations |
+| 02-dspa | KFP v2 DSPA using external S4 storage | evaluations |
+| 03-rbac-evaluations | Narrow DSPA API access for the EvalHub job runner | evaluations |
 | 04-rbac-mlflow | 2 ClusterRoleBindings for MLflow kubernetes-auth | cluster-scoped |
-| 05-secret-patcher | Job that patches DSPA S3 secret with AWS-style keys | evaluations |
+| 06-s4-bucket-bootstrap | Creates the `mlpipeline` artifact bucket | evaluations |
 | 06-rbac-tenant | 3 ClusterRoleBindings for configmap/job creation in tenant namespaces | cluster-scoped |
 
 The RBAC files (03, 04, 06) fix a gap in the TrustyAI operator: it creates ClusterRoles but only binds its own controller-manager SA, not the runtime SAs (`evalhub-service`, `evalhub-redhat-ods-applications-job`).
 
-### Resource Summary
+The `ds-pipeline-s3-dspa` Secret is the data connection and S3 credential
+source for both S4 and DSPA:
 
-Once deployed, you should see the following:
+| Key | Value |
+|-----|-------|
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | S4 credentials |
+| `AWS_S3_ENDPOINT` | `http://s4.evaluations.svc.cluster.local:7480` |
+| `AWS_S3_BUCKET` | `mlpipeline` |
+| `AWS_DEFAULT_REGION` | `us-east-1` |
 
-**EvalHub CR** (`redhat-ods-applications`):
+The local file named by `S4_UI_CREDENTIALS_FILE` supplies non-empty, randomly
+generated `username`, `password`, and `jwt` values to the separate
+`s4-ui-credentials` Secret. Do not commit that file; the DSPA does not receive
+the UI Secret.
 
-| Resource | Name | Notes |
-|----------|------|-------|
-| EvalHub | `evalhub` | Ready |
-| Route | `evalhub` | External URL at `https://evalhub-redhat-ods-applications.apps.<cluster-domain>` |
-
-Internal URL: `https://evalhub.redhat-ods-applications.svc.cluster.local:8443`
-
-Active evaluation providers:
-- `garak`
-- `garak-kfp`
-- `lm-evaluation-harness`
-
-Active benchmark collections:
-- `leaderboard-v2`
-- `safety-and-fairness-v1`
-- `toxicity-and-ethical-principles`
-
-Configuration:
-- Database: SQLite (embedded)
-- MLflow tracking URI: `https://mlflow.redhat-ods-applications.svc.cluster.local:8443`
-- Replicas: 1
-
-**MLflow** (pre-existing, `redhat-ods-applications`):
-
-- Backend store: `sqlite:////mlflow/mlflow.db`
-- Artifacts: `file:///mlflow/artifacts` (serve artifacts enabled)
-- Storage: 100Gi PVC (ReadWriteOnce)
-
-**Data Science Pipelines** (`evaluations` namespace):
-
-| Resource | Name |
-|----------|------|
-| DSPA | `dspa` |
-| MinIO | `minio-dspa` |
-| MariaDB | `mariadb-dspa` |
-| Pipeline Server | `ds-pipeline-dspa` |
-| Metadata gRPC | `ds-pipeline-metadata-grpc-dspa` |
-| Metadata Envoy | `ds-pipeline-metadata-envoy-dspa` |
-| Persistence Agent | `ds-pipeline-persistenceagent-dspa` |
-| Scheduled Workflow | `ds-pipeline-scheduledworkflow-dspa` |
-| Workflow Controller | `ds-pipeline-workflow-controller-dspa` |
-
-Routes in `evaluations`:
-- Pipeline API: `https://ds-pipeline-dspa-evaluations.apps.<cluster-domain>`
-- Metadata: `https://ds-pipeline-md-dspa-evaluations.apps.<cluster-domain>`
-- MinIO: `https://minio-dspa-evaluations.apps.<cluster-domain>`
-
-**RBAC** (`evaluations` namespace):
-
-- Role `evalhub-jobs-dspa-api` - grants access to DSPA API for evaluation jobs
-- RoleBinding `evalhub-jobs-dspa-api` - binds to `evalhub-redhat-ods-applications-job` SA
-- RoleBinding `evalhub-jobs-pipeline-management` - binds `ds-pipeline-dspa` role
-
-**Secret Patching Job** (`evaluations` namespace):
-
-Job `update-secret-minio` - patches `ds-pipeline-s3-dspa` secret with AWS-style keys for downstream consumers.
-
-### Namespace Layout
-
-| Namespace | Resources |
-|-----------|-----------|
-| `redhat-ods-applications` | EvalHub CR, MLflow CR (operator-managed) |
-| `evaluations` | DSPA, MinIO, MariaDB, pipeline components, RBAC, secret-patching job |
+The external DSPA configuration uses
+`s4.evaluations.svc.cluster.local:7480` over HTTP and retains the
+`ds-pipeline-s3-dspa` secret name for downstream consumers. There is no secret
+patching Job and no service account with the broad `edit` role. The S4 overlay
+keeps S4's own RGW endpoint at `http://localhost:7480`; clients use the service
+FQDN in the data connection.
 
 ## Running Benchmarks
 
@@ -173,30 +181,20 @@ export MODEL_AUTH_SECRET="other-model-key"
 envsubst < evaluations/eval-arceasy.yaml | evalhub eval run --config -
 ```
 
-## ArgoCD Note
+## Existing Infrastructure
 
-If ArgoCD manages the target namespaces, disable autosync before installation to prevent conflicts:
-
-```bash
-for appset in dspa grafana minio mortgage-ai workspace; do
-  oc patch applicationset "$appset" -n openshift-gitops --type=merge \
-    -p='{"spec":{"template":{"spec":{"syncPolicy":{"automated":null}}}}}'
-done
-```
-
-To re-enable after installation:
-
-```bash
-for appset in dspa grafana minio mortgage-ai workspace; do
-  oc patch applicationset "$appset" -n openshift-gitops --type=merge \
-    -p='{"spec":{"template":{"spec":{"syncPolicy":{"automated":{"prune":true,"selfHeal":true}}}}}}'
-done
-```
+This procedure manages only the standalone S4 release in `evaluations`. It does
+not alter separately managed application sets or historical object-storage
+deployments.
 
 ## Uninstall
 
 ```bash
 oc delete -k evaluations/evalhub/
+helm uninstall evalhub-s4 -n evaluations
+oc delete configmap s4-bucket-bootstrap -n evaluations --ignore-not-found
+oc delete secret ds-pipeline-s3-dspa -n evaluations --ignore-not-found
+oc delete secret s4-ui-credentials -n evaluations --ignore-not-found
 oc delete clusterrolebinding evalhub-service-mlflow-integration evalhub-jobs-mlflow-integration \
   evalhub-service-job-config evalhub-service-jobs-writer evalhub-service-manager
 oc delete namespace evaluations

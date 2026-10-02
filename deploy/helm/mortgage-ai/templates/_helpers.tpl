@@ -136,19 +136,24 @@ app.kubernetes.io/component: keycloak
 {{- end }}
 
 {{/*
-MinIO labels
+Bundled aws-compatible-storage uses fullnameOverride: s4.
 */}}
-{{- define "mortgage-ai.minio.labels" -}}
-{{ include "mortgage-ai.labels" . }}
-app.kubernetes.io/component: minio
+{{- define "s4.fullname" -}}
+{{- default "s4" .Values.s4.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
-MinIO selector labels
+aws-compatible-storage creates this Secret with AWS_* credential keys.
 */}}
-{{- define "mortgage-ai.minio.selectorLabels" -}}
-{{ include "mortgage-ai.selectorLabels" . }}
-app.kubernetes.io/component: minio
+{{- define "s4.secretName" -}}
+{{- default (printf "%s-credentials" (include "s4.fullname" .)) .Values.s4.s3.existingSecret }}
+{{- end }}
+
+{{/*
+S4's in-cluster S3 API port.
+*/}}
+{{- define "s4.apiPort" -}}
+7480
 {{- end }}
 
 {{/*
@@ -214,4 +219,3 @@ MCP Weather Server selector labels
 {{ include "mortgage-ai.selectorLabels" . }}
 app.kubernetes.io/component: mcp-weather
 {{- end }}
-
