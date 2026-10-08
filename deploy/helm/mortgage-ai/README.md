@@ -35,6 +35,14 @@ helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
 
 ## Configuration
 
+Set `global.imageTag` to select one application release for the API, UI, MCP risk
+server, database migration, seed, and S4 bucket bootstrap containers. It defaults
+to `latest`; `make deploy IMAGE_TAG=<tag>` passes this setting to Helm. The
+`api.image.tag`, `ui.image.tag`, and `mcpRiskServer.image.tag` values default to
+empty strings so they inherit the global tag. Set a component tag explicitly to
+override it; an API override also applies to migration, seed, and bucket bootstrap
+containers. S4 and other third-party images keep their own version tags.
+
 ### Core Services
 
 | Parameter | Description | Default |

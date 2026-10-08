@@ -118,7 +118,7 @@ api:
   name: mortgage-ai-api
   image:
     repository: mortgage-ai-api
-    tag: "1.0.2"
+    tag: "" # Inherit global.imageTag unless explicitly overridden.
   service:
     type: ClusterIP
     port: 8000
@@ -141,7 +141,7 @@ ui:
   name: mortgage-ai-ui
   image:
     repository: mortgage-ai-ui
-    tag: latest
+    tag: "" # Inherit global.imageTag unless explicitly overridden.
   service:
     type: ClusterIP
     port: 8080
@@ -260,7 +260,7 @@ mcpRiskServer:
   name: mcp-risk-server
   image:
     repository: mortgage-ai-api
-    tag: latest
+    tag: "" # Inherit global.imageTag unless explicitly overridden.
   replicas: 1
   service:
     type: ClusterIP
