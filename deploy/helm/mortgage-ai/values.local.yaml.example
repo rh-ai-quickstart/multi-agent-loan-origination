@@ -9,7 +9,7 @@
 #   make deploy
 
 global:
-  imageTag: "1.0.1"
+  imageTag: "latest" # Use a tag published for both API and UI images.
 
 # S4 has its own PVC setting; global.storageClass only applies to PostgreSQL.
 s4:
