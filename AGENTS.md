@@ -16,7 +16,7 @@ make setup              # Install all deps (pnpm + uv)
 cp .env.example .env    # Configure LLM endpoint
 
 # Development
-make db-start           # Start PostgreSQL + MinIO
+make db-start           # Start PostgreSQL + S4
 make db-upgrade         # Run Alembic migrations
 make dev                # Start API (8000) + UI (3000)
 
@@ -115,7 +115,7 @@ input -> input_shield -> classify (rule-based) -> agent_fast / agent_capable
 - **LLM:** Any OpenAI-compatible endpoint (`LLM_BASE_URL`, `LLM_MODEL`)
 - **Embeddings:** Local by default (`nomic-ai/nomic-embed-text-v1.5`); optional remote via `EMBEDDING_PROVIDER=openai_compatible`
 - **Auth:** Keycloak OIDC; bypass with `AUTH_DISABLED=true` for dev
-- **Storage:** MinIO S3-compatible for documents
+- **Storage:** S4 S3-compatible for documents
 - **Observability:** MLflow for agent tracing (optional)
 
 ## Critical Patterns

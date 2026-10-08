@@ -1,23 +1,33 @@
 # This project was developed with assistance from AI tools.
-"""Integration test fixtures -- real PostgreSQL + real MinIO, no mocks.
+"""Integration test fixtures -- real PostgreSQL + real S4, no mocks.
 
 Session-scoped containers (started once per test run) provide real PostgreSQL
-(pgvector) and MinIO instances. Function-scoped fixtures give each test an
+(pgvector) and S4 instances. Function-scoped fixtures give each test an
 isolated DB session with savepoint rollback so tests don't leak state.
 """
 
 import os
+import time
 from collections import namedtuple
 
+import boto3
 import httpx
 import pytest
 import pytest_asyncio
+from botocore.config import Config as BotoConfig
+from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
-from testcontainers.minio import MinioContainer
+from testcontainers.core.container import DockerContainer
 from testcontainers.postgres import PostgresContainer
+
+S4_IMAGE = "quay.io/rh-aiservices-bu/s4:0.3.2"
+S4_ACCESS_KEY = "s4admin"
+S4_SECRET_KEY = "s4secret"
+S4_READINESS_TIMEOUT_SECONDS = 60
+S4_READINESS_POLL_INTERVAL_SECONDS = 0.5
 
 # ---------------------------------------------------------------------------
 # Mark all tests in this directory as integration
@@ -42,11 +52,47 @@ def pg_container():
         yield pg
 
 
+def _wait_for_s4(endpoint: str) -> None:
+    """Wait for S4 to accept authenticated S3 requests within a fixed limit."""
+    client = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=S4_ACCESS_KEY,
+        aws_secret_access_key=S4_SECRET_KEY,
+        region_name="us-east-1",
+        config=BotoConfig(
+            signature_version="s3v4",
+            connect_timeout=1,
+            read_timeout=1,
+            retries={"max_attempts": 1, "mode": "standard"},
+            s3={"addressing_style": "path"},
+        ),
+    )
+    deadline = time.monotonic() + S4_READINESS_TIMEOUT_SECONDS
+    while True:
+        try:
+            client.list_buckets()
+            return
+        except (BotoCoreError, ClientError) as exc:
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    f"S4 did not accept authenticated S3 requests within "
+                    f"{S4_READINESS_TIMEOUT_SECONDS} seconds"
+                ) from exc
+            time.sleep(S4_READINESS_POLL_INTERVAL_SECONDS)
+
+
 @pytest.fixture(scope="session")
-def minio_container():
-    """Start minio/minio:latest via testcontainers."""
-    with MinioContainer() as mc:
-        yield mc
+def s4_container():
+    """Start S4 with its S3 API port exposed via testcontainers."""
+    # S4 0.3.2 is amd64-only; this lets arm64 developer hosts use emulation.
+    with (
+        DockerContainer(S4_IMAGE).with_kwargs(platform="linux/amd64").with_exposed_ports(7480) as s4
+    ):
+        host = s4.get_container_host_ip()
+        port = s4.get_exposed_port(7480)
+        _wait_for_s4(f"http://{host}:{port}")
+        yield s4
 
 
 @pytest.fixture(scope="session")
@@ -145,18 +191,18 @@ def _patch_db_module(async_engine):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _init_storage(minio_container):
-    """Initialize the StorageService singleton with test MinIO."""
+def _init_storage(s4_container):
+    """Initialize the StorageService singleton with test S4."""
     from src.services import storage as storage_mod
 
-    host = minio_container.get_container_host_ip()
-    port = minio_container.get_exposed_port(9000)
+    host = s4_container.get_container_host_ip()
+    port = s4_container.get_exposed_port(7480)
     endpoint = f"http://{host}:{port}"
 
     svc = storage_mod.StorageService(
         endpoint=endpoint,
-        access_key="minioadmin",
-        secret_key="minioadmin",
+        access_key=S4_ACCESS_KEY,
+        secret_key=S4_SECRET_KEY,
         bucket="test-documents",
     )
     storage_mod._service = svc
@@ -168,7 +214,7 @@ def _init_extraction(_patch_db_module, _init_storage):
 
     Depends on _patch_db_module so that extraction.py's
     ``from db.database import SessionLocal`` captures the test session factory,
-    and on _init_storage so MinIO is ready for download_file calls.
+    and on _init_storage so S4 is ready for download_file calls.
     """
     from src.services.extraction import init_extraction_service
 

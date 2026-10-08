@@ -6,9 +6,13 @@ metadata:
 spec:
   dspVersion: v2
   objectStorage:
-    disableHealthCheck: false
-    enableExternalRoute: true
-    minio:
-      deploy: true
-      image: quay.io/opendatahub/minio:RELEASE.2019-08-14T20-37-41Z-license-compliance
+    externalStorage:
+      bucket: mlpipeline
+      host: s4.evaluations.svc.cluster.local
+      port: "7480"
+      scheme: http
+      s3CredentialsSecret:
+        secretName: ds-pipeline-s3-dspa
+        accessKey: AWS_ACCESS_KEY_ID
+        secretKey: AWS_SECRET_ACCESS_KEY
   podToPodTLS: false

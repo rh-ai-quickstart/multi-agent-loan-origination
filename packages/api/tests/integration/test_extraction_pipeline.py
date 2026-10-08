@@ -1,5 +1,5 @@
 # This project was developed with assistance from AI tools.
-"""Full extraction pipeline: real MinIO + real pymupdf + real HMDA routing.
+"""Full extraction pipeline: real S4 + real pymupdf + real HMDA routing.
 
 Only get_completion (LLM inference) is patched. Uses truncate_all fixture
 because ExtractionService opens its own SessionLocal() connections.
@@ -64,7 +64,7 @@ _LLM_RESPONSE_NO_DEMOGRAPHICS = json.dumps(
 
 
 async def _seed_and_upload(async_engine, pdf_bytes: bytes) -> int:
-    """Seed a borrower + app + document with real MinIO upload. Returns document ID."""
+    """Seed a borrower + app + document with real S4 upload. Returns document ID."""
     from db.database import SessionLocal
     from db.enums import ApplicationStage, DocumentStatus, DocumentType
     from db.models import Application, ApplicationBorrower, Borrower, Document
@@ -107,7 +107,7 @@ async def _seed_and_upload(async_engine, pdf_bytes: bytes) -> int:
         doc_id = doc.id
         app_id = app.id
 
-        # Upload to real MinIO
+        # Upload to real S4
         storage = get_storage_service()
         object_key = storage.build_object_key(app_id, doc_id, "test.pdf")
         await storage.upload_file(pdf_bytes, object_key, "application/pdf")

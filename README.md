@@ -68,7 +68,7 @@ This quickstart demonstrates AI patterns for regulated industries including role
 - LLM access via either:
   - Model-as-a-Service (MaaS) endpoint (no GPU required on cluster), or
   - GPU node for on-cluster model serving (sized for your chosen model)
-- Persistent volume claims: 10Gi for PostgreSQL, 10Gi for MinIO object storage
+- Persistent volume claims: 10Gi for PostgreSQL, 10Gi for S4 object storage
 
 ### Minimum software requirements
 
@@ -100,7 +100,7 @@ LLM_MODEL=qwen3-30b-a3b
 Start the development environment:
 
 ```bash
-make db-start             # Start PostgreSQL and MinIO
+make db-start             # Start PostgreSQL and S4
 make db-upgrade           # Run database migrations
 make dev                  # Start API and UI dev servers
 ```
@@ -113,7 +113,7 @@ The application will be available at the following URLs:
 | API Server | http://localhost:8000 |
 | API Docs (Swagger) | http://localhost:8000/docs |
 | Database | postgresql://localhost:5433 |
-| MinIO Console | http://localhost:9091 |
+| S4 Console | http://localhost:9091 |
 
 ### Container deployment
 
@@ -225,7 +225,7 @@ mortgage-ai/
 | Database | PostgreSQL 16 + pgvector |
 | Identity | Keycloak (OpenID Connect) |
 | Observability | MLflow (RHOAI) |
-| Object Storage | MinIO (S3-compatible) |
+| Object Storage | S4 (S3-compatible) |
 | Deployment | Helm, OpenShift / Kubernetes |
 | Build | Turborepo, uv (Python), pnpm (Node.js) |
 

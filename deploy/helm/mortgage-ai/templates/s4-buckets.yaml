@@ -1,0 +1,68 @@
+{{- if and .Values.s4.enabled .Values.s4Buckets.create }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mortgage-ai.fullname" . }}-s4-bucket-script
+  labels:
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: s4
+data:
+  create-buckets.py: |-
+{{ .Files.Get "files/create-buckets.py" | indent 4 }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-s4-create-buckets-%d" (include "mortgage-ai.fullname" .) .Release.Revision | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "mortgage-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: s4
+spec:
+  activeDeadlineSeconds: 420
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "mortgage-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: s4
+    spec:
+      serviceAccountName: {{ include "mortgage-ai.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      restartPolicy: OnFailure
+      containers:
+        - name: create-buckets
+          image: {{ include "mortgage-ai.image" (dict "name" .Values.api.image.repository "tag" .Values.api.image.tag "Values" .Values) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command: ["python", "/scripts/create-buckets.py"]
+          args:
+            {{- range .Values.s4Buckets.names }}
+            - {{ . | quote }}
+            {{- end }}
+          env:
+            - name: S3_ENDPOINT
+              value: {{ printf "http://%s:%s" (include "s4.fullname" .) (include "s4.apiPort" .) | quote }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "s4.secretName" . }}
+                  key: AWS_ACCESS_KEY_ID
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "s4.secretName" . }}
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: S3_REGION
+              value: {{ .Values.s4.s3.region | quote }}
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: script
+          configMap:
+            name: {{ include "mortgage-ai.fullname" . }}-s4-bucket-script
+{{- end }}

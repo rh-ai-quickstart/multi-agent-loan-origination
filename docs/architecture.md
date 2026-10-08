@@ -35,7 +35,7 @@ graph TB
 
     subgraph Infra["Infrastructure"]
         PG["PostgreSQL 16 + pgvector"]
-        MinIO["MinIO (S3-compatible)"]
+        S4["S4 (S3-compatible)"]
     end
 
     Browser -->|"HTTPS / WebSocket"| UI
@@ -45,7 +45,7 @@ graph TB
     API --> MLflow
     API --> MCP
     API --> PG
-    API --> MinIO
+    API --> S4
 ```
 
 ### Monorepo Structure
@@ -91,7 +91,7 @@ The `compose.yml` supports layered profiles to run only what you need:
 
 | Profile | Services Added | Use Case |
 |---------|---------------|----------|
-| (none) | postgres, minio, mcp-risk-server, api, ui | Minimal stack for development |
+| (none) | postgres, s4, mcp-risk-server, api, ui | Minimal stack for development |
 | `auth` | + keycloak | Test OIDC authentication flow |
 | `ai` | + llamastack | LlamaStack model serving abstraction (optional) |
 | `observability` | + mlflow | MLflow experiment tracking and tracing |
@@ -301,7 +301,7 @@ If any event is modified after creation, the hash breaks and verification fails.
 
 ### Document Storage
 
-Documents are stored in **MinIO** (S3-compatible object storage). The `documents` table stores metadata:
+Documents are stored in **S4** (S3-compatible object storage). The `documents` table stores metadata:
 
 - `s3_key`: Object key in the S3 bucket
 - `file_name`: Original uploaded filename
@@ -313,7 +313,7 @@ Documents are stored in **MinIO** (S3-compatible object storage). The `documents
 **Document extraction pipeline (Phase 2):**
 
 1. Borrower uploads via WebSocket (base64-encoded chunks)
-2. API validates file type, size, assembles chunks, uploads to MinIO
+2. API validates file type, size, assembles chunks, uploads to S4
 3. Background task extracts text (PDF → pdfplumber, images → Tesseract OCR)
 4. Extracted text stored in `extracted_text` column, status → `extracted`
 
@@ -433,7 +433,7 @@ The application uses **MLflow** for LLM observability and experiment tracking. O
 
 **Infrastructure (local development):**
 
-- **MLflow server:** Tracking server (port 5000) with PostgreSQL backend store and MinIO artifact storage.
+- **MLflow server:** Tracking server (port 5000) with PostgreSQL backend store and S4 artifact storage.
 - Enabled via the `observability` compose profile.
 
 **Configuration:**
@@ -503,7 +503,7 @@ Each package builds a container image:
 
 The `deploy/helm/` directory contains a Helm chart for deploying to OpenShift:
 
-- Deployments for UI, API, DB, Keycloak, MinIO
+- Deployments for UI, API, DB, Keycloak, S4
 - Services, Routes (OpenShift), ConfigMaps, Secrets
 - Health checks, resource limits, autoscaling config
 
@@ -531,7 +531,7 @@ Configuration follows the **12-factor app** pattern:
 | Database | `DATABASE_URL`, `COMPLIANCE_DATABASE_URL` | `postgresql+asyncpg://user:password@localhost:5433/mortgage-ai` |
 | Auth | `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `AUTH_DISABLED` | `http://localhost:8080`, `mortgage-ai`, `mortgage-ai-ui`, `true` |
 | LLM | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | `https://api.openai.com/v1`, `not-needed`, `gpt-4o-mini` |
-| Storage | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | `http://localhost:9090`, `minio`, `miniosecret`, `documents` |
+| Storage | `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET` | `http://localhost:9090`, `s4admin`, `s4secret`, `documents` |
 | Observability | `MLFLOW_TRACKING_URI`, `MLFLOW_EXPERIMENT_NAME`, `MLFLOW_TRACKING_TOKEN` | (unset -- tracing disabled) |
 
 ## Extension Points

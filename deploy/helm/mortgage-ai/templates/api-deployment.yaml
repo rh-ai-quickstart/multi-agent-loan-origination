@@ -10,7 +10,11 @@ metadata:
     protocol.kagenti.io/a2a: ""
     {{- end }}
   annotations:
-    app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"StatefulSet","name":"{{ .Values.database.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.keycloak.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.minio.name }}"}]'
+    {{- if .Values.s4.enabled }}
+    app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"StatefulSet","name":"{{ .Values.database.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.keycloak.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ include "s4.fullname" . }}"}]'
+    {{- else }}
+    app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"StatefulSet","name":"{{ .Values.database.name }}"},{"apiVersion":"apps/v1","kind":"Deployment","name":"{{ .Values.keycloak.name }}"}]'
+    {{- end }}
 spec:
   replicas: {{ .Values.api.replicas }}
   selector:
@@ -171,6 +175,22 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: JWKS_CACHE_TTL
+            {{- if .Values.s4.enabled }}
+            - name: S3_ENDPOINT
+              value: {{ printf "http://%s:%s" (include "s4.fullname" .) (include "s4.apiPort" .) | quote }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "s4.secretName" . }}
+                  key: AWS_ACCESS_KEY_ID
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "s4.secretName" . }}
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: S3_REGION
+              value: {{ .Values.s4.s3.region | quote }}
+            {{- else }}
             - name: S3_ENDPOINT
               valueFrom:
                 secretKeyRef:
@@ -186,16 +206,17 @@ spec:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_SECRET_KEY
-            - name: S3_BUCKET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "mortgage-ai.fullname" . }}-secret
-                  key: S3_BUCKET
             - name: S3_REGION
               valueFrom:
                 secretKeyRef:
                   name: {{ include "mortgage-ai.fullname" . }}-secret
                   key: S3_REGION
+            {{- end }}
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mortgage-ai.fullname" . }}-secret
+                  key: S3_BUCKET
             - name: UPLOAD_MAX_SIZE_MB
               valueFrom:
                 secretKeyRef:

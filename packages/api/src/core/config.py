@@ -128,10 +128,10 @@ class Settings(BaseSettings):
         description="Vision model API key. Defaults to LLM_API_KEY if not set.",
     )
 
-    # -- Storage (S3 / MinIO) --
+    # -- Storage (S3 / S4) --
     S3_ENDPOINT: str = "http://localhost:9090"
-    S3_ACCESS_KEY: str = "minio"
-    S3_SECRET_KEY: str = "miniosecret"
+    S3_ACCESS_KEY: str = "s4admin"
+    S3_SECRET_KEY: str = "s4secret"
     S3_BUCKET: str = "documents"
     S3_REGION: str = "us-east-1"
     UPLOAD_MAX_SIZE_MB: int = 50

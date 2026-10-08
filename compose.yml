@@ -3,7 +3,7 @@
 # Mortgage AI -- local development stack
 #
 # Profiles:
-#   (none)          postgres + minio + api + ui
+#   (none)          postgres + s4 + api + ui
 #   auth            + keycloak
 #   ai              + llamastack
 #   observability   + mlflow
@@ -36,6 +36,7 @@ services:
       retries: 5
 
   mortgage-ai-api:
+    image: mortgage-ai-api:local
     build:
       context: .
       dockerfile: packages/api/Containerfile
@@ -46,8 +47,8 @@ services:
     depends_on:
       mortgage-ai-db:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      s4-buckets:
+        condition: service_completed_successfully
       mcp-risk-server:
         condition: service_healthy
     environment:
@@ -70,11 +71,11 @@ services:
       SAFETY_MODEL: "${SAFETY_MODEL:-}"
       SAFETY_ENDPOINT: "${SAFETY_ENDPOINT:-}"
       SAFETY_API_KEY: "${SAFETY_API_KEY:-}"
-      S3_ENDPOINT: http://minio:9000
-      S3_ACCESS_KEY: minio
-      S3_SECRET_KEY: miniosecret
-      S3_BUCKET: documents
-      S3_REGION: us-east-1
+      S3_ENDPOINT: http://s4:7480
+      S3_ACCESS_KEY: "${S3_ACCESS_KEY:-s4admin}"
+      S3_SECRET_KEY: "${S3_SECRET_KEY:-s4secret}"
+      S3_BUCKET: "${S3_BUCKET:-documents}"
+      S3_REGION: "${S3_REGION:-us-east-1}"
       UPLOAD_MAX_SIZE_MB: "${UPLOAD_MAX_SIZE_MB:-50}"
       MLFLOW_TRACKING_URI: "${MLFLOW_TRACKING_URI:-http://mlflow:5000}"
       MLFLOW_EXPERIMENT_NAME: "${MLFLOW_EXPERIMENT_NAME:-mortgage-ai}"
@@ -186,14 +187,15 @@ services:
     depends_on:
       mortgage-ai-db:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      s4-buckets:
+        condition: service_completed_successfully
     environment:
       MLFLOW_BACKEND_STORE_URI: postgresql://user:password@mortgage-ai-db:5432/mlflow #notsecret
       MLFLOW_DEFAULT_ARTIFACT_ROOT: s3://mlflow
-      AWS_ACCESS_KEY_ID: minio
-      AWS_SECRET_ACCESS_KEY: miniosecret
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-s4admin}"
+      AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-s4secret}"
+      AWS_DEFAULT_REGION: "${S3_REGION:-us-east-1}"
+      MLFLOW_S3_ENDPOINT_URL: http://s4:7480
     command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://user:password@mortgage-ai-db:5432/mlflow --default-artifact-root s3://mlflow
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:5000/health || exit 1"]
@@ -202,26 +204,50 @@ services:
       retries: 5
       start_period: 15s
 
-  minio:
-    image: docker.io/minio/minio:latest
+  s4:
+    # S4 0.3.2 is amd64-only; Podman/Docker emulates it on ARM development hosts.
+    image: quay.io/rh-aiservices-bu/s4:0.3.2
+    platform: linux/amd64
     labels:
       com.quickstart.package: storage
-    entrypoint: sh
-    command: -c 'mkdir -p /data/mlflow /data/documents && exec minio server --address ":9000" --console-address ":9001" /data'
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: miniosecret
+      AWS_ACCESS_KEY_ID: "${S3_ACCESS_KEY:-s4admin}"
+      AWS_SECRET_ACCESS_KEY: "${S3_SECRET_KEY:-s4secret}"
+      AWS_S3_ENDPOINT: http://localhost:7480
+      AWS_DEFAULT_REGION: "${S3_REGION:-us-east-1}"
     ports:
-      - "9090:9000"
-      - "9091:9001"
+      - "9090:7480"
+      - "9091:5000"
     volumes:
-      - minio_data:/data
+      - s4_data:/var/lib/ceph/radosgw
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:5000/api || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 5
+      start_period: 15s
+
+  s4-buckets:
+    # Reuse the API image because it already includes boto3.
+    image: mortgage-ai-api:local
+    build:
+      context: .
+      dockerfile: packages/api/Containerfile
+    labels:
+      com.quickstart.package: storage
+    restart: "no"
+    depends_on:
+      s4:
+        condition: service_healthy
+    command: ["python", "/scripts/create-buckets.py", "documents", "mlflow"]
+    environment:
+      S3_ENDPOINT: http://s4:7480
+      S3_ACCESS_KEY: "${S3_ACCESS_KEY:-s4admin}"
+      S3_SECRET_KEY: "${S3_SECRET_KEY:-s4secret}"
+      S3_REGION: "${S3_REGION:-us-east-1}"
+    volumes:
+      - ./deploy/helm/mortgage-ai/files/create-buckets.py:/scripts/create-buckets.py:ro
 
 volumes:
   mortgage_ai_postgres_data:
-  minio_data:
+  s4_data:

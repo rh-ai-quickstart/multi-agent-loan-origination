@@ -6,6 +6,7 @@
 # Usage:
 #   oc apply -f deploy/mlflow-standalone.yaml -n mortgage-ai
 #   oc delete -f deploy/mlflow-standalone.yaml -n mortgage-ai
+# Requires the chart's default bundled S4 service and s4-credentials Secret.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -45,17 +46,17 @@ spec:
               protocol: TCP
           env:
             - name: MLFLOW_S3_ENDPOINT_URL
-              value: "http://minio:9000"
+              value: "http://s4:7480"
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
-                  name: mortgage-ai-secret
-                  key: S3_ACCESS_KEY
+                  name: s4-credentials
+                  key: AWS_ACCESS_KEY_ID
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: mortgage-ai-secret
-                  key: S3_SECRET_KEY
+                  name: s4-credentials
+                  key: AWS_SECRET_ACCESS_KEY
             - name: AWS_DEFAULT_REGION
               value: "us-east-1"
             - name: AWS_CONFIG_FILE

@@ -84,6 +84,15 @@ add_if_set secrets.S3_ACCESS_KEY S3_ACCESS_KEY
 add_if_set secrets.S3_SECRET_KEY S3_SECRET_KEY
 add_if_set secrets.S3_BUCKET S3_BUCKET
 add_if_set secrets.S3_REGION S3_REGION
+# When the bundled S4 chart is enabled, use the same S3 credential overrides
+# for its generated AWS_* Secret. S3_ENDPOINT remains an external-storage
+# setting; disable S4 explicitly to consume it.
+add_if_set s4.s3.accessKeyId S3_ACCESS_KEY
+add_if_set s4.s3.secretAccessKey S3_SECRET_KEY
+add_if_set s4.s3.region S3_REGION
+# Keep database and S4 on the same explicitly selected storage class.
+add_if_set global.storageClass STORAGE_CLASS
+add_if_set s4.storage.data.storageClass STORAGE_CLASS
 add_if_set secrets.UPLOAD_MAX_SIZE_MB UPLOAD_MAX_SIZE_MB
 add_if_set secrets.LLM_API_KEY LLM_API_KEY
 add_if_set secrets.LLM_BASE_URL LLM_BASE_URL
@@ -111,13 +120,11 @@ add_if_set secrets.SQLADMIN_PASSWORD SQLADMIN_PASSWORD
 add_if_set secrets.SQLADMIN_SECRET_KEY SQLADMIN_SECRET_KEY
 add_if_set secrets.KC_BOOTSTRAP_ADMIN_USERNAME KC_BOOTSTRAP_ADMIN_USERNAME
 add_if_set secrets.KC_BOOTSTRAP_ADMIN_PASSWORD KC_BOOTSTRAP_ADMIN_PASSWORD
-add_if_set secrets.MINIO_ROOT_USER MINIO_ROOT_USER
-add_if_set secrets.MINIO_ROOT_PASSWORD MINIO_ROOT_PASSWORD
-
 # Feature toggles (these have safe defaults so always pass)
 SET_ARGS+=(--set "keycloak.enabled=${KEYCLOAK_ENABLED:-true}")
 SET_ARGS+=(--set "llamastack.enabled=${LLAMASTACK_ENABLED:-false}")
 SET_ARGS+=(--set "seed.enabled=${SEED_ENABLED:-true}")
+SET_ARGS+=(--set "s4.enabled=${S4_ENABLED:-true}")
 
 # Load local values override if present (gitignored, cluster-specific settings)
 VALUES_LOCAL="./deploy/helm/$PROJECT_NAME/values.local.yaml"

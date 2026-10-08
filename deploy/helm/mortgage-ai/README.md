@@ -43,7 +43,17 @@ helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
 | `ui.enabled` | Deploy UI service | `true` |
 | `database.enabled` | Deploy PostgreSQL | `true` |
 | `keycloak.enabled` | Deploy Keycloak | `true` |
-| `minio.enabled` | Deploy MinIO | `true` |
+| `s4.enabled` | Deploy bundled S4-compatible object storage | `true` |
+
+The bundled `aws-compatible-storage` chart exposes the S3 API at `http://s4:7480`
+and keeps its UI on `s4:5000` inside the cluster. Routes are disabled by default.
+The parent chart creates the `documents` and `mlflow` buckets with a regular bootstrap
+Job. Default S4 and UI credentials are demo-only; override `s4.s3.*` and `s4.auth.*`
+for a real deployment.
+
+`global.storageClass` applies to PostgreSQL only. Set
+`s4.storage.data.storageClass` for S4, or set
+`s4.storage.data.existingClaim` to use a pre-provisioned S4 data PVC.
 
 ### LLM Configuration
 
@@ -222,7 +232,7 @@ helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
 | `kagenti.enabled` | Enable Kagenti labels, annotations, ports, and AgentRuntime CR | `false` |
 | `kagenti.a2aBasePort` | First A2A port (agents use 8080-8084) | `8080` |
 | `kagenti.inboundPortsExclude` | Ports excluded from AuthBridge inbound proxying | `"8000"` |
-| `kagenti.outboundPortsExclude` | Ports excluded from AuthBridge outbound proxying | `"5432,9000,8081"` |
+| `kagenti.outboundPortsExclude` | Ports excluded from AuthBridge outbound proxying | `"5432,7480,8081"` |
 | `secrets.KAGENTI_ENABLED` | Feature flag read by the API at runtime | `false` |
 | `secrets.KAGENTI_SERVICE_NAME` | Service name used in A2A agent card endpoints | `"mortgage-ai-api"` |
 
@@ -284,8 +294,10 @@ helm install mortgage-ai ./deploy/helm/mortgage-ai \
 
 # External S3
 helm install mortgage-ai ./deploy/helm/mortgage-ai \
-  --set minio.enabled=false \
-  --set secrets.S3_ENDPOINT=https://s3.amazonaws.com
+  --set s4.enabled=false \
+  --set secrets.S3_ENDPOINT=https://s3.amazonaws.com \
+  --set secrets.S3_ACCESS_KEY=<access-key> \
+  --set secrets.S3_SECRET_KEY=<secret-key>
 ```
 
 ## Troubleshooting

@@ -1,5 +1,5 @@
 # This project was developed with assistance from AI tools.
-"""S3-compatible object storage service backed by MinIO.
+"""S3-compatible object storage service backed by S4.
 
 Uses boto3 synchronous client run in a thread-pool executor for async
 compatibility. The module exposes a singleton initialised at app startup

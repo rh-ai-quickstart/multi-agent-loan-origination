@@ -46,10 +46,10 @@ help:
 	@echo ""
 	@echo "  Local stack:"
 	@echo "    run              Start full stack (all profiles)"
-	@echo "    run-minimal      Start minimal stack (postgres + api + ui)"
+	@echo "    run-minimal      Start minimal stack (postgres + S4 + api + ui)"
 	@echo "    run-auth         Start with auth profile (+ keycloak)"
 	@echo "    run-ai           Start with ai profile (+ llamastack)"
-	@echo "    run-obs          Start with observability profile (+ langfuse)"
+	@echo "    run-obs          Start with observability profile (+ MLflow)"
 	@echo "    stop             Stop all containers"
 	@echo ""
 	@echo "  Development:"
@@ -60,12 +60,13 @@ help:
 	@echo "    test-e2e         Run Playwright E2E tests"
 	@echo "    test-e2e-setup   Prepare environment for E2E tests"
 	@echo "    lint             Run linters for all packages"
+	@echo "    check-storage    Reject retired object-store references"
 	@echo "    clean            Remove build artifacts and dependencies"
 	@echo ""
 	@echo "  Database:"
-	@echo "    db-start         Start the database container"
-	@echo "    db-stop          Stop the database container"
-	@echo "    db-logs          View database container logs"
+	@echo "    db-start         Start PostgreSQL, S4, and bucket bootstrap"
+	@echo "    db-stop          Stop PostgreSQL and S4"
+	@echo "    db-logs          View PostgreSQL and S4 logs"
 	@echo "    db-upgrade       Run database migrations"
 	@echo ""
 	@echo "  Containers:"
@@ -96,6 +97,8 @@ run:
 	@echo "  UI:        http://localhost:3000"
 	@echo "  API:       http://localhost:8000"
 	@echo "  API Docs:  http://localhost:8000/docs"
+	@echo "  S4 UI:     http://localhost:9091"
+	@echo "  S3 API:    http://localhost:9090"
 	@echo "  LangFuse:  http://localhost:3001"
 	@echo "  Keycloak:  http://localhost:8080"
 
@@ -131,6 +134,10 @@ test:
 
 lint:
 	pnpm lint
+	@scripts/check-retired-storage-provider.sh
+
+check-storage:
+	@scripts/check-retired-storage-provider.sh
 
 test-e2e-setup:
 	@echo "Clearing stale LangGraph checkpoints..."
@@ -163,13 +170,13 @@ clean:
 # -- Database ----------------------------------------------------------------
 
 db-start:
-	$(COMPOSE) up -d mortgage-ai-db minio
+	$(COMPOSE) up -d mortgage-ai-db s4 s4-buckets
 
 db-stop:
-	$(COMPOSE) stop mortgage-ai-db
+	$(COMPOSE) stop mortgage-ai-db s4 s4-buckets
 
 db-logs:
-	$(COMPOSE) logs -f mortgage-ai-db
+	$(COMPOSE) logs -f mortgage-ai-db s4
 
 db-upgrade:
 	pnpm --filter @*/db migrate
@@ -207,9 +214,9 @@ create-project:
 	@oc new-project $(NAMESPACE) || echo "Project $(NAMESPACE) already exists"
 
 helm-dep-update:
-	@echo "Updating Helm chart dependencies..."
-	@helm dependency update ./deploy/helm/$(PROJECT_NAME) || echo "No dependencies to update"
-	@echo "Helm dependencies updated successfully"
+	@echo "Verifying packaged Helm dependencies..."
+	@helm dependency list ./deploy/helm/$(PROJECT_NAME) | awk 'NR > 1 && $$1 && $$4 != "ok" { exit 1 }'
+	@echo "Helm dependencies are ready"
 
 deploy: create-project push-images helm-dep-update
 	@echo "Deploying application using Helm..."

@@ -1,0 +1,50 @@
+# The install instructions create ds-pipeline-s3-dspa and
+# ConfigMap/s4-bucket-bootstrap before this Job runs.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: s4-create-mlpipeline
+  namespace: evaluations
+  labels:
+    app.kubernetes.io/component: s4-bootstrap
+spec:
+  activeDeadlineSeconds: 420
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: create-bucket
+          # Reuse the API image because it already includes boto3.
+          image: quay.io/rh-ai-quickstart/mortgage-ai-api:1.0.2
+          command: ["python", "/scripts/create-buckets.py", "mlpipeline"]
+          env:
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: ds-pipeline-s3-dspa
+                  key: AWS_S3_ENDPOINT
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ds-pipeline-s3-dspa
+                  key: AWS_ACCESS_KEY_ID
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ds-pipeline-s3-dspa
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: S3_REGION
+              valueFrom:
+                secretKeyRef:
+                  name: ds-pipeline-s3-dspa
+                  key: AWS_DEFAULT_REGION
+          volumeMounts:
+            - name: bootstrap-script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: bootstrap-script
+          configMap:
+            name: s4-bucket-bootstrap

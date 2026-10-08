@@ -1,8 +1,8 @@
 apiVersion: v2
 name: mortgage-ai
-description: Multi-agent loan origination system - Red Hat AI Quickstart
+description: Multi-agent loan origination system with S4-compatible object storage
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "latest"
 keywords:
   - mortgage-ai
@@ -14,3 +14,9 @@ sources:
 maintainers:
   - name: Red Hat AI Quickstart Team
     email: dev@example.com
+dependencies:
+  - name: aws-compatible-storage
+    alias: s4
+    version: 0.1.0
+    repository: "https://rh-ai-quickstart.github.io/ai-architecture-charts"
+    condition: s4.enabled

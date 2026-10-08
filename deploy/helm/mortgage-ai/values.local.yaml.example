@@ -11,6 +11,12 @@
 global:
   imageTag: "1.0.1"
 
+# S4 has its own PVC setting; global.storageClass only applies to PostgreSQL.
+s4:
+  storage:
+    data:
+      storageClass: ""                  # e.g. gp3
+
 secrets:
   LLM_BASE_URL: ""                     # e.g. https://maas.apps.example.com/v1
   LLM_API_KEY: ""

@@ -1,5 +1,5 @@
 # This project was developed with assistance from AI tools.
-"""Full seeder against real DB + real MinIO.
+"""Full seeder against real DB + real S4.
 
 Uses truncate_all fixture because the seeder commits independently via its
 own sessions, incompatible with savepoint isolation.
