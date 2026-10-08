@@ -19,6 +19,7 @@ class ImageTagTests(unittest.TestCase):
         api: str,
         ui: str,
         mcp: str,
+        values_file: Path | None = None,
     ) -> None:
         command = [
             "helm",
@@ -28,6 +29,8 @@ class ImageTagTests(unittest.TestCase):
             "--set",
             "seed.enabled=true",
         ]
+        if values_file:
+            command.extend(["--values", str(values_file)])
         for key, value in overrides.items():
             command.extend(["--set-string", f"{key}={value}"])
         result = subprocess.run(
@@ -67,6 +70,15 @@ class ImageTagTests(unittest.TestCase):
             api="release-test",
             ui="release-test",
             mcp="release-test",
+        )
+
+    def test_local_values_example_selects_shared_latest_tag(self) -> None:
+        self.assert_rendered_tags(
+            {},
+            api="latest",
+            ui="latest",
+            mcp="latest",
+            values_file=CHART / "values.local.yaml.example",
         )
 
     def test_api_override_also_selects_migration_seed_and_bootstrap(self) -> None:

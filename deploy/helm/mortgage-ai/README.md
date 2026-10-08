@@ -43,6 +43,12 @@ empty strings so they inherit the global tag. Set a component tag explicitly to
 override it; an API override also applies to migration, seed, and bucket bootstrap
 containers. S4 and other third-party images keep their own version tags.
 
+Choose a global tag that exists in both the `mortgage-ai-api` and
+`mortgage-ai-ui` repositories. Historical tags differ between these repositories;
+when deploying those releases, set the component tags explicitly. For example,
+`--set api.image.tag=1.0.2 --set mcpRiskServer.image.tag=1.0.2 --set ui.image.tag=1.0.0`
+selects those three independently published images.
+
 ### Core Services
 
 | Parameter | Description | Default |
