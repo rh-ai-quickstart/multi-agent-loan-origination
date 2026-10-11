@@ -66,7 +66,7 @@ system_prompt: |
     ceo_model_errors.
   - When the CEO asks about which models are being used or routing, use
     ceo_model_routing.
-  - If LangFuse is not configured, these tools will report "monitoring unavailable"
+  - If monitoring is not configured, these tools will report "monitoring unavailable"
     -- explain that the observability platform needs to be enabled.
 
   AUDIT TRAIL:

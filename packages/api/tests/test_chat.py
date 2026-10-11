@@ -114,9 +114,9 @@ async def test_input_shield_blocks_unsafe_message(_fresh_graph, monkeypatch):
     from langchain_core.messages import HumanMessage
 
     from src.agents.base import SAFETY_REFUSAL_MESSAGE
-    from src.inference.safety import SafetyChecker, SafetyResult
+    from src.inference.safety import NeMoGuardrailsChecker, SafetyResult
 
-    mock_checker = AsyncMock(spec=SafetyChecker)
+    mock_checker = AsyncMock(spec=NeMoGuardrailsChecker)
     mock_checker.check_input.return_value = SafetyResult(is_safe=False, violation_categories=["S1"])
     monkeypatch.setattr("src.agents.base.get_safety_checker", lambda: mock_checker)
 
@@ -175,9 +175,9 @@ async def test_output_shield_replaces_unsafe_response(_fresh_graph, monkeypatch)
     from langchain_core.messages import AIMessage, HumanMessage
 
     from src.agents.base import SAFETY_REFUSAL_MESSAGE
-    from src.inference.safety import SafetyChecker, SafetyResult
+    from src.inference.safety import NeMoGuardrailsChecker, SafetyResult
 
-    mock_checker = AsyncMock(spec=SafetyChecker)
+    mock_checker = AsyncMock(spec=NeMoGuardrailsChecker)
     mock_checker.check_input.return_value = SafetyResult(is_safe=True)
     mock_checker.check_output.return_value = SafetyResult(
         is_safe=False, violation_categories=["S6"]

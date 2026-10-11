@@ -304,11 +304,10 @@ def _build_agent_card(agent_name: str, host: str, port: int) -> AgentCard:
     from .core.config import settings
 
     config = AGENT_A2A_CONFIG[agent_name]
-    service_name = settings.KAGENTI_SERVICE_NAME
     endpoint = (
         os.getenv(
             "AGENT_ENDPOINT",
-            f"http://{service_name}:{port}",
+            f"http://{host}:{port}",
         ).rstrip("/")
         + "/"
     )
