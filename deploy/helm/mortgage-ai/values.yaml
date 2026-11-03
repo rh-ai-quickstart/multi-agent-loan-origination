@@ -254,6 +254,20 @@ mlflow:
       enabled: false  # Enable when DSPA is deployed in this namespace
       serviceAccountName: pipeline-runner-dspa  # SA created by DSPA operator
 
+# Gen AI Playground registration (opt-in; disabled by default)
+# Registers the MCP servers in the OpenShift AI Gen AI Playground's shared MCP
+# registry ConfigMap (gen-ai-aa-mcp-servers) in the redhat-ods-applications
+# namespace so they appear in the Playground UI.
+#
+# Off by default because that ConfigMap is a shared platform resource: enabling
+# it requires write access to redhat-ods-applications and can conflict with other
+# releases that manage the same ConfigMap. The API does not need this -- it
+# connects to the MCP servers directly by service URL. Leave disabled for
+# namespace-scoped deployments and CI; enable only when Playground discovery is
+# wanted.
+genAiPlaygroundRegistration:
+  enabled: false
+
 # MCP Risk Server (optional)
 mcpRiskServer:
   enabled: true
