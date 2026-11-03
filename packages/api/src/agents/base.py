@@ -367,6 +367,7 @@ def build_agent_graph(
         model=model_cfg["model_name"],
         base_url=model_cfg["endpoint"],
         api_key=model_cfg.get("api_key", "not-needed"),
+        streaming=Settings().LLM_STREAMING,
     )
 
     return build_agent_graph_compiled(

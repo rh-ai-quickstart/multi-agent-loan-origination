@@ -199,6 +199,15 @@ async def run_agent_stream(
                 if isinstance(chunk, AIMessageChunk) and chunk.content:
                     full_response += chunk.content
 
+            elif kind == "on_chat_model_end" and node in (
+                "agent",
+                "agent_fast",
+                "agent_capable",
+            ):
+                output = event.get("data", {}).get("output")
+                if isinstance(output, AIMessage) and output.content and not full_response:
+                    full_response = output.content
+
             elif kind == "on_chain_end" and node == "input_shield":
                 output = event.get("data", {}).get("output")
                 if isinstance(output, dict) and output.get("safety_blocked"):
