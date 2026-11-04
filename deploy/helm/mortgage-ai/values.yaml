@@ -26,7 +26,7 @@ secrets:
   COMPLIANCE_DATABASE_URL: "postgresql+asyncpg://compliance_app:compliance_pass@mortgage-ai-db:5432/mortgage-ai"
   DEBUG: "false"
   ALLOWED_HOSTS: '["*"]'
-  COMPANY_NAME: "Red Hat AI Quickstart Demo"
+  COMPANY_NAME: "Acme FinTech Company"
   AGENT_NAME: ""
 
   # Auth (Keycloak) -- set AUTH_DISABLED=true to bypass for demo
@@ -118,7 +118,7 @@ api:
   name: mortgage-ai-api
   image:
     repository: mortgage-ai-api
-    tag: "1.0.2"
+    tag: "latest"
   service:
     type: ClusterIP
     port: 8000
@@ -253,6 +253,20 @@ mlflow:
     pipelineRunner:
       enabled: false  # Enable when DSPA is deployed in this namespace
       serviceAccountName: pipeline-runner-dspa  # SA created by DSPA operator
+
+# Gen AI Playground registration (opt-in; disabled by default)
+# Registers the MCP servers in the OpenShift AI Gen AI Playground's shared MCP
+# registry ConfigMap (gen-ai-aa-mcp-servers) in the redhat-ods-applications
+# namespace so they appear in the Playground UI.
+#
+# Off by default because that ConfigMap is a shared platform resource: enabling
+# it requires write access to redhat-ods-applications and can conflict with other
+# releases that manage the same ConfigMap. The API does not need this -- it
+# connects to the MCP servers directly by service URL. Leave disabled for
+# namespace-scoped deployments and CI; enable only when Playground discovery is
+# wanted.
+genAiPlaygroundRegistration:
+  enabled: false
 
 # MCP Risk Server (optional)
 mcpRiskServer:

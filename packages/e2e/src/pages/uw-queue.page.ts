@@ -38,7 +38,7 @@ export class UWQueuePage {
         this.urgencyFilter = page.locator("select").filter({ has: page.locator("option", { hasText: "All Urgency" }) });
 
         this.columnHeaders = page.locator("thead th");
-        this.tableRows = page.locator("tbody tr");
+        this.tableRows = page.locator("tbody tr[role='link']");
         this.emptyState = page.getByText("No applications pending review.");
         this.showingCount = page.getByText(/Showing \d+ of \d+ pending reviews/);
     }

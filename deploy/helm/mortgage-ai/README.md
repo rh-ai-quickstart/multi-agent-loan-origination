@@ -199,6 +199,31 @@ helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
 | `mcpRiskServer.enabled` | Include risk server registration | `true` |
 | `mcpWeatherServer.enabled` | Include weather server registration | `true` |
 
+### Gen AI Playground registration
+
+Registers this release's MCP servers in the OpenShift AI Gen AI Playground so they
+appear in its UI. This writes the `gen-ai-aa-mcp-servers` ConfigMap in the shared
+`redhat-ods-applications` namespace.
+
+Disabled by default. The MCP servers run and are used by the API regardless of this
+setting (the API connects to them directly by service URL); this flag only controls
+Playground *discovery*. Leave it off for namespace-scoped deployments and CI — with
+it off, nothing is written outside the release namespace.
+
+```bash
+helm upgrade --install mortgage-ai ./deploy/helm/mortgage-ai \
+  --set genAiPlaygroundRegistration.enabled=true
+```
+
+Enabling it requires write access to the `gen-ai-aa-mcp-servers` ConfigMap in
+`redhat-ods-applications`. Because that ConfigMap is a shared platform resource,
+turning this on in an environment where another release already manages it can
+cause a Helm ownership conflict.
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `genAiPlaygroundRegistration.enabled` | Register enabled MCP servers in the Gen AI Playground registry | `false` |
+
 ### Kagenti A2A Integration
 
 Enable [Kagenti](https://github.com/kagenti/kagenti) to expose all 5 LangGraph agents as [A2A (Agent-to-Agent)](https://google.github.io/A2A/) endpoints. Other agents, orchestrators, or the Kagenti UI can then discover and invoke them programmatically.

@@ -95,15 +95,35 @@ class TestInitMcpClient:
         assert get_predictive_tool() is None
 
     @pytest.mark.asyncio
-    async def test_risk_server_failure_raises(self):
-        """Risk-assessment-only failure raises (no fallback)."""
+    async def test_risk_server_failure_is_non_fatal(self):
+        """Risk-assessment unreachable leaves no MCP tools but does not raise."""
         with patch("src.agents.mcp_integration.MultiServerMCPClient") as mock_cls:
             mock_client = AsyncMock()
             mock_client.get_tools = AsyncMock(side_effect=ConnectionError("server down"))
             mock_cls.return_value = mock_client
 
-            with pytest.raises(ConnectionError):
-                await init_mcp_client("http://localhost:8081/mcp")
+            # Should not raise -- startup continues so the API stays up.
+            await init_mcp_client("http://localhost:8081/mcp")
+
+        assert get_mcp_tools() == []
+        assert is_predictive_model_available() is False
+        assert get_predictive_tool() is None
+
+    @pytest.mark.asyncio
+    async def test_predictive_and_risk_both_down_is_non_fatal(self):
+        """Both servers unreachable leaves no tools and does not raise."""
+        with patch("src.agents.mcp_integration.MultiServerMCPClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.get_tools = AsyncMock(side_effect=ConnectionError("all down"))
+            mock_cls.return_value = mock_client
+
+            await init_mcp_client(
+                "http://localhost:8081/mcp",
+                predictive_model_url="http://unreachable:9090/mcp",
+            )
+
+        assert get_mcp_tools() == []
+        assert is_predictive_model_available() is False
 
 
 class TestShutdown:

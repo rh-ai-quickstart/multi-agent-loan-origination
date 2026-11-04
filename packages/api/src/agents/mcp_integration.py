@@ -41,37 +41,44 @@ async def init_mcp_client(
         logger.info("Connecting to MCP servers: %s", list(servers.keys()))
         _tools = await _client.get_tools()
         _predictive_model_connected = predictive_model_url is not None
-        logger.info(
-            "MCP connected: %d tools, predictive=%s", len(_tools), _predictive_model_connected
-        )
     except Exception as exc:
-        logger.exception("MCP get_tools() failed: %s", exc)
+        logger.warning("MCP get_tools() failed: %s", exc)
+        _predictive_model_connected = False
         if predictive_model_url:
-            logger.warning(
-                "Predictive model MCP at %s unreachable, continuing without it",
-                predictive_model_url,
-            )
-            _client = MultiServerMCPClient(
-                {
-                    "risk-assessment": {
-                        "transport": "streamable_http",
-                        "url": url,
-                    },
-                }
-            )
-            _tools = await _client.get_tools()
-            _predictive_model_connected = False
+            # Retry without the optional predictive-model server.
+            try:
+                _client = MultiServerMCPClient(
+                    {"risk-assessment": {"transport": "streamable_http", "url": url}}
+                )
+                _tools = await _client.get_tools()
+                logger.warning(
+                    "Predictive model MCP at %s unreachable, continuing without it",
+                    predictive_model_url,
+                )
+            except Exception as retry_exc:
+                logger.warning(
+                    "Risk MCP at %s unreachable, continuing without MCP tools: %s",
+                    url,
+                    retry_exc,
+                )
+                _client = None
+                _tools = []
         else:
-            raise
+            logger.warning("Risk MCP at %s unreachable, continuing without MCP tools: %s", url, exc)
+            _client = None
+            _tools = []
 
-    server_names = ["risk-assessment"]
-    if _predictive_model_connected:
-        server_names.append("predictive-model")
-    logger.info(
-        "MCP client initialized: %d tools loaded from %s",
-        len(_tools),
-        ", ".join(server_names),
-    )
+    if _tools:
+        sources = ["risk-assessment"]
+        if _predictive_model_connected:
+            sources.append("predictive-model")
+        logger.info(
+            "MCP client initialized: %d tools loaded from %s",
+            len(_tools),
+            ", ".join(sources),
+        )
+    else:
+        logger.warning("MCP client initialized with no tools; agents will use native tools only")
 
 
 async def shutdown_mcp_client() -> None:

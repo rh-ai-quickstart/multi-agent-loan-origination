@@ -97,6 +97,17 @@ test.describe("Loan Officer Application Detail", () => {
 
     // W-10: Added 5s rejection timeout to the chat-prefill promise.
     test("should send chat message when clicking Submit to Underwriting", async ({ page }) => {
+        // The button is enabled only for apps in a submittable stage (application/processing).
+        // The pipeline's first row (sorted by days-in-stage) may be in another stage, so filter
+        // to the Application stage and open a submittable app instead.
+        const pipeline = new LOPipelinePage(page);
+        await pipeline.goto();
+        await pipeline.stageFilter.selectOption({ label: "Application" });
+        await expect(pipeline.tableRows.first()).toBeVisible({ timeout: 10_000 });
+        await pipeline.tableRows.first().click();
+        await page.waitForURL(/\/loan-officer\/\d+/);
+        detail = new LODetailPage(page);
+
         const prefillPromise = page.evaluate(() => {
             return new Promise<{ message: string; autoSend: boolean }>((resolve, reject) => {
                 const timeout = setTimeout(

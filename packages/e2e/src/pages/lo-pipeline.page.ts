@@ -42,7 +42,7 @@ export class LOPipelinePage {
         this.stalledCheckbox = page.getByLabel("Stalled only");
         this.columnHeaders = page.locator("thead th");
 
-        this.tableRows = page.locator("tbody tr");
+        this.tableRows = page.locator("tbody tr[role='link']");
         this.emptyState = page.getByText("No applications match your filters");
     }
 
