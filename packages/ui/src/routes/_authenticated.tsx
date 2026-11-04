@@ -58,8 +58,8 @@ function AuthenticatedLayout() {
     }
 
     return (
-        <div className="flex flex-1 flex-col overflow-hidden">
-            <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden min-h-0">
+            <div className="flex flex-1 overflow-hidden min-h-0">
                 <main className="flex-1 overflow-y-auto pb-10 lg:pr-[340px]">
                     <Outlet />
                 </main>

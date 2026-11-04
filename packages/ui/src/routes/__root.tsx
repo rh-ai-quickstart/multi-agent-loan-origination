@@ -27,7 +27,7 @@ function RootLayoutInner() {
     return (
         <div className={`flex flex-col ${isAuthenticated ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
             <Header />
-            <main className={`flex-1 ${isAuthenticated ? 'overflow-hidden' : ''}`}>
+            <main className={`flex-1 ${isAuthenticated ? 'flex flex-col overflow-hidden min-h-0' : ''}`}>
                 <Outlet />
             </main>
             {showPublicChat && <Footer />}
